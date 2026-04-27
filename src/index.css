@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* ── Typography tokens ────────────────────────────────────────── */
+:root {
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Mono', ui-monospace, monospace;
+
+  /* Size scale */
+  --text-xs:   0.72rem;   /* labels, badges, table-headers       */
+  --text-sm:   0.85rem;   /* secondary body, meta                */
+  --text-base: 0.93rem;   /* primary body / table rows           */
+  --text-md:   1rem;      /* slightly larger body                */
+  --text-lg:   1.15rem;   /* subheadings                         */
+  --text-xl:   1.5rem;    /* modal names, section titles         */
+  --text-2xl:  2rem;      /* page titles (display font)          */
+  --text-3xl:  2.5rem;    /* hero KPI numbers                    */
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--th-bg-page, #060d18);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--th-text-body, #c8d0dc);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  overflow-x: hidden;
+}
+
+/* Slide-in animation */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+/* ── Responsive utilities ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .hide-mobile { display: none !important; }
+}
+@media (max-width: 900px) {
+  .hide-tablet { display: none !important; }
+}
+
+/* ── Global currency number style ─────────────────────────────── */
+.num-currency {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.01em;
+}
+
+/* ── Shop Status Badges ───────────────────────────────────────── */
+.pos-closed-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  border-radius: 9999px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.pos-closed-badge .pulse {
+  display: block;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(239, 68, 68, 0.4);
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}

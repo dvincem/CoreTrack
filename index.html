@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CoreTrack</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!--
+      NO-FLASH THEME INIT — runs before any rendering so the page
+      never flickers between dark and light on load.
+    -->
+    <script>
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem("th-theme");
+        } catch (e) {}
+        var theme = saved || "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+        window.__thTheme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
