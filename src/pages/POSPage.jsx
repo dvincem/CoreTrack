@@ -376,6 +376,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
   const [search, setSearch] = React.useState("");
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
   const [category, setCategory] = React.useState("");
+  const [brandLogos, setBrandLogos] = React.useState({});
 
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -408,6 +409,18 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
     const timer = setTimeout(() => { fetchPosItems(1); }, 300);
     return () => clearTimeout(timer);
   }, [search, category, shopId]);
+
+  // Fetch brand logos once on mount for backdrop rendering
+  React.useEffect(() => {
+    apiFetch(`${API_URL}/brand-assets`)
+      .then(r => r.json())
+      .then(data => {
+        const map = {};
+        if (Array.isArray(data)) data.forEach(b => { if (b.logo_url) map[b.brand_name] = b.logo_url; });
+        setBrandLogos(map);
+      })
+      .catch(() => {});
+  }, [shopId]);
 
   /* Suggestions — derived from currently visible groups & variants */
   React.useEffect(() => {
@@ -1090,6 +1103,13 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                       className="pos-product-card"
                       onClick={handleClick}
                     >
+                      {/* Brand logo backdrop */}
+                      {brandLogos[i.brand] && (
+                        <div
+                          className="pos-brand-backdrop"
+                          style={{ backgroundImage: `url(${brandLogos[i.brand]})` }}
+                        />
+                      )}
                       {hasMultipleDots && (
                         <span className="pos-multi-dot-badge">{_variants.length} DOTs</span>
                       )}

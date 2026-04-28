@@ -273,7 +273,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
     setLoading(true)
     setError(null)
     const date = endDate
-    
+
     // Check if shop is already closed for this date
     apiFetch(`${API_URL}/shops/${shopId}/business-date`)
       .then(r => r.json())
@@ -292,10 +292,10 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
         }
         setLoading(false)
       })
-      .catch((err) => { 
+      .catch((err) => {
         if (active) {
           setError(err.message || "Failed to fetch report")
-          setLoading(false) 
+          setLoading(false)
         }
       })
     return () => { active = false }
@@ -350,10 +350,12 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
     { key: 'invoiceNumber', label: 'Ref/Invoice', width: '120px' },
     { key: 'customerName', label: 'Description', render: t => t.customerName || (t.type === 'SALE' || t.type === 'SERVICE' ? 'Walk-in' : 'General') },
     { key: 'paymentMethod', label: 'Method', align: 'center', render: t => <span className="px-2 py-0.5 text-[0.65rem] font-bold rounded bg-gray-500/10 border border-gray-500/20">{t.paymentMethod}</span> },
-    { key: 'amount', label: 'Amount', align: 'right', render: t => {
-      const isInflow = t.type === 'SALE' || t.type === 'SERVICE' || t.type === 'MANUAL_IN'
-      return <span className={`font-bold ${isInflow ? 'text-emerald-500' : 'text-rose-500'}`}>{isInflow ? '+' : '-'}{currency(t.amount)}</span>
-    }},
+    {
+      key: 'amount', label: 'Amount', align: 'right', render: t => {
+        const isInflow = t.type === 'SALE' || t.type === 'SERVICE' || t.type === 'MANUAL_IN'
+        return <span className={`font-bold ${isInflow ? 'text-emerald-500' : 'text-rose-500'}`}>{isInflow ? '+' : '-'}{currency(t.amount)}</span>
+      }
+    },
   ]
 
   const isToday = endDate === new Date().toISOString().split('T')[0]
@@ -365,10 +367,10 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
         <div className="flex justify-between items-center mb-3 border-b border-[var(--th-border)] pb-2">
           <h3 className="text-lg font-bold text-[var(--th-text-strong)] flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${isClosed ? 'bg-orange-500' : 'bg-emerald-500 animate-pulse'}`} />
-            Daily Report — 
-            <input 
-              type="date" 
-              value={endDate} 
+            Daily Report —
+            <input
+              type="date"
+              value={endDate}
               onChange={(e) => {
                 setEndDate(e.target.value);
                 setStartDate(e.target.value);
@@ -385,15 +387,6 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
             />
             {isClosed && <span className="text-xs px-2 py-0.5 bg-orange-500/10 text-orange-400 rounded-full border border-orange-500/20 ml-2">CLOSED</span>}
           </h3>
-          {canClose && isToday && !isClosed && (
-            <button 
-              onClick={() => setShowCloseModal(true)}
-              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-              Close Business Day
-            </button>
-          )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <KpiCard label="Gross Sales" value={compactCurrency(kpis.grossSales)} accent="sky" sub={`Profit: ${compactCurrency(kpis.salesProfit)}`} />
@@ -412,14 +405,14 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
             <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--th-text-faint)]">Payment Reconciliation</h3>
             <span className={`px-2 py-0.5 ${isClosed ? 'bg-orange-500/10 text-orange-400' : 'bg-emerald-500/10 text-emerald-400'} text-[0.6rem] font-black uppercase rounded tracking-widest border border-emerald-500/20`}>{isClosed ? 'Snaphot' : 'Live'}</span>
           </div>
-          
+
           <div className="p-5 flex flex-col gap-4">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-[var(--th-text-faint)] text-xs uppercase">Cash on Hand</span>
                 <span className="font-black text-lg text-emerald-500 font-mono">{currency(cashOnHand)}</span>
               </div>
-              
+
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-[var(--th-text-faint)] text-xs uppercase">Digital Total</span>
                 <span className="font-black text-lg text-blue-500 font-mono">{currency(digitalTotal)}</span>
@@ -459,7 +452,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
         <div className="lg:col-span-2 bg-[var(--th-bg-card)] border border-[var(--th-border)] rounded-xl overflow-hidden shadow-sm flex flex-col">
           <div className="px-5 py-3 bg-[var(--th-bg-card)] border-b border-[var(--th-border)] flex justify-between items-center flex-wrap gap-3">
             <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--th-text-faint)]">Daily Activity Feed</h3>
-            <div className="flex bg-[var(--th-bg-card)] rounded p-1 border border-[var(--th-border)]">
+            <div className="flex bg-[var(--th-bg-card)] rounded p-1 border border-[var(--th-border)] flex-wrap">
               {['ALL', 'CASH', 'GCASH', 'BPI', 'BDO', 'CARD', 'CREDIT'].map(m => (
                 <button
                   key={m}
@@ -471,10 +464,10 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
               ))}
             </div>
           </div>
-          
-          <DataTable 
-            columns={txnCols} 
-            rows={paginatedTransactions} 
+
+          <DataTable
+            columns={txnCols}
+            rows={paginatedTransactions}
             rowKey={(row) => `${row.type}-${row.id}`}
             minWidth={500}
             mobileLayout="scroll"
@@ -496,14 +489,14 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
         maxWidth="500px"
         footer={
           <div className="flex gap-3 w-full">
-            <button 
+            <button
               onClick={() => setShowCloseModal(false)}
               disabled={isClosing}
               className="flex-1 px-4 py-3 bg-[var(--th-bg-card-alt)] hover:bg-gray-800 text-gray-400 font-bold rounded-xl border border-[var(--th-border)] transition-colors"
             >
               Cancel
             </button>
-            <button 
+            <button
               onClick={handleCloseDay}
               disabled={isClosing}
               style={{ flex: 2 }}
@@ -534,8 +527,8 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
           </div>
 
           <div className="text-sm text-gray-400 bg-orange-500/5 p-4 rounded-xl border border-orange-500/20 leading-relaxed">
-             <strong className="text-orange-400 block mb-1">Warning: Final Action</strong>
-             This will trigger an immediate system backup and lock today's reports. New transactions will be recorded for tomorrow.
+            <strong className="text-orange-400 block mb-1">Warning: Final Action</strong>
+            This will trigger an immediate system backup and lock today's reports. New transactions will be recorded for tomorrow.
           </div>
         </div>
       </Modal>
@@ -589,16 +582,15 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
       <div className="pm-section">Overview — {startDate} to {endDate}</div>
 
       <div className="rpt-adaptive-stack">
-        <div style={{ marginTop: '0', marginBottom: '0' }}>
-          <FilterHeader
-            leftComponent={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-                <input className="fh-date" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
-                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-                <input className="fh-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
-              </div>
-            }
+        <div>
+          <FilterHeader leftComponent={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
+              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
+              <input className="fh-date" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
+              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
+              <input className="fh-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
+            </div>
+          }
             filters={presets().map(p => ({ label: p.label, value: p.label, active: activePreset === p.label }))}
             onFilterChange={(label) => {
               const p = presets().find(x => x.label === label);
@@ -787,7 +779,7 @@ function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
   const { net_position: net, sales_revenue: rev, receivables_collected: coll, payables_created: pay, expenses_total: exp } = data
   const isGreen = net >= 0
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <div style={{
         background: isGreen ? 'color-mix(in srgb, var(--th-emerald) 8%, var(--th-bg-card))' : 'color-mix(in srgb, var(--th-rose) 8%, var(--th-bg-card))',
         border: `1px solid ${isGreen ? 'var(--th-emerald)' : 'var(--th-rose)'}`,
@@ -860,15 +852,15 @@ function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
         <div className="pm-card" style={{ background: 'color-mix(in srgb, var(--th-sky) 5%, var(--th-bg-card))' }}>
           <div className="pm-card-head">Money Owed to You</div>
           <div style={{ padding: '1.25rem' }}>
-             <div style={{ fontSize: '2.5rem', fontWeight: 900, color: 'var(--th-sky)', fontFamily: 'Barlow Condensed' }}>
-               {fmtK(data.open_receivables)}
-             </div>
-             <div style={{ fontSize: '0.8rem', color: 'var(--th-text-faint)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1rem' }}>
-               {data.open_receivables_count} Open Accounts
-             </div>
-             <p style={{ fontSize: '0.82rem', color: 'var(--th-text-muted)', lineHeight: 1.5 }}>
-               These are pending collections from credit sales. Collecting these will immediately improve your net cash position.
-             </p>
+            <div style={{ fontSize: '2.5rem', fontWeight: 900, color: 'var(--th-sky)', fontFamily: 'Barlow Condensed' }}>
+              {fmtK(data.open_receivables)}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--th-text-faint)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1rem' }}>
+              {data.open_receivables_count} Open Accounts
+            </div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--th-text-muted)', lineHeight: 1.5 }}>
+              These are pending collections from credit sales. Collecting these will immediately improve your net cash position.
+            </p>
           </div>
         </div>
       </div>
@@ -951,6 +943,11 @@ function SectionStaff({ shopId, startDate, endDate, isOpen }) {
   if (loading) return <div className="pm-loading">Loading Staff Data...</div>
   if (!data.length) return <div className="pm-empty">No staff data for this period.</div>
   const maxGross = Math.max(...data.map(s => s.gross_earnings), 1)
+
+  const totalServices = data.reduce((sum, s) => sum + s.service_count, 0)
+  const totalCommission = data.reduce((sum, s) => sum + s.commission_total, 0)
+  const topEarner = data.reduce((max, s) => s.gross_earnings > (max ? max.gross_earnings : 0) ? s : max, null)
+
   const columns = [
     {
       key: 'full_name', label: 'Staff Member', render: s => (
@@ -969,9 +966,17 @@ function SectionStaff({ shopId, startDate, endDate, isOpen }) {
     { key: 'net_earnings', label: 'Net Earnings', align: 'right', render: s => <div className="pm-money emerald">{fmtK(s.net_earnings)}</div> },
   ]
   return (
-    <div className="pm-card">
-      <div className="pm-card-head">Staff Performance Summary</div>
-      <DataTable columns={columns} rows={data} rowKey="staff_id" />
+    <div style={{ marginTop: 0, marginBottom: 0 }}>
+      <div className="pm-section">Operations & Staff</div>
+      <div className="rpt-kpi-grid">
+        <KpiCard label="Total Services" value={totalServices} accent="sky" />
+        <KpiCard label="Total Commissions" value={fmtK(totalCommission)} accent="rose" />
+        <KpiCard label="Top Earner" value={topEarner ? topEarner.full_name : '—'} accent="emerald" sub={topEarner ? fmtK(topEarner.gross_earnings) : ''} />
+      </div>
+      <div className="card-ops pm-card">
+        <div className="pm-card-head">Staff Performance Summary</div>
+        <DataTable columns={columns} rows={data} rowKey="staff_id" />
+      </div>
     </div>
   )
 }
@@ -998,7 +1003,7 @@ function SectionExpenses({ shopId, startDate, endDate, isOpen, children }) {
   const dailyTrend = (data.daily || []).map(d => ({ date: d.expense_date, value: d.total }))
   const topCategory = (data.by_category || [])[0]
   return (
-    <div style={{ marginTop: 0 }}>
+    <div>
       <div className="pm-section">Expense Overview</div>
       <div className="th-kpi-row rpt-kpi-block" style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
         <KpiCard label="Total Expenses" value={fmtK(data.total)} accent="rose" />
@@ -1044,14 +1049,14 @@ function SectionReturns({ shopId, startDate, endDate, isOpen }) {
   })
   const rTypeChart = Object.entries(rTypeMap).map(([k, v]) => ({ label: k, value: v }))
   return (
-    <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+    <div style={{ marginTop: 0, marginBottom: 0 }}>
       <div className="pm-section">Returns Management</div>
       <div className="rpt-kpi-grid">
         <KpiCard label="Customer Returns" value={custReturns} accent="rose" />
         <KpiCard label="Supplier Returns" value={suppReturns} accent="violet" />
         <KpiCard label="Est. Impact Value" value={fmtK(totalValue)} accent="amber" sub="Based on unit cost" />
       </div>
-      <div className="pm-card">
+      <div className="card-ops pm-card">
         <div className="pm-card-head">Returns by Scenario / Reason</div>
         <RptBarChart items={rTypeChart} color="var(--th-rose)" />
       </div>
@@ -1092,16 +1097,15 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
       <div className="pm-section">Inventory Status</div>
 
       <div className="rpt-adaptive-stack">
-        <div style={{ marginTop: '0', marginBottom: '0' }}>
-          <FilterHeader
-            leftComponent={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-                <input className="fh-date" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
-                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-                <input className="fh-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
-              </div>
-            }
+        <div>
+          <FilterHeader leftComponent={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
+              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
+              <input className="fh-date" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
+              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
+              <input className="fh-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }} style={{ flex: 1, minWidth: '120px' }} />
+            </div>
+          }
             filters={presets().map(p => ({ label: p.label, value: p.label, active: activePreset === p.label }))}
             onFilterChange={(label) => {
               const p = presets().find(x => x.label === label);
@@ -1118,7 +1122,7 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
         </div>
       </div>
 
-      <div className="pm-three-col" style={{ marginTop: 0 }}>
+      <div className="pm-three-col">
         <div className="pm-card" style={{ minHeight: '380px' }}>
           <div className="pm-card-head">Highest Value Inventory (Top 5)</div>
           <div style={{ width: '100%', height: '280px' }}>
@@ -1217,6 +1221,14 @@ function ReportspageInner({ shopId }) {
 
     .gap-6 {
       gap: .5rem;
+      display: flex;
+      flex-direction: column-reverse;
+    }
+
+    @media (min-width: 1024px) {
+      .gap-6 {
+        flex-direction: row;
+      }
     }
 
     .gap-3 {
@@ -1233,6 +1245,10 @@ function ReportspageInner({ shopId }) {
       border-radius: 11px;
       overflow: hidden;
       margin-top: 0;
+    }
+
+    .card-ops.pm-card {
+      margin-top: .5rem;
     }
 
     .pm-three-col {
@@ -1325,13 +1341,18 @@ function ReportspageInner({ shopId }) {
     .mode-btn:hover { background: rgba(0,0,0,0.05); }
     .mode-btn.active { background: var(--th-emerald); color: #fff; border-color: var(--th-emerald); }
 
+    .flex.bg-\[var\(--th-bg-card\)\].rounded.p-1.border.border-\[var\(--th-border\)\] {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
     /* Adaptive Reordering */
     .rpt-adaptive-stack {
       display: flex;
       flex-direction: column-reverse;
       gap: .5rem;
-      margin-top: .5rem;
-      margin-bottom: .5rem;
+      margin-bottom: 0;
+      margin-top: 0;
     }
     .rpt-filter-block { order: 1; }
     .rpt-kpi-block { order: 2; }
@@ -1350,9 +1371,38 @@ function ReportspageInner({ shopId }) {
       .rpt-kpi-block { order: 1; margin-bottom: 1.25rem; }
       
       .pm-section { margin-bottom: 0; }
-      .rpt-adaptive-stack { margin-bottom: 0; }
+      .rpt-adaptive-stack { margin-bottom: .5rem; }
       .pm-card { margin-bottom: 0; margin-top: 0; }
       .pm-two-col, .pm-three-col { grid-template-columns: 1fr !important; margin-top: .5rem; }
+    }
+    .rpt-tab-content.rpt-no-padding {
+      padding: 0 !important;
+    }
+
+    /* Operations & Staff Tab Specific: Remove all paddings */
+    .rpt-staff-ops-tab, 
+    .rpt-staff-ops-tab .pm-card {
+      padding: 0 !important;
+    }
+    .rpt-staff-ops-tab .th-kpi {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: var(--th-bg-card);
+      border: 1px solid var(--th-border);
+      border-radius: clamp(8px, 1.2vw, 16px);
+      padding: clamp(0.8rem, 2.5vw, 1.2rem) !important;
+      transition: all 0.2s ease;
+    }
+    .rpt-staff-ops-tab .DataTable th,
+    .rpt-staff-ops-tab .DataTable td {
+      padding: 4px 8px !important;
+    }
+    .rpt-staff-ops-tab .pm-section {
+      margin-top: 0 !important;
+      margin-bottom: 4px !important;
     }
   `
 
@@ -1366,7 +1416,7 @@ function ReportspageInner({ shopId }) {
   }, [])
 
   return (
-    <div className="pm-root" style={{ display: 'flex', flexDirection: 'column', gap: '.5rem', marginBottom: '0px' }}>
+    <div className="pm-root" style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
       <div className="pm-header-row">
         <div className="th-title-format">Reports <span style={{ color: 'var(--th-emerald)' }}>&amp; Analytics</span></div>
       </div>
@@ -1384,7 +1434,7 @@ function ReportspageInner({ shopId }) {
             </div>
           ))}
         </div>
-        <div className="rpt-tab-content">
+        <div className={`rpt-tab-content ${activeTab === 4 ? 'rpt-no-padding' : ''}`}>
           {activeTab === 0 && (
             <SectionDailyActivity
               shopId={shopId}
@@ -1420,7 +1470,7 @@ function ReportspageInner({ shopId }) {
           {activeTab === 3 && (
             <>
               <div className="rpt-adaptive-stack">
-                <div style={{ marginTop: '0', marginBottom: '0' }}>
+                <div>
                   <FilterHeader
                     leftComponent={
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
@@ -1447,9 +1497,9 @@ function ReportspageInner({ shopId }) {
             </>
           )}
           {activeTab === 4 && (
-            <>
+            <div className="rpt-staff-ops-tab">
               <div className="rpt-adaptive-stack">
-                <div style={{ marginTop: '0', marginBottom: '0' }}>
+                <div>
                   <FilterHeader
                     leftComponent={
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
@@ -1467,10 +1517,10 @@ function ReportspageInner({ shopId }) {
                     accentColor="var(--th-emerald)"
                   />
                 </div>
-                <SectionReturns shopId={shopId} startDate={startDate} endDate={endDate} isOpen={true} />
+                <SectionStaff shopId={shopId} startDate={startDate} endDate={endDate} isOpen={true} />
               </div>
-              <SectionStaff shopId={shopId} startDate={startDate} endDate={endDate} isOpen={true} />
-            </>
+              <SectionReturns shopId={shopId} startDate={startDate} endDate={endDate} isOpen={true} />
+            </div>
           )}
         </div>
       </div>

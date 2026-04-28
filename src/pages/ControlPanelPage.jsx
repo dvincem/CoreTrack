@@ -955,6 +955,203 @@ function BulkImportTab({ shopId }) {
     </div>
   )
 }
+/* ── Brand Logos Tab ── */
+function BrandLogosTab({ shopId }) {
+  const [brands, setBrands] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [uploading, setUploading] = React.useState({});
+  const [removing, setRemoving]   = React.useState({});
+  const [errors, setErrors]       = React.useState({});
+
+  function load() {
+    setLoading(true)
+    apiFetch(`${API_URL}/brands${shopId ? `?shop_id=${shopId}` : ''}`)
+      .then(r => r.json())
+      .then(data => { setBrands(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }
+
+  React.useEffect(() => { load() }, [shopId])
+
+  async function handleLogoUpload(brandName, file) {
+    if (!file) return
+    setUploading(p => ({ ...p, [brandName]: true }))
+    setErrors(p => ({ ...p, [brandName]: null }))
+
+    const formData = new FormData()
+    formData.append('brand', brandName)
+    if (shopId) formData.append('shop_id', shopId)
+    formData.append('logo', file)
+
+    try {
+      const token = localStorage.getItem('th-token')
+      const res = await fetch(`${API_URL}/brands/upload-logo`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      setBrands(prev => prev.map(b =>
+        b.brandName === brandName ? { ...b, logoUrl: data.logoUrl } : b
+      ))
+    } catch (err) {
+      setErrors(p => ({ ...p, [brandName]: err.message }))
+    } finally {
+      setUploading(p => ({ ...p, [brandName]: false }))
+    }
+  }
+
+  async function handleRemoveLogo(brandName) {
+    if (!confirm(`Remove logo for ${brandName}?`)) return
+    setRemoving(p => ({ ...p, [brandName]: true }))
+    try {
+      const token = localStorage.getItem('th-token')
+      await fetch(`${API_URL}/brands/logo?brand=${encodeURIComponent(brandName)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setBrands(prev => prev.map(b =>
+        b.brandName === brandName ? { ...b, logoUrl: null } : b
+      ))
+    } catch (_) {}
+    finally { setRemoving(p => ({ ...p, [brandName]: false })) }
+  }
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '3rem', color: 'var(--th-text-faint)', fontSize: '0.85rem' }}>
+      <div className="th-spinner th-spinner-sm" />Loading brands…
+    </div>
+  )
+
+  if (brands.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--th-text-faint)' }}>
+      <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🏷️</div>
+      <div style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.4rem' }}>No brands found</div>
+      <div style={{ fontSize: '0.78rem' }}>Add inventory items with a brand name to manage logos here.</div>
+    </div>
+  )
+
+  const withLogo    = brands.filter(b => b.logoUrl)
+  const withoutLogo = brands.filter(b => !b.logoUrl)
+
+  function renderBrandCard(brand) {
+    const { brandName, logoUrl } = brand
+    const isUploading = !!uploading[brandName]
+    const isRemoving  = !!removing[brandName]
+    const err         = errors[brandName]
+    const inputId     = `logo-upload-${brandName.replace(/\s+/g, '-')}`
+
+    return (
+      <div key={brandName} className="cp-brand-card">
+        {/* Logo preview */}
+        <div className="cp-brand-preview">
+          {logoUrl ? (
+            <img
+              src={logoUrl.startsWith('http') ? logoUrl : logoUrl}
+              alt={brandName}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ fontSize: '1.75rem', opacity: 0.3 }}>🏷️</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--th-text-faint)' }}>No logo</span>
+            </div>
+          )}
+        </div>
+
+        {/* Brand name */}
+        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--th-text-primary)', textAlign: 'center', wordBreak: 'break-word' }}>
+          {brandName}
+        </div>
+
+        {/* Error */}
+        {err && <div style={{ fontSize: '0.7rem', color: 'var(--th-rose)', textAlign: 'center' }}>{err}</div>}
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <input
+            type="file"
+            accept="image/*"
+            id={inputId}
+            style={{ display: 'none' }}
+            onChange={e => handleLogoUpload(brandName, e.target.files[0])}
+            disabled={isUploading}
+          />
+          <label
+            htmlFor={inputId}
+            style={{
+              display: 'block', textAlign: 'center', cursor: isUploading ? 'not-allowed' : 'pointer',
+              padding: '0.4rem 0.75rem', borderRadius: 7, fontSize: '0.78rem', fontWeight: 700,
+              border: '1px solid var(--th-orange)', color: isUploading ? 'var(--th-text-faint)' : 'var(--th-orange)',
+              background: isUploading ? 'var(--th-bg-subtle)' : 'var(--th-orange-bg)',
+              transition: 'all 0.15s',
+            }}
+          >
+            {isUploading ? 'Uploading…' : logoUrl ? '🔄 Update Logo' : '⬆ Upload Logo'}
+          </label>
+
+          {logoUrl && (
+            <button
+              onClick={() => handleRemoveLogo(brandName)}
+              disabled={isRemoving}
+              style={{
+                padding: '0.35rem 0.75rem', borderRadius: 7, fontSize: '0.75rem', fontWeight: 600,
+                border: '1px solid var(--th-border)', color: 'var(--th-text-faint)',
+                background: 'none', cursor: isRemoving ? 'not-allowed' : 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseOver={e => { e.currentTarget.style.color = 'var(--th-rose)'; e.currentTarget.style.borderColor = 'var(--th-rose)' }}
+              onMouseOut={e => { e.currentTarget.style.color = 'var(--th-text-faint)'; e.currentTarget.style.borderColor = 'var(--th-border)' }}
+            >
+              {isRemoving ? 'Removing…' : '🗑 Remove'}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '0.25rem 0' }}>
+      {/* Info banner */}
+      <div style={{
+        background: 'var(--th-sky-bg)', border: '1px solid var(--th-sky)', borderRadius: 10,
+        padding: '0.75rem 1rem', marginBottom: '1.5rem', fontSize: '0.8rem', color: 'var(--th-sky)',
+        display: 'flex', alignItems: 'flex-start', gap: '0.6rem'
+      }}>
+        <span style={{ fontSize: '1rem', flexShrink: 0 }}>💡</span>
+        <div>
+          <strong>Brand Backdrops:</strong> Uploaded logos appear as a faint watermark behind product cards on the POS page, making it easier for cashiers to identify products at a glance. Recommended format: PNG with transparent background.
+        </div>
+      </div>
+
+      {/* Brands WITH logos */}
+      {withLogo.length > 0 && (
+        <>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--th-text-faint)', marginBottom: '0.75rem' }}>
+            ✓ Brands with logos ({withLogo.length})
+          </div>
+          <div className="cp-brands-grid" style={{ marginBottom: '2rem' }}>
+            {withLogo.map(renderBrandCard)}
+          </div>
+        </>
+      )}
+
+      {/* Brands WITHOUT logos */}
+      {withoutLogo.length > 0 && (
+        <>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--th-text-faint)', marginBottom: '0.75rem' }}>
+            Brands without logos ({withoutLogo.length})
+          </div>
+          <div className="cp-brands-grid">
+            {withoutLogo.map(renderBrandCard)}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ── Main Page ── */
 export default function ControlPanelPage({ callerPower = 0, callerSystemRoles = [], shopId }) {
   const [tab, setTab] = React.useState('access')
@@ -977,6 +1174,9 @@ export default function ControlPanelPage({ callerPower = 0, callerSystemRoles = 
         <button className={`cp-tab${tab === 'bulk' ? ' active' : ''}`} onClick={() => setTab('bulk')}>
           Bulk Inventory
         </button>
+        <button className={`cp-tab${tab === 'brands' ? ' active' : ''}`} onClick={() => setTab('brands')}>
+          Brand Logos
+        </button>
       </div>
 
       {tab === 'access' && (
@@ -987,6 +1187,7 @@ export default function ControlPanelPage({ callerPower = 0, callerSystemRoles = 
       )}
       {tab === 'io'     && <ImportExportTab />}
       {tab === 'bulk'   && <BulkImportTab shopId={shopId} />}
+      {tab === 'brands' && <BrandLogosTab shopId={shopId} />}
     </div>
   )
 }

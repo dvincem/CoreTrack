@@ -369,25 +369,47 @@ router.get("/labor-log/:shop_id", (req, res) => {
 
 router.get("/labor-summary/:shop_id", (req, res) => {
   const { shop_id } = req.params;
-  const { date } = req.query;
-  const business_date = date || new Date().toISOString().split("T")[0];
-  db.all(
-    `SELECT sm.staff_id, sm.full_name, sm.staff_code,
-       COUNT(ll.log_id) as service_count,
-       COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.total_amount ELSE 0 END),0) as service_total,
-       COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.commission_amount ELSE 0 END),0) as commission_total
-     FROM staff_master sm
-     LEFT JOIN labor_log ll ON sm.staff_id = ll.staff_id AND ll.shop_id = ? AND ll.business_date = ?
-     WHERE sm.is_active = 1
-       AND EXISTS (SELECT 1 FROM labor_log WHERE staff_id = sm.staff_id AND shop_id = ? AND business_date = ? AND is_void = 0)
-     GROUP BY sm.staff_id
-     ORDER BY sm.full_name`,
-    [shop_id, business_date, shop_id, business_date],
-    (err, rows) => {
-      if (err) return res.json({ error: err.message });
-      res.json(rows.map(r => ({ ...r, gross_earnings: r.service_total + r.commission_total, net_earnings: (r.service_total / 2) + r.commission_total })));
-    }
-  );
+  const { date, startDate, endDate } = req.query;
+  if (startDate && endDate) {
+    db.all(
+      `SELECT sm.staff_id, sm.full_name, sm.staff_code,
+          COUNT(ll.log_id) as service_count,
+          COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.total_amount ELSE 0 END),0) as service_total,
+          COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.commission_amount ELSE 0 END),0) as commission_total,
+          (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ?) as bale_deducted
+        FROM staff_master sm
+        LEFT JOIN labor_log ll ON sm.staff_id = ll.staff_id AND ll.shop_id = ? AND ll.business_date BETWEEN ? AND ?
+        WHERE sm.is_active = 1
+          AND EXISTS (SELECT 1 FROM labor_log WHERE staff_id = sm.staff_id AND shop_id = ? AND business_date BETWEEN ? AND ? AND is_void = 0)
+        GROUP BY sm.staff_id
+        ORDER BY sm.full_name`,
+      [startDate, endDate, shop_id, startDate, endDate, shop_id, startDate, endDate],
+      (err, rows) => {
+        if (err) return res.json({ error: err.message });
+        res.json(rows.map(r => ({ ...r, gross_earnings: r.service_total + r.commission_total, net_earnings: (r.service_total / 2) + r.commission_total })));
+      }
+    );
+  } else {
+    const business_date = date || new Date().toISOString().split("T")[0];
+    db.all(
+      `SELECT sm.staff_id, sm.full_name, sm.staff_code,
+          COUNT(ll.log_id) as service_count,
+          COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.total_amount ELSE 0 END),0) as service_total,
+          COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.commission_amount ELSE 0 END),0) as commission_total,
+          (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) = ?) as bale_deducted
+        FROM staff_master sm
+        LEFT JOIN labor_log ll ON sm.staff_id = ll.staff_id AND ll.shop_id = ? AND ll.business_date = ?
+        WHERE sm.is_active = 1
+          AND EXISTS (SELECT 1 FROM labor_log WHERE staff_id = sm.staff_id AND shop_id = ? AND business_date = ? AND is_void = 0)
+        GROUP BY sm.staff_id
+        ORDER BY sm.full_name`,
+      [business_date, shop_id, business_date, shop_id, business_date],
+      (err, rows) => {
+        if (err) return res.json({ error: err.message });
+        res.json(rows.map(r => ({ ...r, gross_earnings: r.service_total + r.commission_total, net_earnings: (r.service_total / 2) + r.commission_total })));
+      }
+    );
+  }
 });
 
 router.post("/labor-log", (req, res) => {
@@ -469,17 +491,27 @@ router.get("/services-summary/:shop_id", (req, res) => {
   db.all(
     `SELECT ll.log_id, ll.staff_id, ll.service_id, ll.service_name,
             ll.quantity, ll.unit_price, ll.total_amount, ll.commission_amount,
-            ll.business_date, sm.full_name, sm.staff_code
+            ll.business_date, sm.full_name, sm.staff_code,
+            (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ?) as bale_deducted
      FROM labor_log ll
      LEFT JOIN staff_master sm ON ll.staff_id = sm.staff_id
      WHERE ll.shop_id = ? AND DATE(ll.business_date) BETWEEN ? AND ? AND ll.is_void = 0
      ORDER BY sm.full_name, ll.log_datetime`,
-    [shop_id, start, end],
+    [start, end, shop_id, start, end],
     (err, rows) => {
       if (err) return res.json({ error: err.message });
       const map = {};
       for (const r of rows) {
-        if (!map[r.staff_id]) map[r.staff_id] = { staff_id: r.staff_id, full_name: r.full_name || r.staff_id, staff_code: r.staff_code, services: [], commissions: [] };
+        if (!map[r.staff_id]) {
+          map[r.staff_id] = { 
+            staff_id: r.staff_id, 
+            full_name: r.full_name || r.staff_id, 
+            staff_code: r.staff_code, 
+            bale_deducted: r.bale_deducted || 0,
+            services: [], 
+            commissions: [] 
+          };
+        }
         if (r.commission_amount > 0) map[r.staff_id].commissions.push({ log_id: r.log_id, service_name: r.service_name, quantity: r.quantity, amount: r.commission_amount, business_date: r.business_date });
         else map[r.staff_id].services.push({ log_id: r.log_id, service_name: r.service_name, quantity: r.quantity, amount: r.total_amount, business_date: r.business_date });
       }

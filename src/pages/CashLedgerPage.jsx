@@ -399,22 +399,23 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       </div>
 
       {/* Filter Header Toolbar (Placed outside top stack) */}
-      <div className="cl-filter-toolbar" style={{ marginBottom: 0 }}>
+      <div style={{ marginBottom: 0 }}>
         <FilterHeader
           leftComponent={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-              <select className="fh-select" style={{ minWidth: '130px', flex: '0 1 130px' }}
+            <div className="fh-left">
+              <select className="fh-select" style={{ minWidth: '130px' }}
                 value={sourceFilter} onChange={e => { setSourceFilter(e.target.value); setPage(1) }}>
                 <option value="ALL">All Categories</option>
                 {Object.entries(SOURCE_META).filter(([k]) => k !== 'ALL').map(([k, m]) => (
                   <option key={k} value={k}>{m.label}</option>
                 ))}
               </select>
-              <div style={{ height: '100%', width: '1px', background: 'var(--th-border)', margin: '0 0.25rem' }} />
-              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-              <input className="fh-date" type="date" value={startDate} max={today} onChange={e => { setStartDate(e.target.value); setActivePreset(''); setPage(1) }} style={{ flex: 1, minWidth: '120px' }} />
-              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-              <input className="fh-date" type="date" value={endDate} max={today} onChange={e => { setEndDate(e.target.value); setActivePreset(''); setPage(1) }} style={{ flex: 1, minWidth: '120px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap' }}>
+                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
+                <input className="fh-date" type="date" value={startDate} max={today} onChange={e => { setStartDate(e.target.value); setActivePreset(''); setPage(1) }} />
+                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
+                <input className="fh-date" type="date" value={endDate} max={today} onChange={e => { setEndDate(e.target.value); setActivePreset(''); setPage(1) }} />
+              </div>
             </div>
           }
           filters={[
@@ -438,6 +439,16 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
             gap: 0.5rem;
         }
 
+        .fh-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        input.fh-date {
+            min-width: 90px;
+        }
+
         .cl-top-stack {
             display: flex;
             flex-direction: column;
@@ -451,6 +462,27 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
         [class*="toolbar"] {
           gap: clamp(0.35rem, 0.25rem + 0.4vw, 0.75rem);
           padding: 0;
+        }
+        
+        @media (max-width: 640px) {
+            .cl-header-row {
+                flex-direction: column;
+                align-items: center;
+                border-bottom: 1px solid var(--th-border);
+                padding-bottom: 0.75rem;
+                margin-bottom: 0rem;
+            }
+            .fh-left {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            .fh-left > * {
+                width: 100%;
+                /* flex: 1; */
+                min-width: 0;
+            }
         }
       `}</style>
 

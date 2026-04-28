@@ -7,28 +7,28 @@ import { DataTable } from '../components/DataTable'
 import Modal from '../components/Modal'
 import usePaginatedResource from '../hooks/usePaginatedResource'
 
-/* ============================================================
-   TIREHUB — ENHANCED PAYABLES PAGE
-   Drop-in replacement. Requires API_URL global + currency().
-   ============================================================ */
+  /* ============================================================
+     TIREHUB — ENHANCED PAYABLES PAGE
+     Drop-in replacement. Requires API_URL global + currency().
+     ============================================================ */
 
-;
+  ;
 
 
 const payCompact =
   typeof compactCurrency === "function"
     ? compactCurrency
-    : (n) => { const v = Number(n||0), a = Math.abs(v), s = v<0?'-':''; if(a>=1e6) return `${s}₱${(a/1e6).toFixed(2)}M`; if(a>=1e3) return `${s}₱${(a/1e3).toFixed(1)}K`; return `₱${v.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`; };
+    : (n) => { const v = Number(n || 0), a = Math.abs(v), s = v < 0 ? '-' : ''; if (a >= 1e6) return `${s}₱${(a / 1e6).toFixed(2)}M`; if (a >= 1e3) return `${s}₱${(a / 1e3).toFixed(1)}K`; return `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; };
 
 const payCurrency =
   typeof currency === "function"
     ? currency
     : (n) =>
-        "₱" +
-        Number(n || 0).toLocaleString("en-PH", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+      "₱" +
+      Number(n || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
 const STATUS_OPTS = ["ALL", "OPEN", "OVERDUE", "PAID"];
 const PAY_METHODS = ["CASH", "GCASH", "BPI", "BDO", "CARD", "CHECK"];
@@ -241,7 +241,8 @@ function PayablesPage({ shopId }) {
 
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
-  React.useEffect(() => { const obs = new MutationObserver(() => forceUpdate());
+  React.useEffect(() => {
+    const obs = new MutationObserver(() => forceUpdate());
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     return () => obs.disconnect();
   }, []);
@@ -249,19 +250,28 @@ function PayablesPage({ shopId }) {
   const loadPayables = () => { /* hook owns data — kept as refetch stub if needed */ };
 
   React.useEffect(() => {
-    apiFetch(`${API_URL}/suppliers?shop_id=${shopId}`).then(r => r.json()).then(d => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch(`${API_URL}/suppliers?shop_id=${shopId}`).then(r => r.json()).then(d => setSuppliers(Array.isArray(d) ? d : [])).catch(() => { });
     // KPI counts
-    apiFetch(`${API_URL}/payables-kpi/${shopId}`).then(r => r.json()).then(d => { if (!d.error) setKpi(d); }).catch(() => {});
+    apiFetch(`${API_URL}/payables-kpi/${shopId}`).then(r => r.json()).then(d => { if (!d.error) setKpi(d); }).catch(() => { });
   }, [shopId]);
 
-  // Calendar: bounded fetch for visible month only
+  // Calendar: bounded fetch for visible month grid (including overflow days)
   React.useEffect(() => {
     const { year, month } = calMonth;
-    const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const firstDayOfWeek = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let totalCells = firstDayOfWeek + daysInMonth;
+    while (totalCells % 7 !== 0) totalCells++;
+
+    // Calculate exact grid start and end dates in local time to avoid UTC shifts
+    const startDateObj = new Date(year, month, 1 - firstDayOfWeek);
+    const start = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+
+    const endDateObj = new Date(year, month, 1 - firstDayOfWeek + totalCells - 1);
+    const end = `${endDateObj.getFullYear()}-${String(endDateObj.getMonth() + 1).padStart(2, '0')}-${String(endDateObj.getDate()).padStart(2, '0')}`;
+
     apiFetch(`${API_URL}/payables/${shopId}?startDate=${start}&endDate=${end}`)
-      .then(r => r.json()).then(d => setCalPayables(Array.isArray(d) ? d : [])).catch(() => {});
+      .then(r => r.json()).then(d => setCalPayables(Array.isArray(d) ? d : [])).catch(() => { });
   }, [shopId, calMonth]);
 
   /* Suggestions from current page */
@@ -396,7 +406,7 @@ function PayablesPage({ shopId }) {
     apiFetch(`${API_URL}/payables/${detailTarget.payable_id}/payments`)
       .then(r => r.json())
       .then(data => { if (!cancelled) setHistPayments(Array.isArray(data) ? data : []); })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => { if (!cancelled) setHistLoading(false); });
     return () => { cancelled = true; };
   }, [detailTarget?.payable_id, histRefresh]);
@@ -467,12 +477,12 @@ function PayablesPage({ shopId }) {
 
   /* Stats — from KPI endpoint */
   const totalPayables = kpi?.totalPayables || 0;
-  const totalBalance  = kpi?.totalBalance || 0;
-  const totalPaid     = totalPayables - totalBalance;
-  const paidPct       = totalPayables > 0 ? Math.round((totalPaid / totalPayables) * 100) : 0;
-  const overdueCount  = kpi?.overdueCount || 0;
-  const pendingCount  = kpi?.openCount || 0;
-  const paidCount     = kpi?.paidCount || 0;
+  const totalBalance = kpi?.totalBalance || 0;
+  const totalPaid = totalPayables - totalBalance;
+  const paidPct = totalPayables > 0 ? Math.round((totalPaid / totalPayables) * 100) : 0;
+  const overdueCount = kpi?.overdueCount || 0;
+  const pendingCount = kpi?.openCount || 0;
+  const paidCount = kpi?.paidCount || 0;
 
   const progressClass = paidPct >= 80 ? "good" : paidPct >= 50 ? "mid" : "low";
   const statusCounts = {
@@ -483,55 +493,69 @@ function PayablesPage({ shopId }) {
   };
 
   const payColumns = React.useMemo(() => [
-    { key: 'payee', label: 'Payee / Supplier', render: p => (
-      <>
-        <div className="pay-supplier-name">{p.payable_type === "GENERAL" ? (p.payee_name || "—") : (p.supplier_name || "—")}</div>
-        <div className="pay-contact" style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "0 4px", borderRadius: 3, background: p.payable_type === "SUPPLIER" ? "var(--th-violet-bg)" : "var(--th-sky-bg)", color: p.payable_type === "SUPPLIER" ? "var(--th-violet)" : "var(--th-sky)" }}>{p.payable_type || "SUPPLIER"}</span>
-          {p.recurring_group_id && <span style={{ fontSize: "0.63rem", fontWeight: 800, padding: "0 4px", borderRadius: 3, background: "var(--th-amber-bg)", color: "var(--th-amber)" }}>🔁 {p.recurring_installment}/{p.recurring_total}</span>}
-          {p.contact_person && <span style={{ fontSize: "0.78rem", color: "var(--th-text-dim)" }}>{p.contact_person}</span>}
-        </div>
-      </>
-    )},
-    { key: 'description', label: 'Description', render: p => (
-      <span style={{ fontSize: "0.82rem", color: "var(--th-text-muted)" }}>{p.description || <span style={{ color: "var(--th-text-faint)" }}>—</span>}</span>
-    )},
-    { key: 'reference_id', label: 'Reference', render: p => (
-      p.reference_id
-        ? <span style={{ fontFamily: "monospace", background: "var(--th-bg-input)", padding: "1px 5px", borderRadius: 4, fontSize: "0.8rem", color: "var(--th-text-dim)", whiteSpace: "nowrap" }}>{p.reference_id}</span>
-        : <span style={{ color: "var(--th-text-faint)", fontSize: "0.8rem" }}>—</span>
-    )},
+    {
+      key: 'payee', label: 'Payee / Supplier', render: p => (
+        <>
+          <div className="pay-supplier-name">{p.payable_type === "GENERAL" ? (p.payee_name || "—") : (p.supplier_name || "—")}</div>
+          <div className="pay-contact" style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "0 4px", borderRadius: 3, background: p.payable_type === "SUPPLIER" ? "var(--th-violet-bg)" : "var(--th-sky-bg)", color: p.payable_type === "SUPPLIER" ? "var(--th-violet)" : "var(--th-sky)" }}>{p.payable_type || "SUPPLIER"}</span>
+            {p.recurring_group_id && <span style={{ fontSize: "0.63rem", fontWeight: 800, padding: "0 4px", borderRadius: 3, background: "var(--th-amber-bg)", color: "var(--th-amber)" }}>🔁 {p.recurring_installment}/{p.recurring_total}</span>}
+            {p.contact_person && <span style={{ fontSize: "0.78rem", color: "var(--th-text-dim)" }}>{p.contact_person}</span>}
+          </div>
+        </>
+      )
+    },
+    {
+      key: 'description', label: 'Description', render: p => (
+        <span style={{ fontSize: "0.82rem", color: "var(--th-text-muted)" }}>{p.description || <span style={{ color: "var(--th-text-faint)" }}>—</span>}</span>
+      )
+    },
+    {
+      key: 'reference_id', label: 'Reference', render: p => (
+        p.reference_id
+          ? <span style={{ fontFamily: "monospace", background: "var(--th-bg-input)", padding: "1px 5px", borderRadius: 4, fontSize: "0.8rem", color: "var(--th-text-dim)", whiteSpace: "nowrap" }}>{p.reference_id}</span>
+          : <span style={{ color: "var(--th-text-faint)", fontSize: "0.8rem" }}>—</span>
+      )
+    },
     { key: 'original_amount', label: 'Original', align: 'right', render: p => <div className="pay-amt orig">{payCurrency(p.original_amount)}</div> },
-    { key: 'balance_amount', label: 'Balance', align: 'right', render: p => {
-      const status = getPaymentStatus(p);
-      const balCls = p.balance_amount > 0 ? (status === "OVERDUE" ? "balance-overdue" : "balance-pending") : "balance-paid";
-      return <div className={`pay-amt ${balCls}`}>{payCurrency(p.balance_amount)}</div>;
-    }},
+    {
+      key: 'balance_amount', label: 'Balance', align: 'right', render: p => {
+        const status = getPaymentStatus(p);
+        const balCls = p.balance_amount > 0 ? (status === "OVERDUE" ? "balance-overdue" : "balance-pending") : "balance-paid";
+        return <div className={`pay-amt ${balCls}`}>{payCurrency(p.balance_amount)}</div>;
+      }
+    },
     { key: 'amount_paid', label: 'Paid', align: 'right', render: p => <div className="pay-amt paid-col">{payCurrency((p.original_amount || 0) - (p.balance_amount || 0))}</div> },
-    { key: 'progress', label: 'Progress', align: 'center', render: p => {
-      const paid = (p.original_amount || 0) - (p.balance_amount || 0);
-      const pct = p.original_amount > 0 ? Math.round((paid / p.original_amount) * 100) : 0;
-      const barCls = pct >= 80 ? "good" : pct >= 40 ? "mid" : "low";
-      return (
-        <div className="pay-row-progress">
-          <div className="pay-row-pct">{pct}%</div>
-          <div className="pay-row-bar-track"><div className={`pay-row-bar-fill ${barCls}`} style={{ width: `${pct}%` }} /></div>
-        </div>
-      );
-    }},
-    { key: 'due_date', label: 'Due Date', render: p => {
-      const dueInfo = getDueDateInfo(p);
-      return (
-        <span className={`pay-due-date ${dueInfo.cls}`}>
-          {dueInfo.label}
-          {dueInfo.badge && <span className={`pay-due-badge ${dueInfo.cls}`}>{dueInfo.badge}</span>}
-        </span>
-      );
-    }},
-    { key: 'status', label: 'Status', render: p => {
-      const status = getPaymentStatus(p);
-      return <span className={`pay-badge pay-badge-${status}`}>{status}</span>;
-    }},
+    {
+      key: 'progress', label: 'Progress', align: 'center', render: p => {
+        const paid = (p.original_amount || 0) - (p.balance_amount || 0);
+        const pct = p.original_amount > 0 ? Math.round((paid / p.original_amount) * 100) : 0;
+        const barCls = pct >= 80 ? "good" : pct >= 40 ? "mid" : "low";
+        return (
+          <div className="pay-row-progress">
+            <div className="pay-row-pct">{pct}%</div>
+            <div className="pay-row-bar-track"><div className={`pay-row-bar-fill ${barCls}`} style={{ width: `${pct}%` }} /></div>
+          </div>
+        );
+      }
+    },
+    {
+      key: 'due_date', label: 'Due Date', render: p => {
+        const dueInfo = getDueDateInfo(p);
+        return (
+          <span className={`pay-due-date ${dueInfo.cls}`}>
+            {dueInfo.label}
+            {dueInfo.badge && <span className={`pay-due-badge ${dueInfo.cls}`}>{dueInfo.badge}</span>}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'status', label: 'Status', render: p => {
+        const status = getPaymentStatus(p);
+        return <span className={`pay-badge pay-badge-${status}`}>{status}</span>;
+      }
+    },
   ], []);
 
   return (
@@ -548,13 +572,6 @@ function PayablesPage({ shopId }) {
           </div>
           <button className="pay-add-btn" onClick={() => { setShowForm(true); setFormError(""); }}>+ Add Payable</button>
         </div>
-      </div>
-      <div className="pay-mobile-actions">
-        <div className="pay-view-toggle">
-          <button className={`pay-view-btn${viewMode === "list" ? " active" : ""}`} onClick={() => setViewMode("list")}>≡ List</button>
-          <button className={`pay-view-btn${viewMode === "calendar" ? " active" : ""}`} onClick={() => setViewMode("calendar")}>▦ Calendar</button>
-        </div>
-        <button className="pay-add-btn" onClick={() => { setShowForm(true); setFormError(""); }}>+ Add Payable</button>
       </div>
 
       {/* KPI cards */}
@@ -620,11 +637,19 @@ function PayablesPage({ shopId }) {
         />
       </div>
 
+      <div className="pay-mobile-actions">
+        <div className="pay-view-toggle">
+          <button className={`pay-view-btn${viewMode === "list" ? " active" : ""}`} onClick={() => setViewMode("list")}>≡ List</button>
+          <button className={`pay-view-btn${viewMode === "calendar" ? " active" : ""}`} onClick={() => setViewMode("calendar")}>▦ Calendar</button>
+        </div>
+        <button className="pay-add-btn" onClick={() => { setShowForm(true); setFormError(""); }}>+ Add Payable</button>
+      </div>
+
       {/* Calendar view */}
       {viewMode === "calendar" && (() => {
         const { year, month } = calMonth;
-        const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-        const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const todayStr = new Date().toISOString().split("T")[0];
@@ -643,104 +668,104 @@ function PayablesPage({ shopId }) {
         while (cells.length % 7 !== 0) cells.push(null);
         return (
           <div className="pay-cal-wrap">
-          <div className="pay-cal-inner">
-            <div className="pay-cal-legend">
-              <span className="pay-cal-legend-label">Legend:</span>
-              {[
-                { key: "OPEN",    label: "Open / Pending" },
-                { key: "OVERDUE", label: "Overdue" },
-                { key: "PAID",    label: "Paid" },
-              ].map(({ key, label }) => (
-                <span key={key} className={`pay-cal-leg leg-${key}`}>
-                  <span className={`pay-cal-leg-dot leg-${key}`} />
-                  {label}
-                </span>
-              ))}
-            </div>
-            <div className="pay-cal-nav">
-              <button className="pay-cal-nav-btn" onClick={() => setCalMonth(({ year: y, month: m }) => m === 0 ? { year: y - 1, month: 11 } : { year: y, month: m - 1 })}>‹</button>
-              <div className="pay-cal-month-label">{MONTHS[month]} {year}</div>
-              <button className="pay-cal-nav-btn" onClick={() => setCalMonth(({ year: y, month: m }) => m === 11 ? { year: y + 1, month: 0 } : { year: y, month: m + 1 })}>›</button>
-            </div>
-            <div className="pay-cal-grid">
-              {/* DOW header row — same grid, columns stay in sync */}
-              <div className={`pay-cal-dow pay-cal-dow-header-due`}>Due</div>
-              {DAYS.map(d => <div key={d} className="pay-cal-dow pay-cal-dow-header">{d}</div>)}
-              {Array.from({ length: cells.length / 7 }, (_, rowIdx) => {
-                const rowCells = cells.slice(rowIdx * 7, rowIdx * 7 + 7);
-                // Compute actual date strings for every cell in this row (incl. null cells)
-                // Use local date parts to avoid UTC timezone shift
-                const rowDates = rowCells.map((day, i) => {
-                  const cellIdx = rowIdx * 7 + i;
-                  const d = new Date(year, month, 1 - firstDay + cellIdx);
-                  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                });
-                // Sum balance of all OPEN/OVERDUE payables due this week (spans any month)
-                const weekTotal = payables.reduce((sum, p) => {
-                  if (!p.due_date) return sum;
-                  const ds = p.due_date.slice(0, 10);
-                  if (ds >= rowDates[0] && ds <= rowDates[6] && getPaymentStatus(p) !== "PAID") {
-                    return sum + (p.balance_amount || 0);
-                  }
-                  return sum;
-                }, 0);
-
-                const openWeekPayables = () => {
-                  if (weekTotal <= 0) return;
-                  const items = payables.filter(p => {
-                    if (!p.due_date) return false;
+            <div className="pay-cal-inner">
+              <div className="pay-cal-legend">
+                <span className="pay-cal-legend-label">Legend:</span>
+                {[
+                  { key: "OPEN", label: "Open / Pending" },
+                  { key: "OVERDUE", label: "Overdue" },
+                  { key: "PAID", label: "Paid" },
+                ].map(({ key, label }) => (
+                  <span key={key} className={`pay-cal-leg leg-${key}`}>
+                    <span className={`pay-cal-leg-dot leg-${key}`} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <div className="pay-cal-nav">
+                <button className="pay-cal-nav-btn" onClick={() => setCalMonth(({ year: y, month: m }) => m === 0 ? { year: y - 1, month: 11 } : { year: y, month: m - 1 })}>‹</button>
+                <div className="pay-cal-month-label">{MONTHS[month]} {year}</div>
+                <button className="pay-cal-nav-btn" onClick={() => setCalMonth(({ year: y, month: m }) => m === 11 ? { year: y + 1, month: 0 } : { year: y, month: m + 1 })}>›</button>
+              </div>
+              <div className="pay-cal-grid">
+                {/* DOW header row — same grid, columns stay in sync */}
+                <div className={`pay-cal-dow pay-cal-dow-header-due`}>Due</div>
+                {DAYS.map(d => <div key={d} className="pay-cal-dow pay-cal-dow-header">{d}</div>)}
+                {Array.from({ length: cells.length / 7 }, (_, rowIdx) => {
+                  const rowCells = cells.slice(rowIdx * 7, rowIdx * 7 + 7);
+                  // Compute actual date strings for every cell in this row (incl. null cells)
+                  // Use local date parts to avoid UTC timezone shift
+                  const rowDates = rowCells.map((day, i) => {
+                    const cellIdx = rowIdx * 7 + i;
+                    const d = new Date(year, month, 1 - firstDay + cellIdx);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  });
+                  // Sum balance of all OPEN/OVERDUE payables due this week (spans any month)
+                  const weekTotal = calPayables.reduce((sum, p) => {
+                    if (!p.due_date) return sum;
                     const ds = p.due_date.slice(0, 10);
-                    return ds >= rowDates[0] && ds <= rowDates[6] && getPaymentStatus(p) !== "PAID";
-                  });
-                  setSelectedWeek({
-                    start: rowDates[0],
-                    end: rowDates[6],
-                    amount: weekTotal,
-                    items
-                  });
-                };
+                    if (ds >= rowDates[0] && ds <= rowDates[6] && getPaymentStatus(p) !== "PAID") {
+                      return sum + (p.balance_amount || 0);
+                    }
+                    return sum;
+                  }, 0);
 
-                return (
-                  <React.Fragment key={rowIdx}>
-                    {/* Week total sidebar */}
-                    <div className="pay-cal-week-total" onClick={openWeekPayables} style={{ cursor: weekTotal > 0 ? 'pointer' : 'default' }}>
-                      <div className={`pay-cal-week-amt ${weekTotal > 0 ? "has-due" : "no-due"}`}>
-                        {weekTotal > 0 ? payCurrency(weekTotal) : "—"}
-                      </div>
-                    </div>
-                    {/* 7 day cells */}
-                    {rowCells.map((day, i) => {
-                      const dateStr = rowDates[i];
-                      const isCurrentMonth = day !== null;
-                      const displayDay = isCurrentMonth ? day : parseInt(dateStr.split("-")[2]);
-                      const isToday = dateStr === todayStr;
-                      const items = byDate[dateStr] || [];
-                      const visible = items.slice(0, 3);
-                      const extra = items.length - visible.length;
-                      return (
-                        <div key={i} className={`pay-cal-cell${!isCurrentMonth ? " other-month" : ""}${isToday ? " today" : ""}`}
-                          onClick={() => setExpandedCell(dateStr)}
-                          style={{ cursor: "pointer" }}>
-                          <div className="pay-cal-day-num">{displayDay}</div>
-                          {visible.map(p => {
-                            const st = getPaymentStatus(p);
-                            const name = p.payable_type === "GENERAL" ? (p.payee_name || "General") : (p.supplier_name || "Supplier");
-                            return (
-                              <button key={p.payable_id} className={`pay-cal-item status-${st}`} onClick={e => { e.stopPropagation(); openDetail(p); }} title={`${name} — ${payCurrency(p.balance_amount)}`}>
-                                <span style={{ display: "block" }}>{name}</span>
-                                <span style={{ display: "block", opacity: 0.8, fontWeight: 900 }}>{payCurrency(p.original_amount)}</span>
-                              </button>
-                            );
-                          })}
-                          {extra > 0 && <div className="pay-cal-more" onClick={e => { e.stopPropagation(); setExpandedCell(dateStr); }}>+{extra} more</div>}
+                  const openWeekPayables = () => {
+                    if (weekTotal <= 0) return;
+                    const items = calPayables.filter(p => {
+                      if (!p.due_date) return false;
+                      const ds = p.due_date.slice(0, 10);
+                      return ds >= rowDates[0] && ds <= rowDates[6] && getPaymentStatus(p) !== "PAID";
+                    });
+                    setSelectedWeek({
+                      start: rowDates[0],
+                      end: rowDates[6],
+                      amount: weekTotal,
+                      items
+                    });
+                  };
+
+                  return (
+                    <React.Fragment key={rowIdx}>
+                      {/* Week total sidebar */}
+                      <div className="pay-cal-week-total" onClick={openWeekPayables} style={{ cursor: weekTotal > 0 ? 'pointer' : 'default' }}>
+                        <div className={`pay-cal-week-amt ${weekTotal > 0 ? "has-due" : "no-due"}`}>
+                          {weekTotal > 0 ? payCurrency(weekTotal) : "—"}
                         </div>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
+                      </div>
+                      {/* 7 day cells */}
+                      {rowCells.map((day, i) => {
+                        const dateStr = rowDates[i];
+                        const isCurrentMonth = day !== null;
+                        const displayDay = isCurrentMonth ? day : parseInt(dateStr.split("-")[2]);
+                        const isToday = dateStr === todayStr;
+                        const items = byDate[dateStr] || [];
+                        const visible = items.slice(0, 3);
+                        const extra = items.length - visible.length;
+                        return (
+                          <div key={i} className={`pay-cal-cell${!isCurrentMonth ? " other-month" : ""}${isToday ? " today" : ""}`}
+                            onClick={() => setExpandedCell(dateStr)}
+                            style={{ cursor: "pointer" }}>
+                            <div className="pay-cal-day-num">{displayDay}</div>
+                            {visible.map(p => {
+                              const st = getPaymentStatus(p);
+                              const name = p.payable_type === "GENERAL" ? (p.payee_name || "General") : (p.supplier_name || "Supplier");
+                              return (
+                                <button key={p.payable_id} className={`pay-cal-item status-${st}`} onClick={e => { e.stopPropagation(); openDetail(p); }} title={`${name} — ${payCurrency(p.balance_amount)}`}>
+                                  <span style={{ display: "block" }}>{name}</span>
+                                  <span style={{ display: "block", opacity: 0.8, fontWeight: 900 }}>{payCurrency(p.original_amount)}</span>
+                                </button>
+                              );
+                            })}
+                            {extra > 0 && <div className="pay-cal-more" onClick={e => { e.stopPropagation(); setExpandedCell(dateStr); }}>+{extra} more</div>}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </div>
-          </div>
           </div>
         );
       })()}
@@ -828,7 +853,7 @@ function PayablesPage({ shopId }) {
                       <label className="pay-form-label">Start Month / Year</label>
                       <div style={{ display: "flex", gap: "0.3rem" }}>
                         <select className="pay-form-input" style={{ flex: 2 }} value={recurringStartMonth} onChange={e => setRecurringStartMonth(e.target.value)}>
-                          {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => (
+                          {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
                             <option key={i} value={i}>{m}</option>
                           ))}
                         </select>
@@ -840,12 +865,14 @@ function PayablesPage({ shopId }) {
                   <div>
                     <label className="pay-form-label">Ends</label>
                     <div style={{ display: "flex", gap: "0.4rem" }}>
-                      {[["months","# of Months"],["until","Until Date"],["never","Never"]].map(([val, lbl]) => (
+                      {[["months", "# of Months"], ["until", "Until Date"], ["never", "Never"]].map(([val, lbl]) => (
                         <button key={val} type="button" onClick={() => setRecurringEndMode(val)}
-                          style={{ flex: 1, padding: "0.35rem 0.4rem", borderRadius: 6, border: "1.5px solid", cursor: "pointer", fontSize: "0.72rem", fontWeight: 700, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: "0.04em",
+                          style={{
+                            flex: 1, padding: "0.35rem 0.4rem", borderRadius: 6, border: "1.5px solid", cursor: "pointer", fontSize: "0.72rem", fontWeight: 700, fontFamily: "'Barlow Condensed',sans-serif", letterSpacing: "0.04em",
                             background: recurringEndMode === val ? "var(--th-amber-bg)" : "var(--th-bg-input)",
                             borderColor: recurringEndMode === val ? "var(--th-amber)" : "var(--th-border-strong)",
-                            color: recurringEndMode === val ? "var(--th-amber)" : "var(--th-text-dim)" }}>
+                            color: recurringEndMode === val ? "var(--th-amber)" : "var(--th-text-dim)"
+                          }}>
                           {lbl}
                         </button>
                       ))}
@@ -872,9 +899,9 @@ function PayablesPage({ shopId }) {
                   {recurringDay && (
                     <div style={{ fontSize: "0.72rem", color: "var(--th-amber)", opacity: 0.85 }}>
                       {recurringEndMode === "never"
-                        ? `∞ Ongoing — ₱${form.original_amount ? parseFloat(form.original_amount).toLocaleString() : "—"} due on the ${recurringDay}${["st","nd","rd"][((recurringDay%100-11)%10<3)?(recurringDay%10-1):-1]||"th"} of each month`
+                        ? `∞ Ongoing — ₱${form.original_amount ? parseFloat(form.original_amount).toLocaleString() : "—"} due on the ${recurringDay}${["st", "nd", "rd"][((recurringDay % 100 - 11) % 10 < 3) ? (recurringDay % 10 - 1) : -1] || "th"} of each month`
                         : recurringEndMode === "until" && recurringUntilDate
-                          ? `Due on the ${recurringDay}${["st","nd","rd"][((recurringDay%100-11)%10<3)?(recurringDay%10-1):-1]||"th"} until ${new Date(recurringUntilDate).toLocaleDateString("en-PH",{month:"short",year:"numeric"})}`
+                          ? `Due on the ${recurringDay}${["st", "nd", "rd"][((recurringDay % 100 - 11) % 10 < 3) ? (recurringDay % 10 - 1) : -1] || "th"} until ${new Date(recurringUntilDate).toLocaleDateString("en-PH", { month: "short", year: "numeric" })}`
                           : recurringMonths
                             ? `${recurringMonths} entries of ₱${form.original_amount ? parseFloat(form.original_amount).toLocaleString() : "—"} each`
                             : ""}
@@ -899,7 +926,7 @@ function PayablesPage({ shopId }) {
       {expandedCell && (() => {
         const items = payables.filter(p => (p.due_date || '').slice(0, 10) === expandedCell);
         const label = new Date(expandedCell + 'T12:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-        
+
         return (
           <Modal
             isOpen={!!expandedCell}
@@ -907,8 +934,8 @@ function PayablesPage({ shopId }) {
             title={label}
             maxWidth="450px"
             footer={
-              <button 
-                className="th-btn th-btn-rose" 
+              <button
+                className="th-btn th-btn-rose"
                 style={{ width: '100%' }}
                 onClick={() => {
                   setExpandedCell(null);
@@ -923,9 +950,9 @@ function PayablesPage({ shopId }) {
             <div style={{ padding: '0.2rem' }}>
               {items.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--th-text-faint)' }}>
-                   <div style={{ fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.5 }}>📅</div>
-                   <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>No payables scheduled</div>
-                   <div style={{ fontSize: '0.8rem' }}>Click the button below to add one.</div>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.5 }}>📅</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>No payables scheduled</div>
+                  <div style={{ fontSize: '0.8rem' }}>Click the button below to add one.</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -934,7 +961,7 @@ function PayablesPage({ shopId }) {
                     const name = p.payable_type === "GENERAL" ? (p.payee_name || "General") : (p.supplier_name || "Supplier");
                     return (
                       <button key={p.payable_id} className={`pay-cal-item status-${st}`}
-                        style={{ 
+                        style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: '0.75rem 1rem', width: '100%', textAlign: 'left',
                           border: '1px solid var(--th-border)', background: 'rgba(255,255,255,0.02)',
@@ -1153,12 +1180,12 @@ function PayablesPage({ shopId }) {
             <div style={{ padding: '0.2rem' }}>
               <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'var(--th-rose-bg)', border: '1px solid var(--th-rose)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                   <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--th-rose)', opacity: 0.8 }}>Total Weekly Balance</div>
-                   <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--th-rose)', fontFamily: 'Barlow Condensed', lineHeight: 1 }}>{payCurrency(selectedWeek.amount)}</div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--th-rose)', opacity: 0.8 }}>Total Weekly Balance</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--th-rose)', fontFamily: 'Barlow Condensed', lineHeight: 1 }}>{payCurrency(selectedWeek.amount)}</div>
                 </div>
                 <div style={{ textAlign: 'right', opacity: 0.7 }}>
-                   <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>Items Due</div>
-                   <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{selectedWeek.items.length}</div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>Items Due</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{selectedWeek.items.length}</div>
                 </div>
               </div>
 
@@ -1178,10 +1205,10 @@ function PayablesPage({ shopId }) {
                         {items.map(p => {
                           const name = p.payable_type === 'GENERAL' ? (p.payee_name || 'General') : (p.supplier_name || 'Supplier');
                           return (
-                            <button 
-                              key={p.payable_id} 
+                            <button
+                              key={p.payable_id}
                               className={`pay-cal-item status-${getPaymentStatus(p)}`}
-                              style={{ 
+                              style={{
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                 padding: '0.65rem 1rem', width: '100%', textAlign: 'left',
                                 border: '1px solid var(--th-border)', background: 'rgba(255,255,255,0.02)'

@@ -27,6 +27,7 @@ import FirstLoginPage from './pages/FirstLoginPage'
 import ServicesSummaryPage from './pages/ServicesSummaryPage'
 import SalesProjectionPage from './pages/SalesProjectionPage'
 import DryRunTrackerPage from './pages/DryRunTrackerPage'
+import ProfilePage from './pages/ProfilePage'
 import TireHubBot from './components/TireHubBot'
 import Modal from './components/Modal'
 
@@ -1334,10 +1335,13 @@ function TireHub() {
               {/* Current user display */}
               {currentStaffName && (<>
                 <div className="th-settings-popover-divider" />
-                <div className="th-settings-popover-item" style={{ cursor: "default", opacity: 0.7 }}>
+                <button
+                  className="th-settings-popover-item"
+                  onClick={() => { setPage('profile'); setShowSettings(false); }}
+                >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>
                   {currentStaffName}
-                </div>
+                </button>
               </>)}
               <div className="th-settings-popover-divider" />
               {/* Sign out */}
@@ -1413,6 +1417,7 @@ function TireHub() {
             case "payables": return <PayablesPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "sales-projection": return <SalesProjectionPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "dryrun": return <DryRunTrackerPage key={refresh} setPageContext={setPageContext} />;
+            case "profile": return <ProfilePage key={refresh} />;
             case "credentials": return <ControlPanelPage key={refresh} callerPower={userPower} callerSystemRoles={userSystemRoles} shopId={shop} setPageContext={setPageContext} />;
             default: return null;
           }

@@ -7,7 +7,7 @@ import FilterHeader from '../components/FilterHeader'
 
 const fmt = (n) => `₱${Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`
 
-function PayrollPage({ shopId }) {
+function PayrollPage({ shopId, setPageContext }) {
   const [date, setDate] = React.useState(new Date().toISOString().split('T')[0])
   const [search, setSearch] = React.useState('')
   const [staffFilter, setStaffFilter] = React.useState('all')
@@ -49,7 +49,6 @@ function PayrollPage({ shopId }) {
   // Bale deductions
   const [bales, setBales] = React.useState([]) // active bales keyed by staff_id
   const [baleDeduct, setBaleDeduct] = React.useState({}) // staff_id → { open: bool, amount: string, saving: bool }
-  const [baleDeducted, setBaleDeducted] = React.useState({}) // staff_id → total deducted this session
 
 
   React.useEffect(() => {
@@ -80,7 +79,6 @@ function PayrollPage({ shopId }) {
       })
       const data = await res.json()
       if (!data.error) {
-        setBaleDeducted(prev => ({ ...prev, [staffId]: (prev[staffId] || 0) + amt }))
         setBaleDeduct(prev => ({ ...prev, [staffId]: { open: false, amount: '100', saving: false } }))
         loadBales()
       } else {
@@ -185,7 +183,7 @@ function PayrollPage({ shopId }) {
       if (!data.error) { setCommModal(false); setCommPending(null); fetchAll() }
       else { setCommError(data.error) }
     } catch { setCommError('Failed to save commission.') }
-    finally { setCommSaving(true); setCommSaving(false) }
+    finally { setCommSaving(false) }
   }
 
   const exportExcel = async () => {
@@ -221,7 +219,7 @@ function PayrollPage({ shopId }) {
 
   const totalServiceRevenue = summary.reduce((s, r) => s + (r.service_total || 0), 0)
   const totalCommission = summary.reduce((s, r) => s + (r.commission_total || 0), 0)
-  const totalBaleDeducted = Object.values(baleDeducted).reduce((s, v) => s + v, 0)
+  const totalBaleDeducted = summary.reduce((s, r) => s + (r.bale_deducted || 0), 0)
   const totalServicePayout = totalServiceRevenue / 2
   const netServiceMargin = totalServiceRevenue / 2
 
@@ -256,7 +254,7 @@ function PayrollPage({ shopId }) {
       label: '= Total Payout',
       align: 'right',
       render: (r) => {
-        const staffBaleDeducted = baleDeducted[r.staff_id] || 0
+        const staffBaleDeducted = r.bale_deducted || 0
         return <div className="pr-money emerald">{fmt(r.service_total / 2 + r.commission_total - staffBaleDeducted)}</div>
       },
     },
@@ -275,7 +273,7 @@ function PayrollPage({ shopId }) {
             {bds.open && (
               <div className="pr-bale-deduct-row">
                 <input className="pr-bale-input" type="number" min="1" step="1" value={bds.amount}
-                  onChange={e => setBaleDeduct(prev => ({ ...prev, [staff_id]: { ...bds, amount: e.target.value } }))} />
+                  onChange={e => setBaleDeduct(prev => ({ ...prev, [r.staff_id]: { ...bds, amount: e.target.value } }))} />
                 <button className="pr-bale-confirm" disabled={bds.saving} onClick={() => submitBaleDeduct(r.staff_id)}>
                   {bds.saving ? '…' : '✓ Deduct'}
                 </button>
@@ -286,7 +284,7 @@ function PayrollPage({ shopId }) {
         )
       },
     },
-  ], [bales, baleDeduct, baleDeducted])
+  ], [bales, baleDeduct])
 
   const logColumns = React.useMemo(() => [
     {

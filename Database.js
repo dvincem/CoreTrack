@@ -87,7 +87,15 @@ db.serialize(() => {
     // Set default business_date to DATE(sale_datetime) for existing records
     db.run(`UPDATE sale_header SET business_date = DATE(sale_datetime) WHERE business_date IS NULL`, () => { });
   });
+  db.run(`ALTER TABLE staff_master ADD COLUMN profile_picture TEXT`, () => { });
 });
+
+// Add brand_assets table if it doesn't exist (safe migration)
+db.run(`CREATE TABLE IF NOT EXISTS brand_assets (
+  brand_name TEXT PRIMARY KEY,
+  logo_url TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`, () => {});
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 function initializeDatabase() {

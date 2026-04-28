@@ -13,6 +13,8 @@ app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 // Serve built frontend in production
 app.use(express.static(path.join(__dirname, "dist")));
+// Serve uploaded logos and other assets from the public directory
+app.use(express.static(path.join(__dirname, "public")));
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const { authMiddleware } = require("./middleware/auth");
@@ -43,6 +45,8 @@ const { router: backupRouter, runBackupToFile } = require("./routes/backup");
 const purchasesRouter    = require("./routes/purchases");
 const credentialsRouter  = require("./routes/credentials");
 const reportsRouter      = require("./routes/reports");
+const profileRouter      = require("./routes/profile");
+const brandsRouter       = require("./routes/brands");
 
 app.use("/api", shopsRouter);
 app.use("/api", itemsRouter);
@@ -62,6 +66,8 @@ app.use("/api", backupRouter);
 app.use("/api", purchasesRouter);
 app.use("/api", credentialsRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api", profileRouter);
+app.use("/api", brandsRouter);
 
 // ── AUTO-BACKUP ENGINE (Every 30 Minutes) ──────────────────────────────────
 let isBackupRunning = false;
@@ -253,11 +259,26 @@ app.get("*", (_req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", async () => {
+  const os = require('os');
+  function getLocalIP() {
+    const interfaces = os.networkInterfaces();
+    for (const devName in interfaces) {
+      const iface = interfaces[devName];
+      for (let i = 0; i < iface.length; i++) {
+        const alias = iface[i];
+        if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+          return alias.address;
+        }
+      }
+    }
+    return 'localhost';
+  }
+
   console.log(`\n${"=".repeat(70)}`);
   console.log(`CoreTrack Server Running`);
   console.log(`${"=".repeat(70)}`);
   console.log(`Local:   http://localhost:${PORT}`);
-  console.log(`Network: http://192.168.254.137:${PORT}`);
+  console.log(`Network: http://${getLocalIP()}:${PORT}`);
   console.log(`Database: tire_shop.db`);
   
   // ── On-Boot Indexing & Diagnostics ──

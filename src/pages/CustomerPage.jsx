@@ -61,7 +61,7 @@ function CustomerPage({ shopId }) {
   React.useEffect(() => {
     if (!shopId) return
     apiFetch(`${API_URL}/customers-kpi/${shopId}`)
-      .then(r => r.json()).then(d => { if (!d.error) setKpi(d) }).catch(() => {})
+      .then(r => r.json()).then(d => { if (!d.error) setKpi(d) }).catch(() => { })
   }, [shopId])
 
   function openDetail(c) {
@@ -92,7 +92,7 @@ function CustomerPage({ shopId }) {
             method: 'POST',
             body: JSON.stringify({ customer_id: data.customer_id, plate_number: addForm.car_plate_number.trim() }),
           })
-        } catch {}
+        } catch { }
       }
       setShowAdd(false); setAddForm(BLANK_FORM)
       fetchCustomers()
@@ -122,7 +122,7 @@ function CustomerPage({ shopId }) {
       const r = await apiFetch(`${API_URL}/customers/${removeTarget.customer_id}`, { method: 'DELETE' })
       if (!r.ok) return
       fetchCustomers()
-    } catch {}
+    } catch { }
     finally { setRemoveTarget(null); setRemoveSaving(false) }
   }
 
@@ -149,12 +149,12 @@ function CustomerPage({ shopId }) {
       if (!r.ok) return
       setDetailCustomer(prev => ({ ...prev, vehicle_plates: prev.vehicle_plates.filter(p => p.plate_id !== plateId) }))
       fetchCustomers()
-    } catch {}
+    } catch { }
   }
 
   // KPIs — from server aggregate; fallback to current-page count while loading
   const withVehicles = kpi?.withVehicles ?? customers.filter(c => c.vehicle_plates?.length > 0).length
-  const companies    = kpi?.companies    ?? customers.filter(c => c.company).length
+  const companies = kpi?.companies ?? customers.filter(c => c.company).length
   const newThisMonth = kpi?.newThisMonth ?? 0
 
   // Suggestions from customer list
@@ -196,324 +196,324 @@ function CustomerPage({ shopId }) {
         }
       `}</style>
       <div className="cp-root">
-      {/* Header row: title + desktop Add button */}
-      <div className="cp-header-row">
-        <div className="th-title-format">Custo<span style={{ color: 'var(--th-sky)' }}>mers</span></div>
-        <button className="cp-btn-add cp-add-desktop" onClick={openAdd}>+ Add Customer</button>
-      </div>
+        {/* Header row: title + desktop Add button */}
+        <div className="cp-header-row">
+          <div className="th-title-format">Custo<span style={{ color: 'var(--th-sky)' }}>mers</span></div>
+          <button className="cp-btn-add cp-add-desktop" onClick={openAdd}>+ Add Customer</button>
+        </div>
 
-      {/* KPI Cards */}
-      <div className="th-kpi-row">
-        <KpiCard label="Total Customers" value={kpi?.totalCustomers ?? cuTotal}  accent="sky"    loading={loading} />
-        <KpiCard label="With Vehicles"   value={withVehicles}      accent="violet" loading={loading} />
-        <KpiCard label="Companies / B2B" value={companies}         accent="amber"  loading={loading} />
-        <KpiCard label="New This Month"  value={newThisMonth}      accent="emerald" loading={loading} />
-      </div>
+        {/* KPI Cards */}
+        <div className="th-kpi-row">
+          <KpiCard label="Total Customers" value={kpi?.totalCustomers ?? cuTotal} accent="sky" loading={loading} />
+          <KpiCard label="With Vehicles" value={withVehicles} accent="violet" loading={loading} />
+          <KpiCard label="Companies / B2B" value={companies} accent="amber" loading={loading} />
+          <KpiCard label="New This Month" value={newThisMonth} accent="emerald" loading={loading} />
+        </div>
 
-      {/* Filter Header */}
-      <FilterHeader
-        searchProps={{
-          value: search,
-          onChange: (v) => { setSearch(v); setCuPage(1); },
-          placeholder: "Search name, ID, company, phone…",
-          suggestions: suggestions,
-          onSuggestionSelect: (s) => { setSearch(s.text); setCuPage(1); },
-          resultCount: search.trim() ? filtered.length : undefined,
-          resultLabel: "customers",
-        }}
-        filters={[
-          { label: "All", value: "All", active: filter === "All" },
-          { label: "With Vehicles", value: "With Vehicles", active: filter === "With Vehicles" },
-          { label: "Companies", value: "Companies", active: filter === "Companies" },
-        ]}
-        onFilterChange={setFilter}
-        accentColor="var(--th-sky)"
-      />
+        {/* Filter Header */}
+        <FilterHeader
+          searchProps={{
+            value: search,
+            onChange: (v) => { setSearch(v); setCuPage(1); },
+            placeholder: "Search name, ID, company, phone…",
+            suggestions: suggestions,
+            onSuggestionSelect: (s) => { setSearch(s.text); setCuPage(1); },
+            resultCount: search.trim() ? filtered.length : undefined,
+            resultLabel: "customers",
+          }}
+          filters={[
+            { label: "All", value: "All", active: filter === "All" },
+            { label: "With Vehicles", value: "With Vehicles", active: filter === "With Vehicles" },
+            { label: "Companies", value: "Companies", active: filter === "Companies" },
+          ]}
+          onFilterChange={setFilter}
+          accentColor="var(--th-sky)"
+        />
 
-      {/* Mobile-only Add button */}
-      <button className="cp-btn-add cp-add-mobile" onClick={openAdd}>+ Add Customer</button>
+        {/* Mobile-only Add button */}
+        <button className="cp-btn-add cp-add-mobile" onClick={openAdd}>+ Add Customer</button>
 
-      {/* Table */}
-      <div className="th-section-label">Customer Directory</div>
-      <div className="cp-table-card">
-        {loading ? (
-          <table className="cp-table"><tbody><SkeletonRows rows={7} cols={4} widths={['w60','w40','w30','w20']} /></tbody></table>
-        ) : filtered.length === 0 ? (
-          <div className="cp-empty">{search || filter !== 'All' ? 'No customers match the filter.' : 'No customers found. Click "+ Add Customer" to get started.'}</div>
-        ) : (
-          <>
-            <div className="cp-table-scroll">
-              <table className="cp-table">
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Company</th>
-                    <th>Contact</th>
-                    <th>Vehicles</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paged.map(c => (
-                    <tr key={c.customer_id} style={{ cursor:'pointer' }} onClick={() => openDetail(c)}>
-                      <td>
-                        <div className="cp-name">{c.customer_name}</div>
-                        <div className="cp-code">{c.customer_code}</div>
-                      </td>
-                      <td>
-                        {c.company
-                          ? <div className="cp-company">{c.company}</div>
-                          : <span style={{ color:'var(--th-text-faint)' }}>—</span>}
-                      </td>
-                      <td>
-                        {c.contact_number
-                          ? <div className="cp-phone">{c.contact_number}</div>
-                          : <span style={{ color:'var(--th-text-faint)' }}>—</span>}
-                        {c.address && <div style={{ fontSize:'0.76rem', color:'var(--th-text-dim)', marginTop:'0.15rem', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.address}</div>}
-                      </td>
-                      <td>
-                        {c.vehicle_plates?.length > 0 ? (
-                          <div>
-                            {c.vehicle_plates.slice(0, 2).map((p, i) => <span key={i} className="cp-plate-chip">{p.plate_number}</span>)}
-                            {c.vehicle_plates.length > 2 && <span className="cp-more-chip">+{c.vehicle_plates.length - 2}</span>}
-                          </div>
-                        ) : <span style={{ color:'var(--th-text-faint)' }}>—</span>}
-                      </td>
+        {/* Table */}
+        <div className="th-section-label">Customer Directory</div>
+        <div className="cp-table-card">
+          {loading ? (
+            <table className="cp-table"><tbody><SkeletonRows rows={7} cols={4} widths={['w60', 'w40', 'w30', 'w20']} /></tbody></table>
+          ) : filtered.length === 0 ? (
+            <div className="cp-empty">{search || filter !== 'All' ? 'No customers match the filter.' : 'No customers found. Click "+ Add Customer" to get started.'}</div>
+          ) : (
+            <>
+              <div className="cp-table-scroll">
+                <table className="cp-table">
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Company</th>
+                      <th>Contact</th>
+                      <th>Vehicles</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Pagination currentPage={cuPage} totalPages={cuTotalPages} onPageChange={setCuPage} />
-          </>
-        )}
-      </div>
+                  </thead>
+                  <tbody>
+                    {paged.map(c => (
+                      <tr key={c.customer_id} style={{ cursor: 'pointer' }} onClick={() => openDetail(c)}>
+                        <td>
+                          <div className="cp-name">{c.customer_name}</div>
+                          <div className="cp-code">{c.customer_code}</div>
+                        </td>
+                        <td>
+                          {c.company
+                            ? <div className="cp-company">{c.company}</div>
+                            : <span style={{ color: 'var(--th-text-faint)' }}>—</span>}
+                        </td>
+                        <td>
+                          {c.contact_number
+                            ? <div className="cp-phone">{c.contact_number}</div>
+                            : <span style={{ color: 'var(--th-text-faint)' }}>—</span>}
+                          {c.address && <div style={{ fontSize: '0.76rem', color: 'var(--th-text-dim)', marginTop: '0.15rem', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address}</div>}
+                        </td>
+                        <td>
+                          {c.vehicle_plates?.length > 0 ? (
+                            <div>
+                              {c.vehicle_plates.slice(0, 2).map((p, i) => <span key={i} className="cp-plate-chip">{p.plate_number}</span>)}
+                              {c.vehicle_plates.length > 2 && <span className="cp-more-chip">+{c.vehicle_plates.length - 2}</span>}
+                            </div>
+                          ) : <span style={{ color: 'var(--th-text-faint)' }}>—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination currentPage={cuPage} totalPages={cuTotalPages} onPageChange={setCuPage} />
+            </>
+          )}
+        </div>
 
-      {/* Add Customer Modal */}
-      {showAdd && (
-        <div className="cp-overlay" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
-          <div className="cp-modal">
-            <div className="cp-modal-title">
-              New Customer
-              <button className="cp-modal-close" onClick={() => setShowAdd(false)}>✕</button>
-            </div>
-            {/* Row 1: Name + Company */}
-            <div className="cp-modal-grid">
-              <div className="cp-modal-field">
-                <label className="cp-modal-label">Customer Name *</label>
-                <input className="cp-modal-input" placeholder="Full name" value={addForm.customer_name} onChange={e => setAddForm(f => ({...f, customer_name: e.target.value}))} autoFocus />
+        {/* Add Customer Modal */}
+        {showAdd && (
+          <div className="cp-overlay" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
+            <div className="cp-modal">
+              <div className="cp-modal-title">
+                New Customer
+                <button className="cp-modal-close" onClick={() => setShowAdd(false)}>✕</button>
               </div>
+              {/* Row 1: Name + Company */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Customer/Company Name *</label>
+                  <input className="cp-modal-input" placeholder="Full name" value={addForm.customer_name} onChange={e => setAddForm(f => ({ ...f, customer_name: e.target.value }))} autoFocus />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Contact person</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={addForm.company} onChange={e => setAddForm(f => ({ ...f, company: e.target.value }))} />
+                </div>
+              </div>
+              {/* Row 2: Contact + Car Plate */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Contact Number</label>
+                  <input className="cp-modal-input" type="tel" placeholder="Optional" value={addForm.contact_number} onChange={e => setAddForm(f => ({ ...f, contact_number: e.target.value }))} />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Car Plate</label>
+                  <input className="cp-modal-input" placeholder="e.g. ABC-1234" value={addForm.car_plate_number} onChange={e => setAddForm(f => ({ ...f, car_plate_number: e.target.value }))} />
+                </div>
+              </div>
+              {/* Row 3: Address */}
               <div className="cp-modal-field">
-                <label className="cp-modal-label">Company</label>
-                <input className="cp-modal-input" placeholder="Optional" value={addForm.company} onChange={e => setAddForm(f => ({...f, company: e.target.value}))} />
+                <label className="cp-modal-label">Address</label>
+                <input className="cp-modal-input" placeholder="Optional" value={addForm.address} onChange={e => setAddForm(f => ({ ...f, address: e.target.value }))} />
+              </div>
+              {addError && <div className="cp-modal-error">{addError}</div>}
+              {/* Row 4: Actions footer */}
+              <div className="cp-modal-actions">
+                <button className="cp-modal-cancel" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button className="cp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Customer'}</button>
               </div>
             </div>
-            {/* Row 2: Contact + Car Plate */}
-            <div className="cp-modal-grid">
+          </div>
+        )}
+
+        {/* Edit Customer Modal */}
+        {editTarget && (
+          <div className="cp-overlay" onClick={e => e.target === e.currentTarget && setEditTarget(null)}>
+            <div className="cp-modal">
+              <div className="cp-modal-title">
+                Edit Customer
+                <button className="cp-modal-close" onClick={() => setEditTarget(null)}>✕</button>
+              </div>
+              {/* Row 1: Name + Company */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Customer Name *</label>
+                  <input className="cp-modal-input" value={editForm.customer_name} onChange={e => setEditForm(f => ({ ...f, customer_name: e.target.value }))} autoFocus />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Company</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={editForm.company} onChange={e => setEditForm(f => ({ ...f, company: e.target.value }))} />
+                </div>
+              </div>
+              {/* Row 2: Contact Number */}
               <div className="cp-modal-field">
                 <label className="cp-modal-label">Contact Number</label>
-                <input className="cp-modal-input" type="tel" placeholder="Optional" value={addForm.contact_number} onChange={e => setAddForm(f => ({...f, contact_number: e.target.value}))} />
+                <input className="cp-modal-input" type="tel" placeholder="Optional" value={editForm.contact_number} onChange={e => setEditForm(f => ({ ...f, contact_number: e.target.value }))} />
               </div>
+              {/* Row 3: Address */}
               <div className="cp-modal-field">
-                <label className="cp-modal-label">Car Plate</label>
-                <input className="cp-modal-input" placeholder="e.g. ABC-1234" value={addForm.car_plate_number} onChange={e => setAddForm(f => ({...f, car_plate_number: e.target.value}))} />
+                <label className="cp-modal-label">Address</label>
+                <input className="cp-modal-input" placeholder="Optional" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
               </div>
-            </div>
-            {/* Row 3: Address */}
-            <div className="cp-modal-field">
-              <label className="cp-modal-label">Address</label>
-              <input className="cp-modal-input" placeholder="Optional" value={addForm.address} onChange={e => setAddForm(f => ({...f, address: e.target.value}))} />
-            </div>
-            {addError && <div className="cp-modal-error">{addError}</div>}
-            {/* Row 4: Actions footer */}
-            <div className="cp-modal-actions">
-              <button className="cp-modal-cancel" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="cp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Customer'}</button>
+              {editError && <div className="cp-modal-error">{editError}</div>}
+              {/* Row 4: Actions footer */}
+              <div className="cp-modal-actions">
+                <button className="cp-modal-cancel" onClick={() => setEditTarget(null)}>Cancel</button>
+                <button className="cp-modal-ok" onClick={handleEdit} disabled={editSaving}>{editSaving ? 'Saving…' : '✓ Save Changes'}</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Edit Customer Modal */}
-      {editTarget && (
-        <div className="cp-overlay" onClick={e => e.target === e.currentTarget && setEditTarget(null)}>
-          <div className="cp-modal">
-            <div className="cp-modal-title">
-              Edit Customer
-              <button className="cp-modal-close" onClick={() => setEditTarget(null)}>✕</button>
-            </div>
-            {/* Row 1: Name + Company */}
-            <div className="cp-modal-grid">
-              <div className="cp-modal-field">
-                <label className="cp-modal-label">Customer Name *</label>
-                <input className="cp-modal-input" value={editForm.customer_name} onChange={e => setEditForm(f => ({...f, customer_name: e.target.value}))} autoFocus />
+        {/* Remove Confirm Modal */}
+        {removeTarget && (
+          <div className="cp-overlay" style={{ zIndex: 1100 }} onClick={e => e.target === e.currentTarget && setRemoveTarget(null)}>
+            <div className="cp-modal">
+              <div className="cp-modal-title" style={{ color: 'var(--th-rose)' }}>Remove Customer?</div>
+              <p style={{ fontSize: '0.88rem', color: 'var(--th-text-body)', marginBottom: '1rem' }}>
+                <b>{removeTarget.customer_name}</b> will be permanently deleted.
+              </p>
+              <div style={{ background: 'var(--th-bg-card-alt)', border: '1px solid var(--th-border)', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>Name</span><span style={{ fontWeight: 700 }}>{removeTarget.customer_name}</span></div>
+                {removeTarget.customer_code && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>ID</span><span style={{ fontFamily: 'monospace' }}>{removeTarget.customer_code}</span></div>}
+                {removeTarget.contact_number && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>Contact</span><span>{removeTarget.contact_number}</span></div>}
               </div>
-              <div className="cp-modal-field">
-                <label className="cp-modal-label">Company</label>
-                <input className="cp-modal-input" placeholder="Optional" value={editForm.company} onChange={e => setEditForm(f => ({...f, company: e.target.value}))} />
+              <div className="cp-modal-actions">
+                <button className="cp-modal-cancel" onClick={() => setRemoveTarget(null)}>Cancel</button>
+                <button className="cp-modal-ok danger" onClick={handleRemove} disabled={removeSaving}>{removeSaving ? 'Removing…' : 'Remove'}</button>
               </div>
             </div>
-            {/* Row 2: Contact Number */}
-            <div className="cp-modal-field">
-              <label className="cp-modal-label">Contact Number</label>
-              <input className="cp-modal-input" type="tel" placeholder="Optional" value={editForm.contact_number} onChange={e => setEditForm(f => ({...f, contact_number: e.target.value}))} />
-            </div>
-            {/* Row 3: Address */}
-            <div className="cp-modal-field">
-              <label className="cp-modal-label">Address</label>
-              <input className="cp-modal-input" placeholder="Optional" value={editForm.address} onChange={e => setEditForm(f => ({...f, address: e.target.value}))} />
-            </div>
-            {editError && <div className="cp-modal-error">{editError}</div>}
-            {/* Row 4: Actions footer */}
-            <div className="cp-modal-actions">
-              <button className="cp-modal-cancel" onClick={() => setEditTarget(null)}>Cancel</button>
-              <button className="cp-modal-ok" onClick={handleEdit} disabled={editSaving}>{editSaving ? 'Saving…' : '✓ Save Changes'}</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Remove Confirm Modal */}
-      {removeTarget && (
-        <div className="cp-overlay" style={{ zIndex: 1100 }} onClick={e => e.target === e.currentTarget && setRemoveTarget(null)}>
-          <div className="cp-modal">
-            <div className="cp-modal-title" style={{ color:'var(--th-rose)' }}>Remove Customer?</div>
-            <p style={{ fontSize:'0.88rem', color:'var(--th-text-body)', marginBottom:'1rem' }}>
-              <b>{removeTarget.customer_name}</b> will be permanently deleted.
-            </p>
-            <div style={{ background:'var(--th-bg-card-alt)', border:'1px solid var(--th-border)', borderRadius:8, padding:'0.7rem 1rem', marginBottom:'1rem', fontSize:'0.85rem', display:'flex', flexDirection:'column', gap:'0.3rem' }}>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span style={{ color:'var(--th-text-faint)', fontSize:'0.78rem', textTransform:'uppercase', fontWeight:600 }}>Name</span><span style={{ fontWeight:700 }}>{removeTarget.customer_name}</span></div>
-              {removeTarget.customer_code && <div style={{ display:'flex', justifyContent:'space-between' }}><span style={{ color:'var(--th-text-faint)', fontSize:'0.78rem', textTransform:'uppercase', fontWeight:600 }}>ID</span><span style={{ fontFamily:'monospace' }}>{removeTarget.customer_code}</span></div>}
-              {removeTarget.contact_number && <div style={{ display:'flex', justifyContent:'space-between' }}><span style={{ color:'var(--th-text-faint)', fontSize:'0.78rem', textTransform:'uppercase', fontWeight:600 }}>Contact</span><span>{removeTarget.contact_number}</span></div>}
-            </div>
-            <div className="cp-modal-actions">
-              <button className="cp-modal-cancel" onClick={() => setRemoveTarget(null)}>Cancel</button>
-              <button className="cp-modal-ok danger" onClick={handleRemove} disabled={removeSaving}>{removeSaving ? 'Removing…' : 'Remove'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Detail Modal — inv-history pattern */}
-      {detailCustomer && (
-        <div className="hist-modal-overlay" onClick={e => e.target === e.currentTarget && setDetailCustomer(null)}>
-          <div className="inv-history cp-detail-modal">
-            {/* Sticky header */}
-            <div className="inv-hist-header">
-              <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', minWidth:0 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--th-sky)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <div style={{ minWidth:0 }}>
-                  <div className="inv-hist-item-name" style={{ color:'var(--th-sky)' }}>{detailCustomer.customer_name}</div>
-                  <div className="inv-hist-item-sku">{detailCustomer.customer_code}</div>
+        {/* Customer Detail Modal — inv-history pattern */}
+        {detailCustomer && (
+          <div className="hist-modal-overlay" onClick={e => e.target === e.currentTarget && setDetailCustomer(null)}>
+            <div className="inv-history cp-detail-modal">
+              {/* Sticky header */}
+              <div className="inv-hist-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--th-sky)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="inv-hist-item-name" style={{ color: 'var(--th-sky)' }}>{detailCustomer.customer_name}</div>
+                    <div className="inv-hist-item-sku">{detailCustomer.customer_code}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                  <button className="cp-btn-edit" onClick={() => {
+                    setEditTarget(detailCustomer)
+                    setEditForm({ customer_name: detailCustomer.customer_name, company: detailCustomer.company || '', contact_number: detailCustomer.contact_number || '', address: detailCustomer.address || '', car_plate_number: '' })
+                    setEditError('')
+                    setDetailCustomer(null)
+                  }}>Edit</button>
+                  <button className="inv-hist-close" onClick={() => setDetailCustomer(null)}>✕</button>
                 </div>
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexShrink:0 }}>
-                <button className="cp-btn-edit" onClick={() => {
-                  setEditTarget(detailCustomer)
-                  setEditForm({ customer_name: detailCustomer.customer_name, company: detailCustomer.company||'', contact_number: detailCustomer.contact_number||'', address: detailCustomer.address||'', car_plate_number:'' })
-                  setEditError('')
-                  setDetailCustomer(null)
-                }}>Edit</button>
-                <button className="inv-hist-close" onClick={() => setDetailCustomer(null)}>✕</button>
-              </div>
-            </div>
 
-            {/* Scrollable body */}
-            <div className="inv-hist-body">
-              {detailError && <div className="cp-modal-error" style={{ marginBottom:'0.75rem' }}>{detailError}</div>}
+              {/* Scrollable body */}
+              <div className="inv-hist-body">
+                {detailError && <div className="cp-modal-error" style={{ marginBottom: '0.75rem' }}>{detailError}</div>}
 
-              {/* KPI stats card */}
-              <div className="inv-hist-item-card">
-                <div className="inv-hist-stats">
-                  {detailCustomer.company && (
+                {/* KPI stats card */}
+                <div className="inv-hist-item-card">
+                  <div className="inv-hist-stats">
+                    {detailCustomer.company && (
+                      <div className="inv-hist-stat">
+                        <div className="inv-hist-stat-label">Company</div>
+                        <div className="inv-hist-stat-val sky">{detailCustomer.company}</div>
+                      </div>
+                    )}
+                    {detailCustomer.contact_number && (
+                      <div className="inv-hist-stat">
+                        <div className="inv-hist-stat-label">Contact</div>
+                        <div className="inv-hist-stat-val emerald">{detailCustomer.contact_number}</div>
+                      </div>
+                    )}
                     <div className="inv-hist-stat">
-                      <div className="inv-hist-stat-label">Company</div>
-                      <div className="inv-hist-stat-val sky">{detailCustomer.company}</div>
+                      <div className="inv-hist-stat-label">Vehicles</div>
+                      <div className="inv-hist-stat-val violet">{detailCustomer.vehicle_plates?.length || 0}</div>
                     </div>
-                  )}
-                  {detailCustomer.contact_number && (
                     <div className="inv-hist-stat">
-                      <div className="inv-hist-stat-label">Contact</div>
-                      <div className="inv-hist-stat-val emerald">{detailCustomer.contact_number}</div>
+                      <div className="inv-hist-stat-label">Member Since</div>
+                      <div className="inv-hist-stat-val">{new Date(detailCustomer.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                     </div>
-                  )}
-                  <div className="inv-hist-stat">
-                    <div className="inv-hist-stat-label">Vehicles</div>
-                    <div className="inv-hist-stat-val violet">{detailCustomer.vehicle_plates?.length || 0}</div>
-                  </div>
-                  <div className="inv-hist-stat">
-                    <div className="inv-hist-stat-label">Member Since</div>
-                    <div className="inv-hist-stat-val">{new Date(detailCustomer.created_at).toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' })}</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Address */}
-              {detailCustomer.address && (
-                <div className="inv-hist-entry other" style={{ flexDirection:'column', alignItems:'flex-start', gap:'0.2rem' }}>
-                  <span className="cp-detail-label">Address</span>
-                  <span style={{ color:'var(--th-text-body)', fontSize:'0.88rem' }}>{detailCustomer.address}</span>
-                </div>
-              )}
-
-              {/* Vehicle Plates */}
-              <div className="cp-section-head" style={{ marginTop:'0.25rem' }}>
-                <span>Vehicle Plates ({detailCustomer.vehicle_plates?.length || 0})</span>
-                <button className="cp-btn-view" onClick={() => setShowPlateForm(v => !v)}>{showPlateForm ? 'Cancel' : '+ Add'}</button>
-              </div>
-              {showPlateForm && (
-                <div className="cp-add-plate-row">
-                  <input className="cp-modal-input" style={{ flex:1 }} placeholder="e.g. ABC-1234" value={plateInput} onChange={e => setPlateInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddPlate()} autoFocus />
-                  <button className="cp-modal-ok" style={{ flex:'0 0 auto', padding:'0.5rem 1rem', marginTop:0 }} onClick={handleAddPlate} disabled={plateSaving}>{plateSaving ? <span className="cp-spinner" /> : 'Add'}</button>
-                </div>
-              )}
-              <div className="cp-plates-wrap" style={{ marginBottom:'0.85rem' }}>
-                {detailCustomer.vehicle_plates?.length > 0 ? (
-                  detailCustomer.vehicle_plates.map(p => (
-                    <div key={p.plate_id} className="cp-plate-row">
-                      <span className="cp-plate-num">{p.plate_number}</span>
-                      <button className="cp-plate-del" onClick={() => handleDeletePlate(p.plate_id)}>✕ Remove</button>
-                    </div>
-                  ))
-                ) : <div className="cp-plate-empty">No vehicles registered yet</div>}
-              </div>
-
-              {/* Transaction History */}
-              <div className="cp-section-head">
-                <span>Transaction History</span>
-                <span style={{ background:'var(--th-sky-bg)', color:'var(--th-sky)', borderRadius:20, padding:'0.1rem 0.5rem', fontSize:'0.72rem', fontWeight:700 }}>{customerSales.length}</span>
-              </div>
-              <div className="cp-history-wrap">
-                {loadingSales ? (
-                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--th-text-faint)', fontSize:'0.82rem', padding:'0.5rem 0' }}><div className="th-spinner th-spinner-sm" />Loading…</div>
-                ) : customerSales.length === 0 ? (
-                  <div style={{ color:'var(--th-text-faint)', fontSize:'0.82rem', textAlign:'center', padding:'0.75rem' }}>No transactions recorded yet.</div>
-                ) : customerSales.map(s => (
-                  <div key={s.sale_id} className="cp-sale-card">
-                    <div className="cp-sale-row">
-                      <span className="cp-sale-id">{s.sale_id}</span>
-                      <span className="cp-sale-amount">₱{Number(s.total_amount).toLocaleString('en-PH', { minimumFractionDigits:2 })}</span>
-                    </div>
-                    <div className="cp-sale-meta">
-                      {new Date(s.sale_datetime).toLocaleString('en-PH', { dateStyle:'medium', timeStyle:'short' })}
-                      {s.staff_name && <span style={{ marginLeft:'0.45rem', color:'var(--th-text-faint)' }}>· {s.staff_name}</span>}
-                    </div>
-                    {s.items_summary && <div className="cp-sale-items">{s.items_summary}</div>}
+                {/* Address */}
+                {detailCustomer.address && (
+                  <div className="inv-hist-entry other" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.2rem' }}>
+                    <span className="cp-detail-label">Address</span>
+                    <span style={{ color: 'var(--th-text-body)', fontSize: '0.88rem' }}>{detailCustomer.address}</span>
                   </div>
-                ))}
-              </div>
+                )}
 
-              {/* Remove link */}
-              <div style={{ marginTop:'1rem', paddingTop:'0.85rem', borderTop:'1px solid var(--th-border)' }}>
-                <button style={{ background:'none', border:'none', color:'var(--th-text-faint)', fontSize:'0.78rem', cursor:'pointer', padding:'0', textDecoration:'underline', textUnderlineOffset:'3px' }} onClick={() => { setRemoveTarget(detailCustomer); setDetailCustomer(null) }}>
-                  Remove this customer
-                </button>
+                {/* Vehicle Plates */}
+                <div className="cp-section-head" style={{ marginTop: '0.25rem' }}>
+                  <span>Vehicle Plates ({detailCustomer.vehicle_plates?.length || 0})</span>
+                  <button className="cp-btn-view" onClick={() => setShowPlateForm(v => !v)}>{showPlateForm ? 'Cancel' : '+ Add'}</button>
+                </div>
+                {showPlateForm && (
+                  <div className="cp-add-plate-row">
+                    <input className="cp-modal-input" style={{ flex: 1 }} placeholder="e.g. ABC-1234" value={plateInput} onChange={e => setPlateInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddPlate()} autoFocus />
+                    <button className="cp-modal-ok" style={{ flex: '0 0 auto', padding: '0.5rem 1rem', marginTop: 0 }} onClick={handleAddPlate} disabled={plateSaving}>{plateSaving ? <span className="cp-spinner" /> : 'Add'}</button>
+                  </div>
+                )}
+                <div className="cp-plates-wrap" style={{ marginBottom: '0.85rem' }}>
+                  {detailCustomer.vehicle_plates?.length > 0 ? (
+                    detailCustomer.vehicle_plates.map(p => (
+                      <div key={p.plate_id} className="cp-plate-row">
+                        <span className="cp-plate-num">{p.plate_number}</span>
+                        <button className="cp-plate-del" onClick={() => handleDeletePlate(p.plate_id)}>✕ Remove</button>
+                      </div>
+                    ))
+                  ) : <div className="cp-plate-empty">No vehicles registered yet</div>}
+                </div>
+
+                {/* Transaction History */}
+                <div className="cp-section-head">
+                  <span>Transaction History</span>
+                  <span style={{ background: 'var(--th-sky-bg)', color: 'var(--th-sky)', borderRadius: 20, padding: '0.1rem 0.5rem', fontSize: '0.72rem', fontWeight: 700 }}>{customerSales.length}</span>
+                </div>
+                <div className="cp-history-wrap">
+                  {loadingSales ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--th-text-faint)', fontSize: '0.82rem', padding: '0.5rem 0' }}><div className="th-spinner th-spinner-sm" />Loading…</div>
+                  ) : customerSales.length === 0 ? (
+                    <div style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem', textAlign: 'center', padding: '0.75rem' }}>No transactions recorded yet.</div>
+                  ) : customerSales.map(s => (
+                    <div key={s.sale_id} className="cp-sale-card">
+                      <div className="cp-sale-row">
+                        <span className="cp-sale-id">{s.sale_id}</span>
+                        <span className="cp-sale-amount">₱{Number(s.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="cp-sale-meta">
+                        {new Date(s.sale_datetime).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                        {s.staff_name && <span style={{ marginLeft: '0.45rem', color: 'var(--th-text-faint)' }}>· {s.staff_name}</span>}
+                      </div>
+                      {s.items_summary && <div className="cp-sale-items">{s.items_summary}</div>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Remove link */}
+                <div style={{ marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--th-border)' }}>
+                  <button style={{ background: 'none', border: 'none', color: 'var(--th-text-faint)', fontSize: '0.78rem', cursor: 'pointer', padding: '0', textDecoration: 'underline', textUnderlineOffset: '3px' }} onClick={() => { setRemoveTarget(detailCustomer); setDetailCustomer(null) }}>
+                    Remove this customer
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  </>
+        )}
+      </div>
+    </>
   )
 }
 
