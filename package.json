@@ -2,11 +2,11 @@
   "name": "tire-shop-management",
   "version": "1.0.0",
   "description": "Complete tire shop inventory, POS, and operations management system",
-  "main": "Server.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node Server.js",
-    "dev": "concurrently \"nodemon Server.js\" \"vite\"",
-    "dev:api": "nodemon Server.js",
+    "start": "node server.js",
+    "dev": "concurrently \"nodemon server.js\" \"vite\"",
+    "dev:api": "nodemon server.js",
     "dev:ui": "vite",
     "build": "vite build",
     "preview": "vite preview"

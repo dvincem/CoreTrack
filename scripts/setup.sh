@@ -19,29 +19,38 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🚀 Starting CoreTrack Automated Setup...${NC}"
 
 # --- PHASE 1: SYSTEM PREPARATION ---
-echo -e "${YELLOW}🛠 Phase 1: Installing Core Dependencies...${NC}"
-apt update && apt upgrade -y
-apt install -y build-essential curl git ufw sqlite3
+echo -e "${YELLOW}🛠 Phase 1: Checking System Dependencies...${NC}"
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${YELLOW}Notice: Not running as root. Skipping system package installation (apt).${NC}"
+    echo -e "${YELLOW}Ensure node, npm, sqlite3, and build-essential are installed.${NC}"
+else
+    apt update && apt upgrade -y
+    apt install -y build-essential curl git ufw sqlite3
 
-echo -e "${YELLOW}📦 Installing Node.js 20 LTS...${NC}"
-if ! command -v node &> /dev/null || [[ $(node -v) != v20* ]]; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt install -y nodejs
-fi
+    echo -e "${YELLOW}📦 Installing Node.js 20 LTS...${NC}"
+    if ! command -v node &> /dev/null || [[ $(node -v) != v20* ]]; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt install -y nodejs
+    fi
 
-if ! command -v pm2 &> /dev/null; then
-    echo -e "${BLUE}Installing PM2...${NC}"
-    npm install -g pm2
+    if ! command -v pm2 &> /dev/null; then
+        echo -e "${BLUE}Installing PM2...${NC}"
+        npm install -g pm2
+    fi
 fi
 
 # --- PHASE 2: NETWORK CONFIGURATION ---
 echo -e "${YELLOW}🌐 Phase 2: Configuring Firewall...${NC}"
-ufw allow 3000/tcp
-ufw allow 22/tcp # Keep SSH open!
-ufw --force enable
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${YELLOW}Notice: Not running as root. Skipping firewall configuration (ufw).${NC}"
+else
+    ufw allow 3000/tcp
+    ufw allow 22/tcp # Keep SSH open!
+    ufw --force enable
+fi
 
-LOCAL_IP=$(hostname -I | awk '{print $1}')
-echo -e "${GREEN}✅ Firewall active. Your Local IP is: ${LOCAL_IP}${NC}"
+LOCAL_IP=$(hostname -I | awk '{print $1}' || echo "localhost")
+echo -e "${GREEN}✅ Local IP identified as: ${LOCAL_IP}${NC}"
 
 # --- PHASE 3: DEPLOYMENT PROCEDURE ---
 echo -e "${YELLOW}🚀 Phase 3: Cloning and Building Application...${NC}"
@@ -70,30 +79,46 @@ npm run build
 # --- PHASE 4: PROCESS MANAGEMENT ---
 echo -e "${YELLOW}⚙️ Phase 4: Setting up Auto-Start with PM2...${NC}"
 pm2 delete coretrack || true
+fuser -k 3000/tcp || true
 pm2 start server.js --name "coretrack"
 pm2 save
 
 # Setup PM2 Startup
 echo -e "${BLUE}Configuring systemd for auto-boot...${NC}"
-PM2_STARTUP=$(pm2 startup systemd | grep "sudo env")
-if [ ! -z "$PM2_STARTUP" ]; then
-    eval "$PM2_STARTUP"
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${YELLOW}Notice: Not running as root. Skipping PM2 systemd startup configuration.${NC}"
+else
+    PM2_STARTUP=$(pm2 startup systemd | grep "sudo env" || true)
+    if [ ! -z "$PM2_STARTUP" ]; then
+        eval "$PM2_STARTUP"
+    fi
 fi
 pm2 save
 
 # --- PHASE 5: INTELLIGENCE LAYER ---
 echo -e "${YELLOW}🧠 Phase 5: Setting up AI Engine (Ollama)...${NC}"
 if ! command -v ollama &> /dev/null; then
-    echo -e "${BLUE}Installing Ollama...${NC}"
-    curl -fsSL https://ollama.com/install.sh | sh
+    if [ "$EUID" -ne 0 ]; then
+        echo -e "${RED}Error: Ollama is not installed and root access is unavailable for installation.${NC}"
+        echo -e "${YELLOW}Please install Ollama manually: https://ollama.com/download${NC}"
+    else
+        echo -e "${BLUE}Installing Ollama...${NC}"
+        curl -fsSL https://ollama.com/install.sh | sh
+    fi
 fi
 
 # Ensure Ollama service is running
-systemctl enable ollama || true
-systemctl start ollama || true
+if [ "$EUID" -eq 0 ]; then
+    systemctl enable ollama || true
+    systemctl start ollama || true
+else
+    echo -e "${YELLOW}Notice: Not running as root. Assuming Ollama service is managed externally or already running.${NC}"
+fi
 
-echo -e "${BLUE}Pulling Llama 3.2:3b model...${NC}"
-ollama pull llama3.2:3b
+if command -v ollama &> /dev/null; then
+    echo -e "${BLUE}Pulling Llama 3.2:3b model...${NC}"
+    ollama pull llama3.2:3b
+fi
 
 # --- FINAL SUMMARY ---
 echo -e "\n${GREEN}================================================================${NC}"

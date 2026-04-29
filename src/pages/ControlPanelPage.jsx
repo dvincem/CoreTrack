@@ -2,7 +2,6 @@ import '../pages_css/ControlPanelPage.css';
 import React from 'react'
 import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
 import { DataTable } from '../components/DataTable'
-import * as XLSX from 'xlsx'
 
 
 // Power helpers (mirrors server-side)
@@ -698,10 +697,12 @@ function BulkImportTab({ shopId }) {
       { category: 'SUV',   brand: 'Goodyear', design: 'Wrangler',size: '265/70R17', dot_number: '0824', quantity: 4,  unit_cost: 4500, selling_price: 6800, reorder_point: 5, supplier_id: '' },
       { category: 'VALVE', brand: '',         design: '',         size: '',          dot_number: '',     quantity: 50, unit_cost: 12,   selling_price: 25,   reorder_point: 20,supplier_id: '' },
     ]
-    const ws = XLSX.utils.json_to_sheet(data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'InventoryBasis')
-    XLSX.writeFile(wb, 'CoreTrack_Bulk_Inventory_Basis.xlsx')
+    import('xlsx').then(XLSX => {
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'InventoryBasis')
+      XLSX.writeFile(wb, 'CoreTrack_Bulk_Inventory_Basis.xlsx')
+    })
   }
 
   async function handleBulkImport(rows) {
@@ -787,24 +788,26 @@ function BulkImportTab({ shopId }) {
     setFile(f); setStatus('processing'); setMsg('Reading file\u2026'); setResults(null); setPreviewRows([])
     const reader = new FileReader()
     reader.onload = (e) => {
-      try {
-        const wb   = XLSX.read(e.target.result, { type: 'binary' })
-        const ws   = wb.Sheets[wb.SheetNames[0]]
-        const data = XLSX.utils.sheet_to_json(ws)
-        if (data.length === 0) throw new Error('File is empty.')
-        const fileHeaders = Object.keys(data[0]).map(h => h.toLowerCase().trim())
-        const missing = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h))
-        if (missing.length > 0) throw new Error(`Missing required columns: ${missing.join(', ')}`)
-        const normalized = data.map(row => {
-          const entry = {}
-          Object.keys(row).forEach(k => { entry[k.toLowerCase().trim().replace(/ /g, '_')] = row[k] })
-          return entry
-        })
-        // Show preview — do NOT import yet
-        setPreviewRows(normalized)
-        setStatus('preview')
-        setMsg('')
-      } catch (err) { setStatus('error'); setMsg(err.message) }
+      import('xlsx').then(XLSX => {
+        try {
+          const wb   = XLSX.read(e.target.result, { type: 'binary' })
+          const ws   = wb.Sheets[wb.SheetNames[0]]
+          const data = XLSX.utils.sheet_to_json(ws)
+          if (data.length === 0) throw new Error('File is empty.')
+          const fileHeaders = Object.keys(data[0]).map(h => h.toLowerCase().trim())
+          const missing = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h))
+          if (missing.length > 0) throw new Error(`Missing required columns: ${missing.join(', ')}`)
+          const normalized = data.map(row => {
+            const entry = {}
+            Object.keys(row).forEach(k => { entry[k.toLowerCase().trim().replace(/ /g, '_')] = row[k] })
+            return entry
+          })
+          // Show preview — do NOT import yet
+          setPreviewRows(normalized)
+          setStatus('preview')
+          setMsg('')
+        } catch (err) { setStatus('error'); setMsg(err.message) }
+      })
     }
     reader.readAsBinaryString(f)
   }
