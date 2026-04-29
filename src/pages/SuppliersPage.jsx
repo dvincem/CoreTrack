@@ -1,3 +1,4 @@
+import '../pages_css/SuppliersPage.css';
 import React from 'react'
 import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
 import Pagination from '../components/Pagination'

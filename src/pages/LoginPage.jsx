@@ -1,3 +1,4 @@
+import '../pages_css/LoginPage.css';
 import React from 'react'
 import { API_URL } from '../lib/config'
 
@@ -198,7 +199,8 @@ function LoginPage({ onLogin }) {
         </div>
 
         <div className="lp-right-footer">
-          &copy; {new Date().getFullYear()} CoreTrack. All rights reserved.
+          <span>&copy; {new Date().getFullYear()} CoreTrack. All rights reserved.</span>
+          <span style={{ opacity: 0.6 }}>v2.0</span>
         </div>
       </div>
     </div>

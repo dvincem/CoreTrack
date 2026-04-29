@@ -1,3 +1,4 @@
+import '../pages_css/ExpensesPage.css';
 import React from 'react'
 import { API_URL, currency, compactCurrency, apiFetch } from '../lib/config'
 import KpiCard from '../components/KpiCard'
@@ -429,7 +430,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
       )}
 
       {/* Expenses table */}
-      <div className="pm-section">Expenses List</div>
+      <div className="exp-section">Expenses List</div>
       <DataTable
         columns={expColumns}
         rows={expenses}

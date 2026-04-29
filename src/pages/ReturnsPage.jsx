@@ -1,3 +1,4 @@
+import '../pages_css/ReturnsPage.css';
 import React, { useState, useEffect, useCallback } from "react";
 import { API_URL, apiFetch } from "../lib/config";
 import Pagination from '../components/Pagination'
@@ -56,7 +57,7 @@ const SUPP_REASONS = ["WARRANTY", "WRONG_ITEM", "DEFECTIVE", "OVERSHIPMENT", "OT
 const REFUND_METHODS = ["CASH", "CARD", "STORE_CREDIT", "EXCHANGE"];
 
 /* ─── Component ────────────────────────────────────────────────────────────── */
-export default function ReturnsPage({ shopId }) {
+export default function ReturnsPage({ shopId, isShopClosed }) {
 
   const [tab, setTab] = useState("customer");
 
@@ -488,7 +489,15 @@ export default function ReturnsPage({ shopId }) {
       {/* Header */}
       <div className="ret-header">
         <div>
-          <div className="ret-title">Returns &amp; <span>Adjustments</span></div>
+          <div className="ret-title">
+            Returns &amp; <span>Adjustments</span>
+            {isShopClosed && (
+              <div className="pos-closed-badge" style={{ marginLeft: '1rem', display: 'inline-flex', verticalAlign: 'middle' }}>
+                <span className="pulse"></span>
+                NEXT DAY MODE
+              </div>
+            )}
+          </div>
           <div className="ret-subtitle">Customer returns · Supplier returns · Replacements — all movements are traced as linked transactions</div>
         </div>
       </div>

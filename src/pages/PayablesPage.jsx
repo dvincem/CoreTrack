@@ -1,3 +1,4 @@
+import '../pages_css/PayablesPage.css';
 import React from 'react'
 import { API_URL, currency, compactCurrency, apiFetch, SkeletonRows } from '../lib/config'
 import KpiCard from '../components/KpiCard'

@@ -1,0 +1,559 @@
+/*
+ * LoginPage.css
+ * Extracted from styles.css (lines 6878–7348)
+ * Do not edit class names — JSX uses these selectors as-is.
+ */
+/* â•â•â• PAGE: LoginPage â•â•â• */
+@keyframes lpShake {
+
+  0%,
+  100% {
+    transform: translateX(0)
+  }
+
+  20% {
+    transform: translateX(-7px)
+  }
+
+  40% {
+    transform: translateX(7px)
+  }
+
+  60% {
+    transform: translateX(-4px)
+  }
+
+  80% {
+    transform: translateX(4px)
+  }
+}
+
+@keyframes lpSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lpFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* â”€â”€ Root layout â”€â”€ */
+.lp-wrap {
+  display: flex;
+  min-height: 100vh;
+  background: #0a0f1a;
+}
+
+/* â•â• LEFT BRAND PANEL â•â• */
+.lp-brand {
+  flex: 1.1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 3rem 3.5rem;
+  background: linear-gradient(135deg, #080d16 0%, #0f1b2e 45%, #0d1525 100%);
+}
+
+/* Mesh grid */
+.lp-mesh {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* Orbs */
+.lp-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+}
+
+.lp-orb1 {
+  width: 480px;
+  height: 480px;
+  background: rgba(249, 115, 22, 0.16);
+  top: -120px;
+  right: -100px;
+}
+
+.lp-orb2 {
+  width: 360px;
+  height: 360px;
+  background: rgba(56, 189, 248, 0.10);
+  bottom: -80px;
+  left: -80px;
+}
+
+.lp-orb3 {
+  width: 260px;
+  height: 260px;
+  background: rgba(167, 139, 250, 0.12);
+  top: 40%;
+  left: 30%;
+}
+
+/* Logo */
+.lp-brand-content {
+  position: relative;
+  z-index: 2;
+  animation: lpFadeUp 0.6s ease both;
+}
+
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 2.5rem;
+}
+
+.lp-logo-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: #f97316;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-logo-text {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  line-height: 1;
+}
+
+.lp-logo-text em {
+  color: #f97316;
+  font-style: normal;
+}
+
+/* Headline */
+.lp-brand-headline {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: clamp(2.6rem, 4vw, 3.8rem);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  margin-bottom: 1.1rem;
+}
+
+.lp-headline-accent {
+  background: linear-gradient(90deg, #f97316, #fb923c, #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.lp-brand-sub {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: rgba(248, 250, 252, 0.45);
+  max-width: 340px;
+  margin-bottom: 2.25rem;
+}
+
+/* Feature pills */
+.lp-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.lp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid;
+}
+
+.lp-pill-emerald {
+  background: rgba(52, 211, 153, 0.08);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.lp-pill-sky {
+  background: rgba(56, 189, 248, 0.08);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.lp-pill-violet {
+  background: rgba(167, 139, 250, 0.08);
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.2);
+}
+
+.lp-pill-amber {
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+/* Bottom security badge */
+.lp-brand-badge {
+  position: absolute;
+  bottom: 2rem;
+  right: 2.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: rgba(248, 250, 252, 0.3);
+  letter-spacing: 0.04em;
+}
+
+/* â•â• RIGHT FORM PANEL â•â• */
+.lp-right {
+  width: 440px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0f1520;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+
+.lp-right-top {
+  padding: 1.75rem 2.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lp-right-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.35);
+}
+
+.lp-right-logo em {
+  color: #f97316;
+  font-style: normal;
+}
+
+/* Form wrapper â€” centered in remaining space */
+.lp-form-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem;
+  animation: lpFadeUp 0.55s 0.1s ease both;
+}
+
+.lp-shake {
+  animation: lpShake 0.55s cubic-bezier(.36, .07, .19, .97);
+}
+
+.lp-form-header {
+  margin-bottom: 2rem;
+}
+
+.lp-form-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  line-height: 1;
+  margin: 0 0 0.35rem;
+}
+
+.lp-form-sub {
+  font-size: 0.82rem;
+  color: rgba(248, 250, 252, 0.48);
+  margin: 0;
+}
+
+/* Error */
+.lp-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(251, 113, 133, 0.08);
+  color: #fb7185;
+  border: 1px solid rgba(251, 113, 133, 0.25);
+  border-radius: 9px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.8rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Form */
+.lp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.lp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lp-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.4);
+}
+
+.lp-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.lp-input-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: rgba(248, 250, 252, 0.25);
+  pointer-events: none;
+}
+
+.lp-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+  padding: 0.72rem 0.85rem 0.72rem 2.4rem;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.lp-input:focus {
+  border-color: rgba(249, 115, 22, 0.6);
+  background: rgba(249, 115, 22, 0.04);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.lp-input::placeholder {
+  color: rgba(248, 250, 252, 0.2);
+}
+
+.lp-pw-toggle {
+  position: absolute;
+  right: 0.7rem;
+  background: none;
+  border: none;
+  color: rgba(248, 250, 252, 0.25);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+  border-radius: 4px;
+}
+
+.lp-pw-toggle:hover {
+  color: rgba(248, 250, 252, 0.55);
+}
+
+/* Button */
+.lp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: #f97316;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.lp-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.lp-btn:hover:not(:disabled) {
+  background: #ea6c0a;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(249, 115, 22, 0.45);
+}
+
+.lp-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.lp-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.lp-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: lpSpin 0.7s linear infinite;
+}
+
+/* Footer */
+.lp-right-footer {
+  padding: 1.25rem 2.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.68rem;
+  color: rgba(248, 250, 252, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* â”€â”€ Responsive â”€â”€ */
+@media (max-width: 860px) {
+  .lp-brand {
+    display: none;
+  }
+
+  .lp-right {
+    width: 100%;
+    border-left: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .lp-form-wrap,
+  .lp-brand-content {
+    animation: none;
+  }
+}
+
+/* ════════════════════════════════ LOGIN PAGE — missing classes ════ */
+.lp-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 1.5rem;
+}
+
+.lp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0 1rem;
+}
+
+.lp-stat:first-child { padding-left: 0; }
+
+.lp-stat-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.35rem;
+  color: var(--th-text-heading, #f1f5f9);
+  line-height: 1;
+}
+
+.lp-stat-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--th-text-faint, #475569);
+}
+
+.lp-stat-divider {
+  width: 1px;
+  height: 30px;
+  background: var(--th-border, rgba(255,255,255,0.08));
+}
+
+.lp-form-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--th-text-faint, #475569);
+  margin-bottom: 0.75rem;
+}
+
+/* Decorative elements */
+.lp-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  pointer-events: none;
+  opacity: 0.5;
+  animation: spin 28s linear infinite;
+  width: 420px;
+  height: 420px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.lp-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.lp-btn-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255,255,255,0.05);
+  pointer-events: none;
+}

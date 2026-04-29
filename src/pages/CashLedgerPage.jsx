@@ -4,6 +4,7 @@ import KpiCard from '../components/KpiCard'
 import { DataTable } from '../components/DataTable'
 import Modal from '../components/Modal'
 import FilterHeader from '../components/FilterHeader'
+import '../pages_css/CashLedgerPage.css'
 
 /* ── Payment method meta ── */
 const METHOD_META = {
@@ -102,14 +103,6 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   const [voidReason, setVoidReason] = React.useState('')
   const [toast, setToast] = React.useState(null)
 
-  /* ── Theme observer ── */
-  const [, forceUpdate] = React.useReducer(x => x + 1, 0)
-  React.useEffect(() => {
-    const obs = new MutationObserver(() => forceUpdate())
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => obs.disconnect()
-  }, [])
-
   /* ── Fetch unified cash flow ── */
   React.useEffect(() => { fetchFlow() }, [shopId, startDate, endDate])
 
@@ -167,16 +160,16 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   }
 
   function startEdit(entry) {
-    if (!entry.original) return
-    const o = entry.original
-    setEditingId(o.entry_id)
+    // If entry comes from DataTable click, it might be the flat row
+    const target = entry.original || entry
+    setEditingId(target.entry_id || target.reference_id)
     setForm({
-      entry_type: o.entry_type,
-      amount: o.amount,
-      description: o.description,
-      entry_date: o.entry_date,
-      entry_time: o.entry_time || '',
-      notes: o.notes || '',
+      entry_type: target.entry_type || 'CASH_IN',
+      amount: target.amount,
+      description: target.description,
+      entry_date: target.date || target.entry_date,
+      entry_time: target.time || target.entry_time || '',
+      notes: target.notes || '',
     })
     setFormError('')
     setShowEntryForm(true)
@@ -261,7 +254,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   const columns = React.useMemo(() => [
     {
       key: 'date', label: 'Date', width: '100px',
-      render: r => <span style={{ fontWeight: 600, color: 'var(--th-text-primary)' }}>{r.date}</span>
+      render: r => <span className="th-text-bold">{r.date}</span>
     },
     { key: 'time', label: 'Time', width: '70px', render: r => r.time || '—' },
     {
@@ -276,9 +269,9 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       key: 'description', label: 'Description',
       render: r => (
         <div>
-          <div style={{ fontWeight: 600, color: 'var(--th-text-primary)' }}>{r.description}</div>
+          <div className="th-text-bold">{r.description}</div>
           {(r.notes || r.recorded_by) && (
-            <div style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem' }}>
+            <div className="th-text-faint th-text-xs">
               {r.notes ? r.notes + (r.recorded_by ? ' · ' : '') : ''}{r.recorded_by ? `by ${r.recorded_by}` : ''}
             </div>
           )}
@@ -303,10 +296,10 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
         )
       }
     },
-  ], [rows])
+  ], [])
 
   return (
-    <div className="cl-root">
+    <div className="cl-root animate-slide-in-right">
       {/* ── Confirm Save Modal ── */}
       {pendingEntry && (
         <div className="confirm-overlay">
@@ -335,11 +328,11 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
             <div className="confirm-details">
               <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{voidTarget.description}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(voidTarget.amount)}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{ color: 'var(--th-rose)' }}>Cannot be undone</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val th-text-rose">Cannot be undone</span></div>
             </div>
             <div className="cl-field" style={{ marginBottom: '1rem' }}>
               <label className="cl-label">Reason (optional)</label>
-              <input className="cl-input" style={{ width: '100%', boxSizing: 'border-box' }} placeholder="Why are you voiding this?" value={voidReason} onChange={e => setVoidReason(e.target.value)} />
+              <input className="cl-input" placeholder="Why are you voiding this?" value={voidReason} onChange={e => setVoidReason(e.target.value)} />
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => { setVoidTarget(null); setVoidReason('') }}>Cancel</button>
@@ -353,7 +346,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
 
       {/* ── Header ── */}
       <div className="cl-header-row">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="cl-header-title-group">
           <div className="cl-title">Cash <span>Ledger</span></div>
           {isShopClosed && (
             <div className="pos-closed-badge">
@@ -371,7 +364,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       {/* ── KPI Row 1: Totals ── */}
       <div className="cl-top-stack">
         <div className="cl-kpi-block-1">
-          <div className="th-section-label cl-sec-summary">Cash Flow Summary</div>
+          <div className="th-section-label">Cash Flow Summary</div>
           <div className="th-kpi-row">
             <KpiCard label="Total Inflow" value={compactCurrency(totalIn)} accent="emerald"
               sub={`${rows.filter(r => r.direction === 'IN').length} transactions`} loading={loading} />
@@ -384,7 +377,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
 
         {/* ── KPI Row 2: By payment method ── */}
         <div className="cl-kpi-block-2">
-          <div className="th-section-label cl-sec-methods">By Payment Method</div>
+          <div className="th-section-label">By Payment Method</div>
           <div className="th-kpi-row cl-method-kpis">
             <KpiCard label="💵 Cash" value={compactCurrency(cashBal)} accent="emerald"
               sub={`${methodCount('CASH')} txns`} loading={loading} />
@@ -398,93 +391,35 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
         </div>
       </div>
 
-      {/* Filter Header Toolbar (Placed outside top stack) */}
-      <div style={{ marginBottom: 0 }}>
-        <FilterHeader
-          leftComponent={
-            <div className="fh-left">
-              <select className="fh-select" style={{ minWidth: '130px' }}
-                value={sourceFilter} onChange={e => { setSourceFilter(e.target.value); setPage(1) }}>
-                <option value="ALL">All Categories</option>
-                {Object.entries(SOURCE_META).filter(([k]) => k !== 'ALL').map(([k, m]) => (
-                  <option key={k} value={k}>{m.label}</option>
-                ))}
-              </select>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap' }}>
-                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-                <input className="fh-date" type="date" value={startDate} max={today} onChange={e => { setStartDate(e.target.value); setActivePreset(''); setPage(1) }} />
-                <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-                <input className="fh-date" type="date" value={endDate} max={today} onChange={e => { setEndDate(e.target.value); setActivePreset(''); setPage(1) }} />
-              </div>
+      {/* Filter Header Toolbar */}
+      <FilterHeader
+        leftComponent={
+          <div className="fh-left">
+            <select className="cl-select" style={{ minWidth: '250px' }}
+              value={sourceFilter} onChange={e => { setSourceFilter(e.target.value); setPage(1) }}>
+              <option value="ALL">All Sources</option>
+              {Object.entries(SOURCE_META).filter(([k]) => k !== 'ALL').map(([k, m]) => (
+                <option key={k} value={k}>{m.label}</option>
+              ))}
+            </select>
+            <div className="fh-left" style={{ gap: '0.4rem', display: 'flex', flexDirection: 'row' }}>
+              <span className="cl-label" style={{ margin: 0, maxWidth: "50px" }}>From</span>
+              <input className="cl-input fh-date" type="date" value={startDate} max={today} onChange={e => { setStartDate(e.target.value); setActivePreset(''); setPage(1) }} />
+              <span className="cl-label" style={{ margin: 0, maxWidth: "30px" }}>To</span>
+              <input className="cl-input fh-date" type="date" value={endDate} max={today} onChange={e => { setEndDate(e.target.value); setActivePreset(''); setPage(1) }} />
             </div>
-          }
-          filters={[
-            { value: 'today', label: 'Today', active: activePreset === 'today' },
-            { value: 'yesterday', label: 'Yesterday', active: activePreset === 'yesterday' },
-            { value: 'wk', label: 'This Wk', active: activePreset === 'wk' },
-            { value: 'mo', label: 'This Mo', active: activePreset === 'mo' },
-            { value: 'yr', label: 'This Yr', active: activePreset === 'yr' },
-          ]}
-          onFilterChange={applyPreset}
-          accentColor="var(--th-emerald)"
-        />
-      </div>
-
-      <style>{`
-        .cl-root {
-            font-family: var(--font-body);
-            color: var(--th-text-body);
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+          </div>
         }
-
-        .fh-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        input.fh-date {
-            min-width: 90px;
-        }
-
-        .cl-top-stack {
-            display: flex;
-            flex-direction: column;
-            gap: .5rem;
-        }
-
-        .cl-root .th-kpi-row {
-            margin-bottom: 0;
-            margin-top: .5rem;
-        }
-        [class*="toolbar"] {
-          gap: clamp(0.35rem, 0.25rem + 0.4vw, 0.75rem);
-          padding: 0;
-        }
-        
-        @media (max-width: 640px) {
-            .cl-header-row {
-                flex-direction: column;
-                align-items: center;
-                border-bottom: 1px solid var(--th-border);
-                padding-bottom: 0.75rem;
-                margin-bottom: 0rem;
-            }
-            .fh-left {
-                display: flex;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.5rem;
-            }
-            .fh-left > * {
-                width: 100%;
-                /* flex: 1; */
-                min-width: 0;
-            }
-        }
-      `}</style>
+        filters={[
+          { value: 'today', label: 'Today', active: activePreset === 'today' },
+          { value: 'yesterday', label: 'Yesterday', active: activePreset === 'yesterday' },
+          { value: 'wk', label: 'This Wk', active: activePreset === 'wk' },
+          { value: 'mo', label: 'This Mo', active: activePreset === 'mo' },
+          { value: 'yr', label: 'This Yr', active: activePreset === 'yr' },
+        ]}
+        onFilterChange={applyPreset}
+        accentColor="var(--th-emerald)"
+      />
 
       {/* ── Mobile action strip ── */}
       <div className="cl-mobile-actions">
@@ -513,7 +448,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       <div className="cl-coh-banner">
         <div className="cl-coh-left">
           <div className="cl-coh-label">Net Cash Position</div>
-          <div className={`cl-coh-amount ${netFlow >= 0 ? 'cl-net-positive' : 'cl-net-negative'}`} style={{ fontSize: '2.4rem' }}>
+          <div className={`cl-coh-amount ${netFlow >= 0 ? 'cl-net-positive' : 'cl-net-negative'}`}>
             {netFlow >= 0 ? '+' : '−'}{currency(Math.abs(netFlow))}
           </div>
           <div className="cl-coh-sub">{rangeLabel} · {rows.length} transactions from all sources</div>
@@ -562,7 +497,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
               </div>
               <div>
                 <label className="cl-label">Description *</label>
-                <input className="cl-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                <input className="cl-input"
                   placeholder="e.g. Customer payment, Change fund…"
                   value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
@@ -603,7 +538,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       )}
 
       {/* ── Transaction Table ── */}
-      <div className="th-section-label cl-sec-txn">Cash History</div>
+      <div className="th-section-label">Cash History</div>
       <div className="cl-feed">
         <DataTable
           columns={columns}
@@ -628,9 +563,9 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
           title="Entry Detail"
           maxWidth="500px"
           footer={selectedEntry.editable && (
-            <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-              <button className="cl-btn cl-btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setSelectedEntry(null); startEdit(selectedEntry) }}>✏ Edit</button>
-              <button className="cl-btn cl-btn-rose" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setSelectedEntry(null); setVoidTarget(selectedEntry); setVoidReason('') }}>🗑 Void</button>
+            <div className="cl-modal-footer-actions">
+              <button className="cl-btn cl-btn-ghost" onClick={() => { setSelectedEntry(null); startEdit(selectedEntry) }}>✏ Edit</button>
+              <button className="cl-btn cl-btn-rose" onClick={() => { setSelectedEntry(null); setVoidTarget(selectedEntry); setVoidReason('') }}>🗑 Void</button>
             </div>
           )}
         >

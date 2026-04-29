@@ -1,3 +1,4 @@
+import '../pages_css/CustomerPage.css';
 import React from 'react'
 import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
 import usePaginatedResource from '../hooks/usePaginatedResource'

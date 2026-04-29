@@ -1,3 +1,4 @@
+import '../pages_css/RecapPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch } from '../lib/config'
 import Pagination from '../components/Pagination'
@@ -156,7 +157,7 @@ function RcToast({ title, sub, onDone }) {
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
+function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShopClosed }) {
   const [suggestions, setSuggestions] = React.useState([])
   const [showSug, setShowSug] = React.useState(false)
   const [statusFilter, setStatusFilter] = React.useState("");
@@ -419,7 +420,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
     fetchJobHistory(job.job_id);
     setNextStatus("");
     setRecapCostInput("");
-    setPerformedBy("");
     setError("");
   }
 
@@ -714,7 +714,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
       {/* ── Claim Modal ── */}
       {showClaimModal && claimTarget && (
         <div
-          className="rc-overlay"
+          className="rc-overlay rc-overlay-top"
           onClick={(e) =>
             e.target === e.currentTarget && setShowClaimModal(false)
           }
@@ -822,7 +822,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
                 onClick={() => {
                   setShowClaimModal(false);
                   setSalePrice("");
-                  setClaimPerformedBy("");
                   setClaimInstalled(false);
                   setClaimTiremen([]);
                   setClaimFittingPrice(250);
@@ -838,7 +837,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
 
       {/* ── Status Confirm Modal ── */}
       {showStatusModal && nextStatus && selectedJob && (
-        <div className="rc-overlay" onClick={(e) => e.target === e.currentTarget && setShowStatusModal(false)}>
+        <div className="rc-overlay rc-overlay-top" onClick={(e) => e.target === e.currentTarget && setShowStatusModal(false)}>
           <div className="rc-modal">
             <div className="rc-modal-header">
               <div className="rc-modal-title">Confirm Status Update</div>
@@ -897,7 +896,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
 
       {/* ── Batch Update Modal ── */}
       {showBatchModal && batchAction && (
-        <div className="rc-overlay" onClick={e => e.target === e.currentTarget && !batchLoading && setShowBatchModal(false)}>
+        <div className="rc-overlay rc-overlay-top" onClick={e => e.target === e.currentTarget && !batchLoading && setShowBatchModal(false)}>
           <div className="rc-modal">
             <div className="rc-modal-header">
               <div className="rc-modal-title">Batch — {batchAction.label}</div>
@@ -949,7 +948,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
       {/* ── Forfeit / Reject Modal ── */}
       {showForfeitModal && forfeitTarget && (
         <div
-          className="rc-overlay"
+          className="rc-overlay rc-overlay-top"
           onClick={(e) =>
             e.target === e.currentTarget && setShowForfeitModal(false)
           }
@@ -1026,7 +1025,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
                 onClick={() => {
                   setShowForfeitModal(false);
                   setForfeitReason("");
-                  setForfeitPerformedBy("");
                   setError("");
                 }}
               >
@@ -1039,7 +1037,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
 
       {/* ── Pricing Settings Modal ── */}
       {showPricingModal && (
-        <div className="rc-modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowPricingModal(false)}>
+        <div className="rc-modal-overlay rc-overlay-top" onClick={(e) => e.target === e.currentTarget && setShowPricingModal(false)}>
           <div className="rc-pricing-modal" onClick={e => e.stopPropagation()}>
             <div className="rc-pricing-head">
               <div className="rc-pricing-title">⚙ Default Recap Prices</div>
@@ -1116,7 +1114,15 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
         <div className="rc-main">
           {/* Header */}
           <div className="rc-page-header">
-            <h1 className="rc-page-title">Recap <span>Tires</span></h1>
+            <h1 className="rc-page-title">
+              Recap <span>Tires</span>
+              {isShopClosed && (
+                <div className="pos-closed-badge" style={{ marginLeft: '1rem', display: 'inline-flex', verticalAlign: 'middle' }}>
+                  <span className="pulse"></span>
+                  NEXT DAY MODE
+                </div>
+              )}
+            </h1>
             <div className="rc-header-btns">
               {[
                 { label: '⬇ Export', cls: 'rc-btn-slate', onClick: exportExcel, disabled: !recapTotal },
@@ -1225,7 +1231,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
 
           {/* New job modal */}
           {showNewJobForm && (
-            <div className="rc-modal-overlay" onClick={() => { setShowNewJobForm(false); setError(""); resetForm(); }}>
+            <div className="rc-modal-overlay rc-overlay-top" onClick={() => { setShowNewJobForm(false); setError(""); resetForm(); }}>
               <div className="rc-form-panel" onClick={e => e.stopPropagation()}>
                 <button className="rc-modal-close" onClick={() => { setShowNewJobForm(false); setError(""); resetForm(); }}>✕</button>
                 <div className="rc-form-title">New Recap Job</div>
@@ -1666,7 +1672,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
 
           {/* ── Job Detail Modal ── */}
           {selectedJob && (
-            <div className="hist-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelectedJob(null); setJobHistory([]); setNextStatus(''); setError(''); } }}>
+            <div className="rc-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelectedJob(null); setJobHistory([]); setNextStatus(''); setError(''); } }}>
               <div className="rc-detail-modal">
                 <div className="rc-detail-header">
                   <div>
@@ -1715,9 +1721,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
                             <button
                               className="rc-action-btn rose"
                               disabled={loading}
-                              onClick={() => { setForfeitTarget(selectedJob); setForfeitReason(""); setForfeitPerformedBy(""); setShowForfeitModal(true); setError(""); }}
-                            >
-                              ✕ Forfeit
+                              onClick={() => { setForfeitTarget(selectedJob); setForfeitReason(""); setShowForfeitModal(true); setError(""); }}
+                              >                              ✕ Forfeit
                             </button>
                           )}
                       </div>
@@ -1921,7 +1926,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName }) {
 
           {/* ── Recapping item detail modal ── */}
           {selectedRecapItem && (
-            <div className="hist-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelectedRecapItem(null); setError(''); } }}>
+            <div className="rc-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelectedRecapItem(null); setError(''); } }}>
               <div className="rc-detail-modal">
                 <div className="rc-detail-header">
                   <div>

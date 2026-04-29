@@ -1,0 +1,264 @@
+/*
+ * ExpensesPage.css
+ * Page-specific styles for ExpensesPage.jsx
+ * Created during CSS audit fix — was missing entirely.
+ * NOTE: confirm-overlay/confirm-box/pos-closed-badge/pulse/fh-date are in core.css
+ */
+
+/* Root container */
+.exp-root {
+  font-family: var(--font-body);
+  color: var(--th-text-body);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+/* ── Header ── */
+.exp-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--th-border);
+  padding-bottom: 0.85rem;
+}
+
+.exp-header-btns-desktop {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.exp-mobile-actions {
+  display: none;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .exp-header-btns-desktop { display: none; }
+  .exp-mobile-actions { display: flex; }
+  .exp-header-row { flex-direction: column; align-items: stretch; }
+}
+
+/* ── Buttons ── */
+.exp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.exp-btn:hover:not(:disabled) { opacity: 0.85; }
+.exp-btn:active:not(:disabled) { transform: scale(0.97); }
+.exp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.exp-btn-rose {
+  background: var(--th-rose, #f43f5e);
+  color: #fff;
+}
+
+.exp-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-muted);
+}
+
+.exp-btn-ghost:hover:not(:disabled) {
+  border-color: var(--th-rose);
+  color: var(--th-rose);
+  opacity: 1;
+}
+
+/* ── Form inputs ── */
+.exp-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--th-text-faint);
+  margin-bottom: 0.25rem;
+}
+
+.exp-input,
+.exp-select,
+.exp-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-primary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 7px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.exp-input:focus,
+.exp-select:focus,
+.exp-textarea:focus {
+  border-color: var(--th-rose);
+}
+
+.exp-textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+/* ── Form modal ── */
+.exp-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.exp-form-modal {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border-strong);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+
+.exp-form-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--th-border);
+}
+
+.exp-form-modal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--th-text-heading);
+}
+
+.exp-form-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--th-text-faint);
+  font-size: 1.1rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 5px;
+  transition: color 0.15s;
+}
+
+.exp-form-modal-close:hover { color: var(--th-text-primary); }
+
+.exp-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .exp-form-grid { grid-template-columns: 1fr; }
+}
+
+.exp-form-modal form {
+  padding: 1.1rem 1.25rem;
+}
+
+.exp-form-actions {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+/* ── Toast ── */
+.exp-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border-strong);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--th-text-primary);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  animation: fadeIn 0.2s ease both;
+}
+
+.exp-toast-icon { font-size: 1rem; }
+
+/* ── Error / Category / misc ── */
+.exp-error {
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+  border: 1px solid var(--th-rose);
+  border-radius: 7px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.82rem;
+}
+
+.exp-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exp-method {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--th-text-dim);
+}
+
+.exp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* exp-section shared with ProfilePage */
+.exp-section {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--th-text-faint);
+  margin-bottom: 0.1rem;
+}

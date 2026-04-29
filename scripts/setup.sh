@@ -13,6 +13,7 @@ set -e # Exit on error
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}🚀 Starting CoreTrack Automated Setup...${NC}"
@@ -23,9 +24,15 @@ apt update && apt upgrade -y
 apt install -y build-essential curl git ufw sqlite3
 
 echo -e "${YELLOW}📦 Installing Node.js 20 LTS...${NC}"
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
-npm install -g pm2
+if ! command -v node &> /dev/null || [[ $(node -v) != v20* ]]; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt install -y nodejs
+fi
+
+if ! command -v pm2 &> /dev/null; then
+    echo -e "${BLUE}Installing PM2...${NC}"
+    npm install -g pm2
+fi
 
 # --- PHASE 2: NETWORK CONFIGURATION ---
 echo -e "${YELLOW}🌐 Phase 2: Configuring Firewall...${NC}"
@@ -38,12 +45,10 @@ echo -e "${GREEN}✅ Firewall active. Your Local IP is: ${LOCAL_IP}${NC}"
 
 # --- PHASE 3: DEPLOYMENT PROCEDURE ---
 echo -e "${YELLOW}🚀 Phase 3: Cloning and Building Application...${NC}"
-# Use the current directory if we're already in the repo, otherwise clone
-if [ ! -f "package.json" ]; then
-    echo -e "${BLUE}Cloning repository...${NC}"
-    git clone https://github.com/dvincem/CoreTrack.git
-    cd CoreTrack
-fi
+
+# Navigate to the repo root (assuming script is in scripts/)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd "$SCRIPT_DIR/.."
 
 echo -e "${BLUE}Installing NPM packages (this may take a while)...${NC}"
 npm install
@@ -59,7 +64,7 @@ else
     echo -e "${BLUE}Using existing .env file.${NC}"
 fi
 
-echo -e "${BLUE}Building Frontend Assets...${NC}"
+echo -e "${BLUE}Building Frontend Assets (Vite)...${NC}"
 npm run build
 
 # --- PHASE 4: PROCESS MANAGEMENT ---
@@ -79,21 +84,28 @@ pm2 save
 # --- PHASE 5: INTELLIGENCE LAYER ---
 echo -e "${YELLOW}🧠 Phase 5: Setting up AI Engine (Ollama)...${NC}"
 if ! command -v ollama &> /dev/null; then
+    echo -e "${BLUE}Installing Ollama...${NC}"
     curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-echo -e "${BLUE}Pulling Llama 3.2 model (this may take a while)...${NC}"
-ollama pull llama3.2
+# Ensure Ollama service is running
+systemctl enable ollama || true
+systemctl start ollama || true
+
+echo -e "${BLUE}Pulling Llama 3.2:3b model...${NC}"
+ollama pull llama3.2:3b
 
 # --- FINAL SUMMARY ---
 echo -e "\n${GREEN}================================================================${NC}"
-echo -e "${GREEN}🎉 SETUP COMPLETE!${NC}"
+echo -e "${GREEN}🎉 CORETRACK SETUP COMPLETE!${NC}"
 echo -e "${GREEN}================================================================${NC}"
 echo -e "Access the system at:"
 echo -e "Local Network:  ${BLUE}http://${LOCAL_IP}:3000${NC}"
 echo -e "Local Machine:  ${BLUE}http://localhost:3000${NC}"
 echo -e "\n${YELLOW}Next Steps:${NC}"
-echo -e "1. Transfer your 'tire_shop.db' to $(pwd)/ if you have existing data."
-echo -e "2. Log in with the credentials defined in your .env file."
-echo -e "3. Run 'pm2 logs' to monitor server activity."
+echo -e "1. Open the URL above in your browser to start the ${BLUE}Setup Wizard${NC}."
+echo -e "2. Transfer your 'tire_shop.db' to $(pwd)/ if you have existing data."
+echo -e "3. Monitor server logs with: ${BLUE}pm2 logs coretrack${NC}"
+echo -e "4. Check AI health with: ${BLUE}ollama list${NC}"
 echo -e "${GREEN}================================================================${NC}\n"
+

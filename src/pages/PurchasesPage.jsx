@@ -1,3 +1,4 @@
+import '../pages_css/PurchasesPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch } from '../lib/config'
 import SearchInput from '../components/SearchInput'
@@ -6,43 +7,81 @@ import KpiCard from '../components/KpiCard'
 import FilterHeader from '../components/FilterHeader'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_TIRE_CATS      = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAP']
+const DEFAULT_TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAP']
 const DEFAULT_INV_OTHER_CATS = ['VALVE', 'WHEEL WEIGHT', 'WHEEL BALANCING', 'MAG WHEEL', 'ACCESSORIES', 'OTHER']
-const DEFAULT_SUPPLY_CATS    = ['Consumable', 'Maintenance', 'Repair Material', 'Other Supply']
+const DEFAULT_SUPPLY_CATS = ['Consumable', 'Maintenance', 'Repair Material', 'Other Supply']
 
 const LS_KEYS = { tire: 'pur-cats-tire-v2', other: 'pur-cats-other', supply: 'pur-cats-supply' }
 function loadCats(key, defaults) {
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : [...defaults] } catch { return [...defaults] }
 }
 function saveCats(key, cats) {
-  try { localStorage.setItem(key, JSON.stringify(cats)) } catch {}
+  try { localStorage.setItem(key, JSON.stringify(cats)) } catch { }
 }
 
 const ADD_NEW = '__ADD_NEW__'
 
 function CategorySelect({ value, onChange, options, setOptions, storageKey, height = 38 }) {
+  const [showCatModal, setShowCatModal] = React.useState(false)
+  const [newCatName, setNewCatName] = React.useState('')
+
   const handleChange = (e) => {
     if (e.target.value === ADD_NEW) {
-      const name = window.prompt('Enter new category name:')
-      if (name && name.trim()) {
-        const trimmed = name.trim()
-        const next = options.includes(trimmed) ? options : [...options, trimmed]
-        setOptions(next)
-        saveCats(storageKey, next)
-        onChange(trimmed)
-      }
+      setShowCatModal(true)
+      setNewCatName('')
     } else {
       onChange(e.target.value)
     }
   }
 
+  const handleSaveCat = () => {
+    if (newCatName && newCatName.trim()) {
+      const trimmed = newCatName.trim()
+      const next = options.includes(trimmed) ? options : [...options, trimmed]
+      setOptions(next)
+      saveCats(storageKey, next)
+      onChange(trimmed)
+    } else {
+      onChange(options[0] || '')
+    }
+    setShowCatModal(false)
+  }
+
   return (
-    <select className="pur-input" style={{ height }} value={value} onChange={handleChange}>
-      {options.map(c => <option key={c} value={c}>{c}</option>)}
-      <option value={ADD_NEW}>+ Add category…</option>
-    </select>
+    <>
+      <select className="pur-input" style={{ height }} value={value} onChange={handleChange}>
+        {options.map(c => <option key={c} value={c}>{c}</option>)}
+        <option value={ADD_NEW}>+ Add category…</option>
+      </select>
+
+      {showCatModal && (
+        <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setShowCatModal(false)} style={{ zIndex: 9999 }}>
+          <div className="confirm-box" style={{ maxWidth: 400 }}>
+            <div className="confirm-title" style={{ color: 'var(--th-sky)' }}>Add New Category</div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label className="pur-label">Category Name</label>
+              <input
+                autoFocus
+                className="pur-input"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveCat()}
+                placeholder="e.g. Filters"
+              />
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => { setShowCatModal(false); onChange(options[0] || ''); }}>Cancel</button>
+              <button className="pur-save-btn inv" style={{ width: 'auto' }} onClick={handleSaveCat} disabled={!newCatName.trim()}>
+                ✓ Save Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
+
 
 function extractRimSize(s) {
   if (!s) return null
@@ -56,12 +95,12 @@ function extractRimSize(s) {
 function buildSKU(form, itemType) {
   const parts = []
   if (itemType === 'TIRE') {
-    if (form.brand)  parts.push(form.brand.trim().substring(0, 5).toUpperCase())
+    if (form.brand) parts.push(form.brand.trim().substring(0, 5).toUpperCase())
     if (form.design) parts.push(form.design.trim().substring(0, 4).toUpperCase())
-    if (form.size)   parts.push(form.size.trim().replace(/[\/ \-]/g, ''))
+    if (form.size) parts.push(form.size.trim().replace(/[\/ \-]/g, ''))
   } else {
     if (form.item_name) parts.push(form.item_name.trim().substring(0, 8).toUpperCase().replace(/\s+/g, '-'))
-    if (form.category)  parts.push(form.category.toUpperCase().replace(/\s+/g, ''))
+    if (form.category) parts.push(form.category.toUpperCase().replace(/\s+/g, ''))
   }
   if (parts.length === 0) return ''
   return (itemType === 'TIRE' ? 'TIRE' : 'ITEM') + '-' + parts.join('-')
@@ -84,34 +123,34 @@ const BLANK_SUP = () => ({
 // ── Component ────────────────────────────────────────────────────────────────
 function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const [showModal, setShowModal] = React.useState(false)
-  const [modalTab, setModalTab]   = React.useState('inv') // 'inv' | 'sup'
+  const [modalTab, setModalTab] = React.useState('inv') // 'inv' | 'sup'
 
-  // Inventory form
-  const [itemType, setItemType] = React.useState('TIRE')
-  const [invForm, setInvForm]   = React.useState(BLANK_INV('TIRE'))
+  // Items to add (Bulk support)
+  const [itemsToAdd, setItemsToAdd] = React.useState([])
 
-  // Supplies form
-  const [supForm, setSupForm]   = React.useState(BLANK_SUP())
-
-  const [pending, setPending]   = React.useState(null) // { type: 'inv'|'sup', data: {} }
-  const [saving, setSaving]     = React.useState(false)
+  const [pending, setPending] = React.useState(null) // { type: 'inv'|'sup', data: [] }
+  const [saving, setSaving] = React.useState(false)
+  const [editMode, setEditMode] = React.useState(false)
+  const [editingItem, setEditingItem] = React.useState(null)
   const [suppliers, setSuppliers] = React.useState([])
-  const [tireCats, setTireCats]         = React.useState(() => loadCats(LS_KEYS.tire, DEFAULT_TIRE_CATS))
-  const [otherCats, setOtherCats]       = React.useState(() => loadCats(LS_KEYS.other, DEFAULT_INV_OTHER_CATS))
-  const [supplyCats, setSupplyCats]     = React.useState(() => loadCats(LS_KEYS.supply, DEFAULT_SUPPLY_CATS))
+  const [tireCats, setTireCats] = React.useState(() => loadCats(LS_KEYS.tire, DEFAULT_TIRE_CATS))
+  const [otherCats, setOtherCats] = React.useState(() => loadCats(LS_KEYS.other, DEFAULT_INV_OTHER_CATS))
+  const [supplyCats, setSupplyCats] = React.useState(() => loadCats(LS_KEYS.supply, DEFAULT_SUPPLY_CATS))
 
   // History List
   const [startDate, setStartDate] = React.useState(TODAY)
-  const [endDate,   setEndDate]   = React.useState(TODAY)
-  const [histTab,   setHistTab]   = React.useState('all') // 'all'|'inv'|'sup'
-  const [baseRows,  setBaseRows]  = React.useState([])
-  const [loading,   setLoading]   = React.useState(false)
-  const [search,    setSearch]    = React.useState('')
-  const [page,      setPage]      = React.useState(1)
+  const [endDate, setEndDate] = React.useState(TODAY)
+  const [histTab, setHistTab] = React.useState('all') // 'all'|'inv'|'sup'
+  const [baseRows, setBaseRows] = React.useState([])
+  const [loading, setLoading] = React.useState(false)
+  const [search, setSearch] = React.useState('')
+  const [page, setPage] = React.useState(1)
   const PAGE_SIZE = 15
 
   const [detailRow, setDetailRow] = React.useState(null)
-  const [toast,     setToast]     = React.useState(null)
+  const [toast, setToast] = React.useState(null)
+  const [voidingId, setVoidingId] = React.useState(null) // purchase_id to void
+  const [voidReason, setVoidReason] = React.useState('')
 
   React.useEffect(() => {
     fetchSuppliers()
@@ -123,7 +162,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
       const r = await apiFetch(`${API_URL}/suppliers/${shopId}`)
       const d = await r.json()
       setSuppliers(Array.isArray(d) ? d : [])
-    } catch {}
+    } catch { }
   }
 
   async function load() {
@@ -136,60 +175,101 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
     finally { setLoading(false) }
   }
 
-  function showToast(msg, ok=true) {
+  function showToast(msg, ok = true) {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
   }
 
-  const setInvField = (k, v) => setInvForm(f => ({ ...f, [k]: v }))
-
-  const handleInvConfirm = () => {
-    if (itemType === 'TIRE') {
-      if (!invForm.brand || !invForm.design || !invForm.size || !invForm.dot_number || !invForm.unit_cost) {
-        return alert('Please fill in all required tire fields.')
-      }
-    } else {
-      if (!invForm.item_name || !invForm.unit_cost) {
-        return alert('Please fill in required item fields.')
-      }
-    }
-    setPending({ type: 'inv', data: { ...invForm, item_type: itemType } })
+  const updateItemToAdd = (idx, k, v) => {
+    setItemsToAdd(prev => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], [k]: v }
+      return next
+    })
   }
 
-  const handleSupConfirm = () => {
-    if (!supForm.item_name || !supForm.unit_cost) return alert('Fill required fields.')
-    setPending({ type: 'sup', data: { ...supForm } })
+  const addMoreItem = () => {
+    setItemsToAdd(prev => [
+      ...prev,
+      { id: Date.now() + Math.random(), ...(modalTab === 'inv' ? BLANK_INV('TIRE') : BLANK_SUP()), itemType: modalTab === 'inv' ? 'TIRE' : 'SUPPLY' }
+    ])
+  }
+
+  const removeItemToAdd = (idx) => {
+    if (itemsToAdd.length <= 1) return
+    setItemsToAdd(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleConfirm = () => {
+    for (let i = 0; i < itemsToAdd.length; i++) {
+      const item = itemsToAdd[i]
+      if (modalTab === 'inv') {
+        if (item.itemType === 'TIRE') {
+          if (!item.brand || !item.design || !item.size || !item.dot_number || !item.unit_cost) {
+            return alert(`Please fill in all required tire fields for Item #${i + 1}.`)
+          }
+        } else {
+          if (!item.item_name || !item.unit_cost) {
+            return alert(`Please fill in required item fields for Item #${i + 1}.`)
+          }
+        }
+      } else {
+        if (!item.item_name || !item.unit_cost) {
+          return alert(`Please fill in required supply fields for Item #${i + 1}.`)
+        }
+      }
+    }
+    setPending({ type: modalTab, data: itemsToAdd.map(it => ({ ...it, item_type: it.itemType })) })
   }
 
   async function savePending() {
     setSaving(true)
     try {
       const isInv = pending.type === 'inv'
-      const url = isInv ? `${API_URL}/items` : `${API_URL}/purchases-supplies`
-      const payload = {
-        ...pending.data,
-        shop_id: shopId,
-        recorded_by: currentStaffId || 'ADMIN',
-        purchase_date: TODAY,
-      }
-      if (isInv) {
-        payload.sku = buildSKU(payload, itemType)
-        payload.rim_size = extractRimSize(payload.size)
+      const url = editMode
+        ? `${API_URL}/purchase-items/${editingItem.purchase_item_id}`
+        : `${API_URL}/purchases/${shopId}`
+      const method = editMode ? 'PUT' : 'POST'
+
+      // Standardize payload
+      const standardizedItems = pending.data.map(item => ({
+        ...item,
+        item_name: item.item_name || (item.brand + ' ' + item.design),
+        sku: isInv ? buildSKU(item, item.item_type) : null,
+        rim_size: isInv ? extractRimSize(item.size) : null,
+      }))
+
+      const payload = editMode ? standardizedItems[0] : {
+        notes: '',
+        handled_by: currentStaffId || 'ADMIN',
+        items: standardizedItems // Backend POST expects an array
       }
 
       const res = await apiFetch(url, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        try {
+          const errJson = JSON.parse(errText)
+          throw new Error(errJson.error || 'Failed to save')
+        } catch {
+          throw new Error(`Server Error: ${res.status}`)
+        }
+      }
+
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      showToast(`Recorded: ${pending.data.item_name || (pending.data.brand + ' ' + pending.data.design)}`)
+      showToast(editMode ? 'Purchase updated' : `Recorded ${standardizedItems.length} item(s)`)
       setPending(null)
       setShowModal(false)
-      setInvForm(BLANK_INV(itemType))
-      setSupForm(BLANK_SUP())
+      setEditMode(false)
+      setEditingItem(null)
+      setItemsToAdd([])
       load()
     } catch (e) {
       alert(e.message || 'Failed to save')
@@ -198,7 +278,84 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
     }
   }
 
-  const closeModal = () => { setShowModal(false); setPending(null) }
+  async function handleVoid(purchaseId) {
+    setVoidingId(purchaseId)
+    setVoidReason('')
+  }
+
+  async function submitVoid() {
+    if (!voidingId) return
+    if (!voidReason.trim()) return alert("Reason is required")
+
+    try {
+      setLoading(true)
+      const res = await apiFetch(`${API_URL}/purchases/${voidingId}/void`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ void_reason: voidReason.trim() })
+      })
+      if (!res.ok) throw new Error('Failed to void')
+      showToast('Purchase voided successfully')
+      setDetailRow(null)
+      setVoidingId(null)
+      load()
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleEdit(row) {
+    setDetailRow(null)
+    setEditMode(true)
+    setEditingItem(row)
+
+    if (row.item_master_id) {
+      setModalTab('inv')
+      const isTire = DEFAULT_TIRE_CATS.includes(row.category)
+      setItemsToAdd([{
+        id: Date.now(),
+        itemType: isTire ? 'TIRE' : 'OTHER',
+        item_name: row.item_name || '',
+        brand: row.brand || '',
+        design: row.design || '',
+        size: row.size || '',
+        dot_number: row.dot_number || '',
+        category: row.category || (isTire ? 'PCR' : 'VALVE'),
+        unit_cost: row.unit_cost || '',
+        selling_price: row.selling_price || '',
+        quantity: row.quantity || '1',
+        notes: row.header_notes || '',
+      }])
+    } else {
+      setModalTab('sup')
+      setItemsToAdd([{
+        id: Date.now(),
+        itemType: 'SUPPLY',
+        item_name: row.item_name || '',
+        category: row.category || 'Consumable',
+        quantity: row.quantity || '1',
+        unit_cost: row.unit_cost || '',
+        notes: row.header_notes || '',
+      }])
+    }
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setPending(null)
+    setEditMode(false)
+    setEditingItem(null)
+    setItemsToAdd([])
+  }
+
+  const openNewPurchase = () => {
+    setModalTab('inv')
+    setItemsToAdd([{ id: Date.now(), ...BLANK_INV('TIRE'), itemType: 'TIRE' }])
+    setShowModal(true)
+  }
 
   // ── Derived ──
   const histRows = React.useMemo(() => {
@@ -218,7 +375,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   }, [baseRows, histTab, search])
 
   const totalPages = Math.ceil(histRows.length / PAGE_SIZE) || 1
-  const pagedRows  = histRows.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)
+  const pagedRows = histRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const invRows = histRows.filter(r => !!r.item_master_id)
   const supRows = histRows.filter(r => !r.item_master_id)
@@ -228,7 +385,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const fmtDateTime = (iso) => {
     if (!iso) return '—'
     const d = new Date(iso)
-    return d.toLocaleDateString('en-PH', { month:'short', day:'numeric' }) + ' ' + d.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' })
+    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
@@ -266,7 +423,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
         {/* Header */}
         <div className="pur-header">
           <div>
-            <div className="pur-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="pur-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div>INVENTORY <span>PURCHASES</span></div>
               {isShopClosed && (
                 <div className="pos-closed-badge">
@@ -279,8 +436,8 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               Purchased inventory &amp; supplies · tracked for profit &amp; margins
             </div>
           </div>
-          <button className="pur-save-btn inv pur-new-btn-desktop" onClick={() => setShowModal(true)}>
-            + New Purchase
+          <button className="pur-btn-primary pur-new-btn-desktop" onClick={openNewPurchase}>
+            + NEW PURCHASE
           </button>
         </div>
 
@@ -290,17 +447,17 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
             label="Inventory Spent"
             value={currency(invSpent)}
             sub={`${invRows.length} item${invRows.length !== 1 ? 's' : ''}`}
-            accent="emerald"
+            accent="sky"
             loading={loading}
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>}
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /></svg>}
           />
           <KpiCard
             label="Supplies Spent"
             value={currency(supSpent)}
             sub={`${supRows.length} record${supRows.length !== 1 ? 's' : ''}`}
-            accent="amber"
+            accent="sky"
             loading={loading}
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>}
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" /></svg>}
           />
           <KpiCard
             label="Total Spent"
@@ -308,7 +465,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
             sub="combined"
             accent="sky"
             loading={loading}
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>}
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>}
           />
         </div>
 
@@ -340,8 +497,8 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
         />
 
         {/* Mobile-only New Purchase button (v2) — shown below the search/filter card */}
-        <button className="pur-save-btn inv pur-new-btn-mobile-v2" onClick={() => setShowModal(true)}>
-          + New Purchase
+        <button className="pur-btn-primary pur-new-btn-mobile-v2" onClick={openNewPurchase}>
+          + NEW PURCHASE
         </button>
 
         {/* Table */}
@@ -387,9 +544,16 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               label: 'Total',
               align: 'right',
               render: (r) => (
-                <span style={{ color: r.item_master_id ? 'var(--th-emerald)' : 'var(--th-amber)', fontWeight: 700 }}>
-                  {currency(r.line_total)}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <span style={{
+                    color: r.is_void ? 'var(--th-text-dim)' : (r.item_master_id ? 'var(--th-emerald)' : 'var(--th-amber)'),
+                    fontWeight: 700,
+                    textDecoration: r.is_void ? 'line-through' : 'none'
+                  }}>
+                    {currency(r.line_total)}
+                  </span>
+                  {r.is_void && <span style={{ fontSize: '0.65rem', color: 'var(--th-rose)', fontWeight: 700 }}>VOIDED</span>}
+                </div>
               ),
             },
           ]}
@@ -402,9 +566,9 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
           emptyMessage={search.trim() ? 'No purchases match your search.' : `No ${histTab === 'inv' ? 'inventory purchases' : histTab === 'sup' ? 'supply records' : 'purchases'} in selected date range.`}
           emptyIcon={
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.25, marginBottom: '0.25rem' }}>
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 01-8 0"/>
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 01-8 0" />
             </svg>
           }
           minWidth={640}
@@ -419,154 +583,210 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
           <div className="pur-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
             <div className="pur-modal">
               <div className="pur-modal-header">
-                <div className="pur-modal-title">New Purchase</div>
+                <div className="pur-modal-title">{editMode ? 'Edit Purchase' : 'New Purchase'}</div>
                 <button className="pur-modal-close" onClick={closeModal}>✕</button>
               </div>
 
-              {/* Modal tab toggle */}
-              <div className="pur-page-tabs">
-                <button className={`pur-page-tab ${modalTab === 'inv' ? 'active inv' : ''}`} onClick={() => setModalTab('inv')}>
-                  📦 Inventory Item
-                </button>
-                <button className={`pur-page-tab ${modalTab === 'sup' ? 'active sup' : ''}`} onClick={() => setModalTab('sup')}>
-                  🧴 Supply / Consumable
-                </button>
+              {/* Modal tab toggle - hidden in edit mode to prevent changing item type */}
+              {!editMode && (
+                <div className="pur-page-tabs">
+                  <button className={`pur-page-tab ${modalTab === 'inv' ? 'active inv' : ''}`} onClick={() => {
+                    setModalTab('inv');
+                    setItemsToAdd([{ id: Date.now(), ...BLANK_INV('TIRE'), itemType: 'TIRE' }]);
+                  }}>
+                    📦 Inventory Item
+                  </button>
+                  <button className={`pur-page-tab ${modalTab === 'sup' ? 'active sup' : ''}`} onClick={() => {
+                    setModalTab('sup');
+                    setItemsToAdd([{ id: Date.now(), ...BLANK_SUP(), itemType: 'SUPPLY' }]);
+                  }}>
+                    🧴 Supply / Consumable
+                  </button>
+                </div>
+              )}
+
+              <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                {itemsToAdd.map((item, idx) => (
+                  <div key={item.id} style={{
+                    background: "var(--th-bg-soft)",
+                    borderRadius: 12,
+                    padding: "1rem",
+                    border: "1px solid var(--th-border-strong)",
+                    marginBottom: ".5rem",
+                    position: "relative"
+                  }}>
+                    {itemsToAdd.length > 1 && !editMode && (
+                      <button
+                        onClick={() => removeItemToAdd(idx)}
+                        style={{
+                          position: "absolute",
+                          top: "0.8rem",
+                          right: "0.8rem",
+                          background: "var(--th-rose-bg)",
+                          color: "var(--th-rose)",
+                          border: "none",
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          zIndex: 10
+                        }}
+                      >✕</button>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '.5rem', alignItems: 'center' }}>
+                      <div style={{
+                        width: "28px",
+                        height: "28px",
+                        background: modalTab === 'inv' ? "var(--th-sky)" : "var(--th-violet)",
+                        color: "#fff",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        fontSize: "0.8rem"
+                      }}>{idx + 1}</div>
+
+                      {modalTab === 'inv' && !editMode && (
+                        <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--th-bg-dark)', padding: '0.25rem', borderRadius: 8 }}>
+                          <button
+                            className={`pur-btn-toggle ${item.itemType === 'TIRE' ? 'active' : ''}`}
+                            onClick={() => updateItemToAdd(idx, 'itemType', 'TIRE')}
+                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.7rem' }}
+                          >Tires</button>
+                          <button
+                            className={`pur-btn-toggle ${item.itemType === 'OTHER' ? 'active' : ''}`}
+                            onClick={() => updateItemToAdd(idx, 'itemType', 'OTHER')}
+                            style={{ padding: '0.3rem 0.8rem', fontSize: '0.7rem' }}
+                          >Other</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {modalTab === 'inv' ? (
+                      /* INVENTORY ITEM FIELDS */
+                      item.itemType === 'TIRE' ? (
+                        <>
+                          <div className="pur-row">
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Brand *</label>
+                              <input className="pur-input" placeholder="Bridgestone" value={item.brand} onChange={e => updateItemToAdd(idx, 'brand', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Design *</label>
+                              <input className="pur-input" placeholder="Turanza" value={item.design} onChange={e => updateItemToAdd(idx, 'design', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Size *</label>
+                              <input className="pur-input" placeholder="205/55R16" value={item.size} onChange={e => updateItemToAdd(idx, 'size', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label" style={{ color: 'var(--th-amber)' }}>DOT *</label>
+                              <input className="pur-input" placeholder="2025" value={item.dot_number}
+                                onChange={e => updateItemToAdd(idx, 'dot_number', e.target.value.replace(/\D/g, '').slice(0, 4))} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Category *</label>
+                              <CategorySelect value={item.category} onChange={v => updateItemToAdd(idx, 'category', v)} options={tireCats} setOptions={setTireCats} storageKey={LS_KEYS.tire} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Cost *</label>
+                              <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Price *</label>
+                              <input className="pur-input" type="number" step="0.01" value={item.selling_price} onChange={e => updateItemToAdd(idx, 'selling_price', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Qty</label>
+                              <input className="pur-input" type="number" min="1" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="pur-row">
+                            <div style={{ flex: 2 }}>
+                              <label className="pur-label">Item Name *</label>
+                              <input className="pur-input" value={item.item_name} onChange={e => updateItemToAdd(idx, 'item_name', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Category *</label>
+                              <CategorySelect value={item.category} onChange={v => updateItemToAdd(idx, 'category', v)} options={otherCats} setOptions={setOtherCats} storageKey={LS_KEYS.other} />
+                            </div>
+                          </div>
+                          <div className="pur-row">
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Cost *</label>
+                              <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Price *</label>
+                              <input className="pur-input" type="number" step="0.01" value={item.selling_price} onChange={e => updateItemToAdd(idx, 'selling_price', e.target.value)} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="pur-label">Qty</label>
+                              <input className="pur-input" type="number" min="1" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
+                            </div>
+                          </div>
+                        </>
+                      )
+                    ) : (
+                      /* SUPPLY ITEM FIELDS */
+                      <>
+                        <div className="pur-row">
+                          <div style={{ flex: 2 }}>
+                            <label className="pur-label">Description *</label>
+                            <input className="pur-input" value={item.item_name} onChange={e => updateItemToAdd(idx, 'item_name', e.target.value)} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label className="pur-label">Category</label>
+                            <CategorySelect value={item.category} onChange={v => updateItemToAdd(idx, 'category', v)} options={supplyCats} setOptions={setSupplyCats} storageKey={LS_KEYS.supply} />
+                          </div>
+                        </div>
+                        <div className="pur-row">
+                          <div style={{ flex: 1 }}>
+                            <label className="pur-label">Qty</label>
+                            <input className="pur-input" type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label className="pur-label">Unit Cost *</label>
+                            <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {modalTab === 'inv' ? (
-                /* INVENTORY FORM */
-                <>
-                  <div className="pur-panel-note inv">✓ Goes into POS inventory · affects stock &amp; margins</div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                    <button className={`pur-btn-toggle ${itemType === 'TIRE' ? 'active' : ''}`} onClick={() => setItemType('TIRE')} style={{ flex: 1 }}>Tires</button>
-                    <button className={`pur-btn-toggle ${itemType === 'OTHER' ? 'active' : ''}`} onClick={() => setItemType('OTHER')} style={{ flex: 1 }}>Other Parts</button>
-                  </div>
-
-                  {itemType === 'TIRE' ? (<>
-                    <div className="pur-row">
-                      <div style={{ flex: '1 1 120px' }}>
-                        <label className="pur-label">Brand <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" placeholder="e.g. Bridgestone" value={invForm.brand} onChange={e => setInvField('brand', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '1 1 130px' }}>
-                        <label className="pur-label">Design <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" placeholder="e.g. Turanza" value={invForm.design} onChange={e => setInvField('design', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '1 1 120px' }}>
-                        <label className="pur-label">Size <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" placeholder="e.g. 205/55R16" value={invForm.size} onChange={e => setInvField('size', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '0 1 90px' }}>
-                        <label className="pur-label" style={{ color: 'var(--th-amber)' }}>DOT / Year <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" placeholder="e.g. 2025" value={invForm.dot_number}
-                          onChange={e => setInvField('dot_number', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                          style={{ borderColor: invForm.dot_number.length === 4 ? undefined : 'var(--th-rose)' }} />
-                      </div>
-                    </div>
-                    <div className="pur-row">
-                      <div style={{ flex: '1 1 100px' }}>
-                        <label className="pur-label">Category <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <CategorySelect value={invForm.category} onChange={v => setInvField('category', v)} options={tireCats} setOptions={setTireCats} storageKey={LS_KEYS.tire} />
-                      </div>
-                      <div style={{ flex: '1 1 100px' }}>
-                        <label className="pur-label">Unit Cost <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" type="number" step="0.01" placeholder="0.00" value={invForm.unit_cost} onChange={e => setInvField('unit_cost', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '1 1 100px' }}>
-                        <label className="pur-label">Selling Price <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" type="number" step="0.01" placeholder="0.00" value={invForm.selling_price} onChange={e => setInvField('selling_price', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '0 1 65px' }}>
-                        <label className="pur-label">Qty</label>
-                        <input className="pur-input" type="number" min="1" placeholder="1" value={invForm.quantity} onChange={e => setInvField('quantity', e.target.value)} />
-                      </div>
-                    </div>
-                  </>) : (<>
-                    <div className="pur-row">
-                      <div style={{ flex: '2 1 180px' }}>
-                        <label className="pur-label">Item Name <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" placeholder="e.g. TR413 Valve Stem" value={invForm.item_name} onChange={e => setInvField('item_name', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '1 1 120px' }}>
-                        <label className="pur-label">Category <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <CategorySelect value={invForm.category} onChange={v => setInvField('category', v)} options={otherCats} setOptions={setOtherCats} storageKey={LS_KEYS.other} />
-                      </div>
-                    </div>
-                    <div className="pur-row">
-                      <div style={{ flex: '1 1 110px' }}>
-                        <label className="pur-label">Unit Cost <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" type="number" step="0.01" placeholder="0.00" value={invForm.unit_cost} onChange={e => setInvField('unit_cost', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '1 1 110px' }}>
-                        <label className="pur-label">Selling Price <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                        <input className="pur-input" type="number" step="0.01" placeholder="0.00" value={invForm.selling_price} onChange={e => setInvField('selling_price', e.target.value)} />
-                      </div>
-                      <div style={{ flex: '0 1 65px' }}>
-                        <label className="pur-label">Qty</label>
-                        <input className="pur-input" type="number" min="1" placeholder="1" value={invForm.quantity} onChange={e => setInvField('quantity', e.target.value)} />
-                      </div>
-                    </div>
-                  </>)}
-
-                  <div>
-                    <label className="pur-label">Notes</label>
-                    <input className="pur-input" placeholder="Optional" value={invForm.notes} onChange={e => setInvField('notes', e.target.value)} />
-                  </div>
-
-                  <div className="pur-modal-footer">
-                    <button className="pur-clear-btn" onClick={closeModal}>Cancel</button>
-                    <button className="pur-save-btn inv" style={{ width: 'auto' }} onClick={handleInvConfirm} disabled={saving}>
-                      ✓ Save to Inventory
-                    </button>
-                  </div>
-                </>
-              ) : (
-                /* SUPPLIES FORM */
-                <>
-                  <div className="pur-panel-note sup">📋 Reference only · does not enter POS · cost deducted from profit</div>
-
-                  <div className="pur-row">
-                    <div style={{ flex: '2 1 200px' }}>
-                      <label className="pur-label">Item / Description <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                      <input className="pur-input" placeholder="e.g. Tire patch cement 1L" value={supForm.item_name} onChange={e => setSupForm(f => ({ ...f, item_name: e.target.value }))} />
-                    </div>
-                    <div style={{ flex: '1 1 130px' }}>
-                      <label className="pur-label">Category</label>
-                      <CategorySelect value={supForm.category} onChange={v => setSupForm(f => ({ ...f, category: v }))} options={supplyCats} setOptions={setSupplyCats} storageKey={LS_KEYS.supply} />
-                    </div>
-                  </div>
-                  <div className="pur-row">
-                    <div style={{ flex: '0 1 75px' }}>
-                      <label className="pur-label">Qty</label>
-                      <input className="pur-input" type="number" min="0.01" step="0.01" placeholder="1" value={supForm.quantity} onChange={e => setSupForm(f => ({ ...f, quantity: e.target.value }))} />
-                    </div>
-                    <div style={{ flex: '1 1 130px' }}>
-                      <label className="pur-label">Unit Cost <span style={{ color: 'var(--th-rose)' }}>*</span></label>
-                      <input className="pur-input" type="number" step="0.01" placeholder="0.00" value={supForm.unit_cost} onChange={e => setSupForm(f => ({ ...f, unit_cost: e.target.value }))} />
-                    </div>
-                    <div style={{ flex: '1 1 130px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                      <label className="pur-label">Total Cost</label>
-                      <div className="pur-input" style={{ background: 'var(--th-bg-card-alt)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: '1rem', color: 'var(--th-amber)', cursor: 'default' }}>
-                        {supForm.unit_cost && parseFloat(supForm.unit_cost) > 0
-                          ? currency((parseFloat(supForm.unit_cost) || 0) * (parseFloat(supForm.quantity) || 1))
-                          : '—'}
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="pur-label">Notes</label>
-                    <input className="pur-input" placeholder="Optional" value={supForm.notes} onChange={e => setSupForm(f => ({ ...f, notes: e.target.value }))} />
-                  </div>
-
-                  <div className="pur-modal-footer">
-                    <button className="pur-clear-btn" onClick={closeModal}>Cancel</button>
-                    <button className="pur-save-btn sup" style={{ width: 'auto' }} onClick={handleSupConfirm} disabled={saving}>
-                      ✓ Record Supply
-                    </button>
-                  </div>
-                </>
+              {!editMode && (
+                <div>
+                  <button
+                    className="pur-page-tab"
+                    onClick={addMoreItem}
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      border: '1px dashed var(--th-border-strong)',
+                      background: 'rgba(255,255,255,0.02)'
+                    }}
+                  >
+                    + Add another item
+                  </button>
+                </div>
               )}
+
+              <div className="pur-modal-footer">
+                <button className="pur-clear-btn" onClick={closeModal}>Cancel</button>
+                <button className={`pur-save-btn ${modalTab === 'inv' ? 'inv' : 'sup'}`} style={{ width: 'auto' }} onClick={handleConfirm} disabled={saving}>
+                  {editMode ? '✓ Update Purchase' : `✓ Record ${itemsToAdd.length} item(s)`}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -574,27 +794,37 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
         {/* ── Pending Confirmation Dialog ── */}
         {pending && (
           <div className="confirm-overlay">
-            <div className="confirm-box">
+            <div className="confirm-box" style={{ maxWidth: 500 }}>
               <div className="confirm-title">Confirm {pending.type === 'inv' ? 'Inventory Purchase' : 'Supply Record'}</div>
-              <div className="confirm-details">
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Item</span>
-                  <span className="confirm-detail-val">{pending.data.brand ? (pending.data.brand + ' ' + pending.data.design) : pending.data.item_name}</span>
-                </div>
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Quantity</span>
-                  <span className="confirm-detail-val">{pending.data.quantity}</span>
-                </div>
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Unit Cost</span>
-                  <span className="confirm-detail-val">{currency(pending.data.unit_cost)}</span>
-                </div>
-                <div className="confirm-detail-row" style={{ borderTop: '1px solid var(--th-border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
-                  <span className="confirm-detail-label">Total Cost</span>
-                  <span className="confirm-detail-val" style={{ color: 'var(--th-amber)', fontSize: '1.1rem' }}>
-                    {currency(pending.data.unit_cost * pending.data.quantity)}
-                  </span>
-                </div>
+              <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+                <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--th-border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Item</th>
+                      <th style={{ textAlign: 'right', padding: '0.5rem' }}>Qty</th>
+                      <th style={{ textAlign: 'right', padding: '0.5rem' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pending.data.map((it, idx) => {
+                      const name = it.brand ? `${it.brand} ${it.design}` : it.item_name;
+                      const total = (parseFloat(it.unit_cost) || 0) * (parseFloat(it.quantity) || 0);
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--th-border-strong)' }}>
+                          <td style={{ padding: '0.5rem' }}>{name}</td>
+                          <td style={{ textAlign: 'right', padding: '0.5rem' }}>{it.quantity}</td>
+                          <td style={{ textAlign: 'right', padding: '0.5rem' }}>{currency(total)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="confirm-detail-row" style={{ borderTop: '2px solid var(--th-border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
+                <span className="confirm-detail-label">Grand Total</span>
+                <span className="confirm-detail-val" style={{ color: 'var(--th-amber)', fontSize: '1.2rem' }}>
+                  {currency(pending.data.reduce((acc, it) => acc + (parseFloat(it.unit_cost) || 0) * (parseFloat(it.quantity) || 0), 0))}
+                </span>
               </div>
               <div className="confirm-actions">
                 <button className="confirm-btn-cancel" onClick={() => setPending(null)}>Back</button>
@@ -655,13 +885,65 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               )}
             </div>
             <div className="confirm-actions">
-              <button className="confirm-btn-cancel" style={{ width: '100%' }} onClick={() => setDetailRow(null)}>Close</button>
+              <button className="confirm-btn-cancel" style={{ width: 'auto' }} onClick={() => setDetailRow(null)}>Close</button>
+              {!detailRow.is_void && (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="pur-save-btn inv" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={() => handleEdit(detailRow)}>
+                    ✎ Edit Purchase
+                  </button>
+                  <button className="pur-save-btn sup" style={{ width: 'auto', padding: '0.5rem 1rem', background: 'var(--th-rose)' }} onClick={() => handleVoid(detailRow.purchase_id)}>
+                    ✕ Void
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
+      {/* ── Void Modal ── */}
+      {voidingId && (
+        <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setVoidingId(null)} style={{ zIndex: 9999 }}>
+          <div className="confirm-box" style={{ maxWidth: 460 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="confirm-title" style={{ marginBottom: 0, color: 'var(--th-rose)' }}>
+                Void Purchase
+              </div>
+              <button className="pur-modal-close" onClick={() => setVoidingId(null)}>✕</button>
+            </div>
+            <div className="confirm-details" style={{ borderLeft: '3px solid var(--th-rose)', paddingLeft: '1rem' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--th-text-body)' }}>
+                Are you sure you want to void this purchase? The associated stock will be automatically reverted from the inventory.
+              </p>
+            </div>
+            <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+              <label className="pur-label">Reason for Voiding <span style={{ color: "var(--th-rose)" }}>*</span></label>
+              <textarea
+                className="pur-input"
+                rows="3"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Reason for voiding (required)…"
+                style={{ resize: 'vertical' }}
+              />
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setVoidingId(null)}>Cancel</button>
+              <button
+                className="pur-save-btn sup"
+                style={{ width: 'auto', background: 'var(--th-rose)' }}
+                onClick={submitVoid}
+                disabled={loading || !voidReason.trim()}
+              >
+                {loading ? 'Processing…' : '✕ Confirm Void'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   )
 }
 
 export default PurchasesPage
+

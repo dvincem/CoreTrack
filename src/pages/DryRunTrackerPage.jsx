@@ -118,9 +118,36 @@ export default function DryRunTrackerPage() {
           box-shadow: var(--th-shadow-card);
           border-color: var(--th-border-strong);
         }
+
+        .dr-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          margin-bottom: 0;
+          border-bottom: 1px solid var(--th-border);
+          padding-bottom: 0.5rem;
+          gap: 1rem;
+        }
+
+        .dr-sub {
+          opacity: 0.7;
+          max-width: 400px;
+          text-align: right;
+        }
+
         @media (max-width: 960px) {
           .dr-layout { grid-template-columns: 1fr !important; }
           .th-panel { position: static !important; }
+        }
+        @media (max-width: 768px) {
+          .dr-header {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+          }
+          .dr-sub {
+            text-align: center;
+          }
         }
         @media (max-width: 640px) {
           .th-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -128,11 +155,11 @@ export default function DryRunTrackerPage() {
       `}</style>
 
       {/* Header Row */}
-      <div className="att-header-row" style={{ marginBottom: '0', borderBottom: '1px solid var(--th-border)', paddingBottom: '0.5rem' }}>
+      <div className="att-header-row dr-header">
         <div className="th-page-title">
           Dry Run <span style={{ color: 'var(--th-orange)' }}>Tracker</span>
         </div>
-        <div className="th-text-xs" style={{ opacity: 0.7, maxWidth: '400px', textAlign: 'right' }}>
+        <div className="th-text-xs dr-sub">
           Log system feedback, bugs, and feature requests during the 30-day testing phase. 
         </div>
       </div>

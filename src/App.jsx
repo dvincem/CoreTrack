@@ -2,6 +2,7 @@ import React from 'react'
 import { API_URL } from './lib/config'
 import { ThemeToggle } from './components/ThemeProvider'
 import LoginPage from './pages/LoginPage'
+import SetupPage from './pages/SetupPage'
 import DashboardPage from './pages/DashboardPage'
 import POSPage from './pages/POSPage'
 import InventoryPage from './pages/InventoryPage'
@@ -191,19 +192,30 @@ const APP_SHELL_STYLE = `
 
   .th-shop-select {
     width: 100%;
-    background: var(--th-bg-input);
-    border: 1px solid var(--th-border-strong);
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--th-border-strong);
     color: var(--th-text-primary);
-    padding: 0.35rem 0.55rem;
-    border-radius: 7px;
-    font-family: var(--font-body);
-    font-size: 0.8rem;
+    padding: 0.3rem 1.5rem 0.3rem 0.1rem;
+    border-radius: 0;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     outline: none;
     cursor: pointer;
     transition: border-color 0.2s, opacity 0.15s, max-height 0.22s;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.1rem center;
   }
-  .th-shop-select:focus { border-color: var(--th-orange); }
+  .th-shop-select:focus { border-bottom-color: var(--th-orange); }
   .th-sidebar.collapsed .th-shop-select { opacity: 0; max-height: 0; padding: 0; border: none; pointer-events: none; }
+
 
   .th-sidebar-nav {
     flex: 1;
@@ -906,6 +918,17 @@ function TireHub() {
   const [now, setNow] = React.useState(new Date());
   React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
+  // ── System initialization status ──────────────────────────────────────────
+  // 'checking' | 'uninitialized' | 'ready'
+  const [systemStatus, setSystemStatus] = React.useState('checking');
+
+  React.useEffect(() => {
+    fetch(`${API_URL}/system/status`)
+      .then(r => r.ok ? r.json() : { initialized: true }) // fallback: assume ready on error
+      .then(d => setSystemStatus(d.initialized ? 'ready' : 'uninitialized'))
+      .catch(() => setSystemStatus('ready')); // on network error, fall through to login
+  }, []);
+
   // Re-render when theme changes (MutationObserver on <html>)
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
@@ -1162,6 +1185,30 @@ function TireHub() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowedPages, userRole, userPower, page]);
 
+  // ── Show a loading shimmer while we check system status ──────────────────
+  if (systemStatus === 'checking') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--th-bg-base, #0a0e1a)',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', color: 'var(--th-text-faint, #64748b)' }}>
+          <div style={{
+            width: 40, height: 40, border: '3px solid rgba(249,115,22,0.2)',
+            borderTopColor: 'var(--th-orange, #f97316)', borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite'
+          }} />
+          <div style={{ fontSize: '0.85rem', letterSpacing: '0.04em' }}>Starting CoreTrack…</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── First-run: show Setup Wizard ─────────────────────────────────────────
+  if (systemStatus === 'uninitialized') {
+    return <SetupPage onSetupComplete={() => setSystemStatus('ready')} />;
+  }
+
   if (!token) {
     if (pendingFirstLogin) {
       return <FirstLoginPage loginData={pendingFirstLogin} onDone={handleFirstLoginDone} />;
@@ -1396,13 +1443,13 @@ function TireHub() {
             case "pos": return <POSPage key={refresh} shopId={shop} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
             case "inventory": return <InventoryPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "orders": return <OrdersPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
-            case "recap": return <RecapPage key={refresh} shopId={shop} onRefresh={doRefresh} currentStaffId={currentStaffId} currentStaffName={currentStaffName} setPageContext={setPageContext} />;
-            case "returns": return <ReturnsPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
-            case "sales": return <SalesPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
+            case "recap": return <RecapPage key={refresh} shopId={shop} onRefresh={doRefresh} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
+            case "returns": return <ReturnsPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
+            case "sales": return <SalesPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
             case "reports": return <Reportspage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "products": return <Productspage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "services": return <Servicespage key={refresh} shopId={shop} setPageContext={setPageContext} />;
-            case "services-summary": return <ServicesSummaryPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
+            case "services-summary": return <ServicesSummaryPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
             case "staff": return <StaffManagementPage key={refresh} shopId={shop} setPageContext={setPageContext} userRole={userRole} userPower={userPower} />;
             case "customers": return <CustomerPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "suppliers": return <SuppliersPage key={refresh} shopId={shop} setPageContext={setPageContext} />;

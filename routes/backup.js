@@ -53,6 +53,23 @@ function dbAll(sql, params = []) {
 }
 
 // ── Core Backup Logic (Exported for Auto-Backup) ───────────────────────────
+
+// Excel cells cannot exceed 32,767 characters — truncate any that do
+const EXCEL_MAX_CELL = 32767;
+function sanitizeRows(rows) {
+  return rows.map(row => {
+    const clean = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (typeof v === 'string' && v.length > EXCEL_MAX_CELL) {
+        clean[k] = v.slice(0, EXCEL_MAX_CELL - 3) + '...';
+      } else {
+        clean[k] = v;
+      }
+    }
+    return clean;
+  });
+}
+
 async function runBackupToFile(targetPath = null) {
   const excelPath = targetPath || path.join(__dirname, "..", "backup.xlsx");
 
@@ -79,8 +96,9 @@ async function runBackupToFile(targetPath = null) {
     if (idx !== -1) wb.SheetNames.splice(idx, 1);
     delete wb.Sheets[sheetName];
 
-    const ws = rows.length > 0
-      ? XLSX.utils.json_to_sheet(rows)
+    const safeRows = sanitizeRows(rows);
+    const ws = safeRows.length > 0
+      ? XLSX.utils.json_to_sheet(safeRows)
       : XLSX.utils.aoa_to_sheet([]);
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   }
@@ -88,6 +106,7 @@ async function runBackupToFile(targetPath = null) {
   XLSX.writeFile(wb, excelPath);
   return { ok: true, tables: EXPORT_TABLES.length };
 }
+
 
 router.post("/backup", async (req, res) => {
   try {
@@ -114,7 +133,8 @@ router.get("/backup/download", async (req, res) => {
     for (const table of EXPORT_TABLES) {
       let rows;
       try { rows = await dbAll(`SELECT * FROM ${table}`); } catch { continue; }
-      const ws = rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([[]]);
+      const safeRows = sanitizeRows(rows);
+      const ws = safeRows.length > 0 ? XLSX.utils.json_to_sheet(safeRows) : XLSX.utils.aoa_to_sheet([[]]);
       XLSX.utils.book_append_sheet(wb, ws, table.toUpperCase());
     }
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });

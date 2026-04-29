@@ -1,3 +1,4 @@
+import '../pages_css/PayrollPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch, SkeletonRows } from '../lib/config'
 import KpiCard from '../components/KpiCard'

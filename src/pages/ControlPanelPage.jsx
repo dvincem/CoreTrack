@@ -1,3 +1,4 @@
+import '../pages_css/ControlPanelPage.css';
 import React from 'react'
 import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
 import { DataTable } from '../components/DataTable'

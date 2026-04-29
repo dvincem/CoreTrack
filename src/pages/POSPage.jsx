@@ -1,3 +1,4 @@
+import '../pages_css/POSPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch } from '../lib/config'
 import Pagination from '../components/Pagination'
@@ -353,6 +354,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
   const [presentStaffIds, setPresentStaffIds] = React.useState([]);
   const [selectedHandlerId, setSelectedHandlerId] = React.useState("");
   const [cart, setCart] = React.useState([]);
+  const [showClearCartModal, setShowClearCartModal] = React.useState(false);
 
   React.useEffect(() => {
     if (currentStaffId) {
@@ -419,7 +421,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
         if (Array.isArray(data)) data.forEach(b => { if (b.logo_url) map[b.brand_name] = b.logo_url; });
         setBrandLogos(map);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [shopId]);
 
   /* Suggestions — derived from currently visible groups & variants */
@@ -1085,7 +1087,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                 ))}
               </div>
 
-              <div className="th-section-label" style={{ marginTop: "0.75rem" }}>Products</div>
+              <div className="th-section-label">Products</div>
               <div className="pos-product-grid">
                 {pagedItems.map(({ _rep: i, _variants }) => {
                   const hasMultipleDots = _variants && _variants.length > 1;
@@ -1196,7 +1198,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
               </div>
             </div>
             {cart.length > 0 && (
-              <button className="pos-cart-clear" onClick={() => { if (window.confirm('Clear all items from cart?')) clearCart(); }}>
+              <button className="pos-cart-clear" onClick={() => setShowClearCartModal(true)}>
                 Clear
               </button>
             )}
@@ -1705,6 +1707,35 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
           <span className="pos-mobile-cart-badge">{cart.length}</span>
         )}
       </button>
+
+      {/* ── Clear Cart Modal ── */}
+      {showClearCartModal && (
+        <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setShowClearCartModal(false)} style={{ zIndex: 9999 }}>
+          <div className="confirm-box" style={{ maxWidth: 400 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="confirm-title" style={{ marginBottom: 0, color: 'var(--th-rose)' }}>
+                Clear Cart
+              </div>
+              <button className="pos-modal-close" onClick={() => setShowClearCartModal(false)} style={{ background: 'none', border: 'none', color: 'var(--th-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div className="confirm-details" style={{ borderLeft: '3px solid var(--th-rose)', paddingLeft: '1rem', marginBottom: '1.5rem' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--th-text-body)' }}>
+                Are you sure you want to clear all items from the cart? This action cannot be undone.
+              </p>
+            </div>
+            <div className="confirm-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button className="confirm-btn-cancel" onClick={() => setShowClearCartModal(false)}>Cancel</button>
+              <button
+                className="pos-complete-btn"
+                style={{ width: 'auto', background: 'var(--th-rose)', padding: '0.5rem 1rem' }}
+                onClick={() => { clearCart(); setShowClearCartModal(false); }}
+              >
+                ✕ Confirm Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

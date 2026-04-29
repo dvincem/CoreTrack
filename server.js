@@ -18,10 +18,12 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const { authMiddleware } = require("./middleware/auth");
-const authRouter = require("./routes/auth");
+const authRouter  = require("./routes/auth");
+const setupRouter = require("./routes/setup");
 
-// Login endpoint must be registered BEFORE the auth middleware
+// Public endpoints — registered BEFORE authMiddleware
 app.use("/api", authRouter);
+app.use("/api", setupRouter);
 
 // Protect all remaining /api routes
 app.use("/api", authMiddleware);

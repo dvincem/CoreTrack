@@ -188,6 +188,91 @@ router.post("/items", (req, res) => {
   );
 });
 
+router.post("/items-bulk", async (req, res) => {
+  const { shop_id, items } = req.body;
+  if (!shop_id || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Shop ID and a non-empty array of items are required" });
+  }
+
+  const results = [];
+  const errors = [];
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+
+    let completed = 0;
+    let failed = false;
+
+    const finalize = () => {
+      if (failed) {
+        db.run("ROLLBACK");
+        return; // Already responded or will respond with error
+      }
+      db.run("COMMIT", (err) => {
+        if (err) return res.status(500).json({ error: "Transaction commit failed" });
+        res.json({ results, errors });
+      });
+    };
+
+    items.forEach((item, index) => {
+      const { sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, quantity } = item;
+      
+      if (!sku || !item_name || !category || unit_cost == null || selling_price == null) {
+        errors.push({ index, error: "Missing required fields" });
+        completed++;
+        if (completed === items.length) finalize();
+        return;
+      }
+
+      const item_id = `ITEM-${Date.now()}-${index}`;
+      const cost = parseFloat(unit_cost);
+      const price = parseFloat(selling_price);
+      const dot = (dot_number || "").toString().trim() || null;
+
+      db.run(
+        `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [item_id, sku, item_name, category, brand || null, design || null, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
+        function (err) {
+          if (err) {
+            errors.push({ index, error: err.message });
+            completed++;
+            if (completed === items.length) finalize();
+            return;
+          }
+
+          logPriceHistory(item_id, 'SELLING_PRICE', null, price, null, 'Item created (Bulk)');
+          logPriceHistory(item_id, 'UNIT_COST', null, cost, null, 'Item created (Bulk)');
+
+          // Initial stock
+          if (quantity && parseInt(quantity) > 0) {
+            const inventory_ledger_id = `INVTXN-${Date.now()}-${index}`;
+            db.run(
+              `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, supplier_id, dot_number, created_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [inventory_ledger_id, shop_id, item_id, "PURCHASE", parseInt(quantity), cost, supplier_id || null, dot, "BULK_CREATE"],
+              (invErr) => {
+                if (invErr) {
+                  errors.push({ index, error: `Item created but stock failed: ${invErr.message}` });
+                } else {
+                  results.push({ index, item_id, sku });
+                }
+                completed++;
+                if (completed === items.length) finalize();
+              }
+            );
+          } else {
+            results.push({ index, item_id, sku });
+            completed++;
+            if (completed === items.length) finalize();
+          }
+        }
+      );
+    });
+  });
+});
+
+
 router.put("/items/:item_id/selling-price", (req, res) => {
   const { item_id } = req.params;
   const { selling_price, changed_by } = req.body;

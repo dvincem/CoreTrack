@@ -1,3 +1,4 @@
+import '../pages_css/Productspage.css';
 import React from "react";
 import { API_URL, apiFetch, currency } from "../lib/config";
 import DataTable from "../components/DataTable";
@@ -7,7 +8,7 @@ import ItemHistoryModal from "../components/ItemHistoryModal";
 import usePaginatedResource from "../hooks/usePaginatedResource";
 
 /* ============================================================
-   TIREHUB — PRODUCTS PAGE
+   CORETRACK — PRODUCTS PAGE
    Fetches:
      GET  /api/items/:shop_id               — list all items with stock
      POST /api/items                        — create item
@@ -75,12 +76,13 @@ function extractRimSize(s) {
   if (d) return parseInt(d[1]);
   return null;
 }
-function generateSKU(brand, design, size) {
+function generateSKU(type, brand, design, size) {
   if (!brand && !design && !size) return "";
+  const prefix = type === "TIRE" ? "TIRE" : "ITEM";
   const b = (brand || "").trim().substring(0, 5).toUpperCase();
   const d = (design || "").trim().substring(0, 4).toUpperCase();
   const s = (size || "").trim().replace(/[\/\-]/g, "");
-  return [b, d, s].filter(Boolean).join("-");
+  return prefix + "-" + [b, d, s].filter(Boolean).join("-");
 }
 
 /* ══════════════════════════════════════════
@@ -127,23 +129,26 @@ function Productspage({ shopId }) {
 
   // Form state
   const [formOpen, setFormOpen] = React.useState(false);
-  const [itemType, setItemType] = React.useState("TIRE");
-  const [form, setForm] = React.useState({
-    sku: "",
-    item_name: "",
-    category: "TIRE",
-    brand: "",
-    design: "",
-    size: "",
-    rim_size: "",
-    dot_number: "",
-    unit_cost: "",
-    selling_price: "",
-    quantity: "",
-    reorder_point: "5",
-    supplier_id: "",
-    newCategory: "",
-  });
+  const [itemsToAdd, setItemsToAdd] = React.useState([
+    {
+      id: Date.now() + Math.random(),
+      itemType: "TIRE",
+      sku: "",
+      item_name: "",
+      category: "PCR",
+      brand: "",
+      design: "",
+      size: "",
+      rim_size: "",
+      dot_number: "",
+      unit_cost: "",
+      selling_price: "",
+      quantity: "",
+      reorder_point: "5",
+      supplier_id: "",
+    }
+  ]);
+
   const [tireCats, setTireCats] = React.useState(() =>
     prodLoadCats(PROD_LS.tire, DEFAULT_TIRE_CATS),
   );
@@ -282,78 +287,145 @@ function Productspage({ shopId }) {
     setSuggestions(sugs.slice(0, 10));
   }, [search, items]);
 
-  /* ── Form ── */
-  function setField(k, v) {
-    setForm((f) => {
-      const next = { ...f, [k]: v };
-      if (!next.sku || next.sku === buildSKU({ ...f, itemType })) {
-        next.sku = buildSKU({ ...next, itemType });
+  function addMoreItems() {
+    setItemsToAdd(prev => [...prev, {
+      id: Date.now() + Math.random(),
+      itemType: "TIRE",
+      sku: "",
+      item_name: "",
+      category: "PCR",
+      brand: "",
+      design: "",
+      size: "",
+      rim_size: "",
+      dot_number: "",
+      unit_cost: "",
+      selling_price: "",
+      quantity: "",
+      reorder_point: "5",
+      supplier_id: "",
+    }]);
+  }
+
+  function removeItemsToAdd(index) {
+    if (itemsToAdd.length <= 1) return;
+    setItemsToAdd(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function updateItemToAdd(index, field, value) {
+    setItemsToAdd(prev => {
+      const next = [...prev];
+      const item = { ...next[index], [field]: value };
+
+      // Auto-SKU for tires
+      if (item.itemType === "TIRE") {
+        if (!item.sku || item.sku === generateSKU("TIRE", next[index].brand, next[index].design, next[index].size)) {
+          item.sku = generateSKU("TIRE", item.brand, item.design, item.size);
+        }
+      } else {
+        // Auto-SKU for items
+        const autoNameSku = generateSKU("ITEM", item.item_name, item.category, "");
+        if (!item.sku || item.sku === generateSKU("ITEM", next[index].item_name, next[index].category, "")) {
+          item.sku = autoNameSku;
+        }
       }
+
+      next[index] = item;
       return next;
     });
   }
-  function switchItemType(t) {
-    setItemType(t);
-    setForm((f) => ({
-      ...f,
-      category: t === "TIRE" ? "TIRE" : "OTHER",
-      sku: buildSKU({ ...f, itemType: t }),
-    }));
+
+  function switchItemType(index, t) {
+    setItemsToAdd(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        itemType: t,
+        category: t === "TIRE" ? "PCR" : "OTHER"
+      };
+      return next;
+    });
   }
 
+  function openAddModal() {
+    setItemsToAdd([
+      {
+        id: Date.now() + Math.random(),
+        itemType: "TIRE",
+        sku: "",
+        item_name: "",
+        category: "PCR",
+        brand: "",
+        design: "",
+        size: "",
+        rim_size: "",
+        dot_number: "",
+        unit_cost: "",
+        selling_price: "",
+        quantity: "",
+        reorder_point: "5",
+        supplier_id: "",
+      }
+    ]);
+    setFormOpen(true);
+  }
+
+
   async function handleAddItem() {
-    const isTire = itemType === "TIRE";
-    const autoItemName = isTire
-      ? [form.brand, form.design, form.size].filter(Boolean).join(" ")
-      : form.item_name;
-    if (isTire && (!form.brand || !form.design || !form.size)) {
-      toast("Brand, Design, and Size are required for tire items.", "error");
-      return;
+    const validatedItems = [];
+    for (let i = 0; i < itemsToAdd.length; i++) {
+      const item = itemsToAdd[i];
+      const isTire = item.itemType === "TIRE";
+      const autoItemName = isTire
+        ? [item.brand, item.design, item.size].filter(Boolean).join(" ")
+        : item.item_name;
+
+      const label = `Item #${i + 1}`;
+
+      if (isTire && (!item.brand || !item.design || !item.size)) {
+        toast(`${label}: Brand, Design, and Size are required for tires.`, "error");
+        return;
+      }
+      if (!isTire && !item.item_name) {
+        toast(`${label}: Item name is required.`, "error");
+        return;
+      }
+      if (!item.category) {
+        toast(`${label}: Category is required.`, "error");
+        return;
+      }
+      if (!item.unit_cost || !item.selling_price) {
+        toast(`${label}: Cost and Price are required.`, "error");
+        return;
+      }
+      if (isTire && !item.dot_number?.trim()) {
+        toast(`${label}: DOT number is required for tires.`, "error");
+        return;
+      }
+
+      const autoSku = isTire
+        ? generateSKU("TIRE", item.brand, item.design, item.size)
+        : generateSKU("ITEM", item.item_name, item.category, "");
+
+      const dup = items.find((x) => x.sku === (item.sku || autoSku));
+      if (dup) {
+        toast(`${label}: SKU "${item.sku || autoSku}" already exists.`, "error");
+        return;
+      }
+
+      validatedItems.push({
+        ...item,
+        sku: item.sku || autoSku,
+        item_name: autoItemName,
+        rim_size: isTire ? extractRimSize(item.size) : (item.rim_size ? parseFloat(item.rim_size) : null),
+        unit_cost: parseFloat(item.unit_cost),
+        selling_price: parseFloat(item.selling_price),
+        reorder_point: parseInt(item.reorder_point) || 5,
+        dot_number: item.dot_number?.trim() || null,
+      });
     }
-    if (!isTire && !form.item_name) {
-      toast("Item name is required.", "error");
-      return;
-    }
-    if (!form.category) {
-      toast("Category is required.", "error");
-      return;
-    }
-    if (!form.unit_cost || !form.selling_price) {
-      toast("Unit Cost and Selling Price are required.", "error");
-      return;
-    }
-    if (isTire && !form.dot_number.trim()) {
-      toast("DOT number is required for tire items.", "error");
-      return;
-    }
-    const autoSku = isTire
-      ? generateSKU(form.brand, form.design, form.size)
-      : `${(form.item_name || "").toUpperCase().replace(/\s+/g, "-")}-${(form.category || "").toUpperCase()}`;
-    const dup = items.find((i) => i.sku === autoSku);
-    if (dup) {
-      toast(`SKU "${autoSku}" already exists: ${dup.item_name}`, "error");
-      return;
-    }
-    // Show confirmation modal
-    setPending({
-      sku: autoSku,
-      item_name: autoItemName,
-      category: form.category,
-      brand: form.brand || null,
-      design: form.design || null,
-      size: form.size || null,
-      rim_size: isTire
-        ? extractRimSize(form.size)
-        : form.rim_size
-          ? parseFloat(form.rim_size)
-          : null,
-      unit_cost: parseFloat(form.unit_cost),
-      selling_price: parseFloat(form.selling_price),
-      reorder_point: parseInt(form.reorder_point) || 5,
-      quantity: form.quantity,
-      supplier_id: form.supplier_id,
-      dot_number: form.dot_number.trim() || null,
-    });
+
+    setPending(validatedItems);
   }
 
   async function confirmAddItem() {
@@ -361,58 +433,49 @@ function Productspage({ shopId }) {
     setPending(null);
     setSaving(true);
     try {
-      const res = await apiFetch(`${API_URL}/items`, {
+      const res = await apiFetch(`${API_URL}/items-bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ shop_id: shopId, items: payload }),
       });
       const data = await res.json();
+
       if (data.error) {
         toast(data.error, "error");
+      } else if (data.errors && data.errors.length > 0) {
+        toast(`Completed with ${data.errors.length} errors.`, "warning");
+        console.error("Bulk partial failures:", data.errors);
       } else {
-        // Create initial stock entry if qty provided
-        if (payload.quantity && parseInt(payload.quantity) > 0) {
-          try {
-            await apiFetch(`${API_URL}/inventory/purchase`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                shop_id: shopId,
-                item_id: data.item_id,
-                quantity: parseInt(payload.quantity),
-                unit_cost: payload.unit_cost,
-                supplier_id: payload.supplier_id || null,
-                created_by: "PRODUCTS",
-              }),
-            });
-          } catch { }
-        }
-        toast("Product added successfully!");
-        setForm({
-          sku: "",
-          item_name: "",
-          category: itemType === "TIRE" ? "TIRE" : "OTHER",
-          brand: "",
-          design: "",
-          size: "",
-          rim_size: "",
-          dot_number: "",
-          unit_cost: "",
-          selling_price: "",
-          quantity: "",
-          reorder_point: "5",
-          supplier_id: "",
-          newCategory: "",
-        });
+        toast(`Successfully added ${payload.length} product(s)!`);
+        setItemsToAdd([
+          {
+            id: Date.now(),
+            itemType: "TIRE",
+            sku: "",
+            item_name: "",
+            category: "PCR",
+            brand: "",
+            design: "",
+            size: "",
+            rim_size: "",
+            dot_number: "",
+            unit_cost: "",
+            selling_price: "",
+            quantity: "",
+            reorder_point: "5",
+            supplier_id: "",
+          }
+        ]);
         setFormOpen(false);
         refetchItems();
         fetchKpi();
       }
     } catch {
-      toast("Failed to save product.", "error");
+      toast("Failed to save products.", "error");
     }
     setSaving(false);
   }
+
 
   /* ── Inline edit ── */
   function startEdit(e, item, field) {
@@ -900,646 +963,543 @@ function Productspage({ shopId }) {
         }
       `}</style>
       <div className="prod-root">
-      {/* Header */}
-      <div className="prod-header">
-        <div className="prod-title">
-          Product <span>Management</span>
+        {/* Header */}
+        <div className="prod-header">
+          <div className="prod-title">
+            Product <span>Management</span>
+          </div>
+          <button className="prod-btn-primary" onClick={openAddModal}>
+            + Add Product
+          </button>
         </div>
-        <button className="prod-btn-primary" onClick={() => setFormOpen(true)}>
-          + Add Product
-        </button>
-      </div>
 
-      {/* Add Product Modal */}
-      {formOpen && (
+        {/* Add Product Modal */}
+        {formOpen && (
+          <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setFormOpen(false)}>
+            <div className="confirm-box" style={{ maxWidth: "600px", width: "95vw", padding: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "1.5rem", color: "var(--th-text-heading)" }}>Add Product/s</h2>
+                </div>
+                <button className="pos-modal-close" onClick={() => setFormOpen(false)}>✕</button>
+              </div>
+
+              <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                {itemsToAdd.map((item, idx) => (
+                  <div key={item.id} className="prod-bulk-card" style={{
+                    background: "var(--th-bg-soft)",
+                    borderRadius: 12,
+                    padding: "1rem",
+                    border: "1px solid var(--th-border-strong)",
+                    marginBottom: ".5rem",
+                    position: "relative"
+                  }}>
+                    {itemsToAdd.length > 1 && (
+                      <button
+                        onClick={() => removeItemsToAdd(idx)}
+                        style={{
+                          position: "absolute",
+                          top: "0.8rem",
+                          right: "0.8rem",
+                          background: "var(--th-rose-bg)",
+                          color: "var(--th-rose)",
+                          border: "none",
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          fontSize: "0.9rem"
+                        }}
+                        title="Remove this item"
+                      >
+                        ✕
+                      </button>
+                    )}
+
+                    <div style={{ display: "flex", gap: "0.8rem", marginBottom: ".5rem", alignItems: "center" }}>
+                      <div style={{
+                        width: "32px",
+                        height: "32px",
+                        background: "var(--th-orange)",
+                        color: "#fff",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        fontSize: "0.9rem"
+                      }}>
+                        {idx + 1}
+                      </div>
+
+                      <div className="prod-type-toggle" style={{ display: "flex", gap: "0.4rem", background: "var(--th-bg-dark)", padding: "0.3rem", borderRadius: 8 }}>
+                        <button
+                          onClick={() => switchItemType(idx, "TIRE")}
+                          style={{
+                            padding: "0.4rem 1rem",
+                            borderRadius: 6,
+                            border: "none",
+                            background: item.itemType === "TIRE" ? "var(--th-orange)" : "transparent",
+                            color: item.itemType === "TIRE" ? "#fff" : "var(--th-text-muted)",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                        >
+                          🛞 Tire
+                        </button>
+                        <button
+                          onClick={() => switchItemType(idx, "OTHER")}
+                          style={{
+                            padding: "0.4rem 1rem",
+                            borderRadius: 6,
+                            border: "none",
+                            background: item.itemType === "OTHER" ? "var(--th-orange)" : "transparent",
+                            color: item.itemType === "OTHER" ? "#fff" : "var(--th-text-muted)",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                            transition: "all 0.2s"
+                          }}
+                        >
+                          📦 Other
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fields Grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: ".5rem" }}>
+                      {item.itemType === "TIRE" ? (
+                        <>
+                          <div>
+                            <label className="prod-label">Brand *</label>
+                            <input className="prod-input" placeholder="Bridgestone" value={item.brand} onChange={e => updateItemToAdd(idx, "brand", e.target.value)} />
+                          </div>
+                          <div>
+                            <label className="prod-label">Design *</label>
+                            <input className="prod-input" placeholder="Turanza" value={item.design} onChange={e => updateItemToAdd(idx, "design", e.target.value)} />
+                          </div>
+                          <div>
+                            <label className="prod-label">Size *</label>
+                            <input className="prod-input" placeholder="205/55R16" value={item.size} onChange={e => updateItemToAdd(idx, "size", e.target.value)} />
+                          </div>
+                          <div>
+                            <label className="prod-label" style={{ color: "var(--th-amber)" }}>DOT / Year *</label>
+                            <input className="prod-input" placeholder="2025" value={item.dot_number} onChange={e => updateItemToAdd(idx, "dot_number", e.target.value)} />
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ gridColumn: "span 2" }}>
+                          <label className="prod-label">Item Name *</label>
+                          <input className="prod-input" placeholder="Battery 12V 70Ah" value={item.item_name} onChange={e => updateItemToAdd(idx, "item_name", e.target.value)} />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="prod-label">Category *</label>
+                        <select
+                          className="prod-input"
+                          value={item.category}
+                          style={{ height: "38px" }}
+                          onChange={(e) => {
+                            if (e.target.value === "__ADD__") {
+                              const name = window.prompt("Enter new category name:");
+                              if (name && name.trim()) {
+                                const trimmed = name.trim();
+                                if (item.itemType === "TIRE") {
+                                  const next = tireCats.includes(trimmed) ? tireCats : [...tireCats, trimmed];
+                                  setTireCats(next); prodSaveCats(PROD_LS.tire, next);
+                                } else {
+                                  const next = otherCats.includes(trimmed) ? otherCats : [...otherCats, trimmed];
+                                  setOtherCats(next); prodSaveCats(PROD_LS.other, next);
+                                }
+                                updateItemToAdd(idx, "category", trimmed);
+                              }
+                            } else {
+                              updateItemToAdd(idx, "category", e.target.value);
+                            }
+                          }}
+                        >
+                          {(item.itemType === "TIRE" ? tireCats : otherCats).map((c) => (
+                            <option key={c}>{c}</option>
+                          ))}
+                          <option value="__ADD__">+ Add category…</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="prod-label">Cost *</label>
+                        <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.unit_cost} onChange={e => updateItemToAdd(idx, "unit_cost", e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="prod-label">Price *</label>
+                        <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.selling_price} onChange={e => updateItemToAdd(idx, "selling_price", e.target.value)} />
+                      </div>
+
+                      <div>
+                        <label className="prod-label">Qty</label>
+                        <input className="prod-input" type="number" min="1" placeholder="4" value={item.quantity} onChange={e => updateItemToAdd(idx, "quantity", e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="prod-label">Reorder Pt.</label>
+                        <input className="prod-input" type="number" min="0" value={item.reorder_point} onChange={e => updateItemToAdd(idx, "reorder_point", e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="prod-label">Supplier</label>
+                        <select className="prod-input" style={{ height: "38px" }} value={item.supplier_id} onChange={e => updateItemToAdd(idx, "supplier_id", e.target.value)}>
+                          <option value="">— None —</option>
+                          {suppliers.map((s) => <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>)}
+                        </select>
+                      </div>
+
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label className="prod-label" style={{ fontSize: "0.7rem", opacity: 0.7 }}>Auto-generated SKU: <span style={{ color: "var(--th-orange)", fontWeight: 700 }}>{item.sku || "..."}</span></label>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button
+                  onClick={addMoreItems}
+                  style={{
+                    padding: "0.6rem 1.2rem",
+                    borderRadius: 8,
+                    background: "var(--th-bg-dark)",
+                    color: "var(--th-orange)",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    border: "1px dashed var(--th-orange)",
+                    marginBottom: ".5rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  +Item
+                </button>
+
+                <div style={{ display: "flex", gap: "0.8rem" }}>
+                  <button
+                    className="confirm-btn-cancel"
+                    onClick={() => setFormOpen(false)}
+                    style={{ padding: "0.6rem 1.5rem" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddItem}
+                    disabled={saving}
+                    style={{
+                      padding: "0.6rem 2rem",
+                      borderRadius: 8,
+                      background: "var(--th-orange)",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      border: "none",
+                      cursor: saving ? "not-allowed" : "pointer",
+                      boxShadow: "0 4px 12px rgba(255, 107, 0, 0.2)"
+                    }}
+                  >
+                    {saving ? "Adding…" : `✓ Add ${itemsToAdd.length} Product${itemsToAdd.length > 1 ? "s" : ""}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* KPI Cards */}
+        {(() => {
+          let totalItems, tireItems, otherItems, avgMargin;
+
+          if (kpi) {
+            totalItems = kpi.totalItems;
+            tireItems = kpi.tireItems;
+            otherItems = kpi.otherItems;
+            avgMargin = kpi.avgMargin;
+          } else {
+            // Fallback to current page data if KPI not loaded
+            const tires = items.filter(
+              (i) => i.item_type === "TIRE" || (i.sku || "").startsWith("TIRE"),
+            );
+            const others = items.filter(
+              (i) => i.item_type !== "TIRE" && !(i.sku || "").startsWith("TIRE"),
+            );
+            const margins = items.filter(
+              (i) => i.unit_cost > 0 && i.selling_price > 0,
+            );
+            totalItems = items.length;
+            tireItems = tires.length;
+            otherItems = others.length;
+            avgMargin = margins.length
+              ? margins.reduce(
+                (s, i) =>
+                  s + ((i.selling_price - i.unit_cost) / i.selling_price) * 100,
+                0,
+              ) / margins.length
+              : 0;
+          }
+
+          const cards = [
+            {
+              label: "Total Products",
+              value: totalItems,
+              accent: "sky",
+              sub: "active SKUs",
+            },
+            {
+              label: "Tire Items",
+              value: tireItems,
+              accent: "violet",
+              sub: "tire SKUs",
+            },
+            {
+              label: "Other Items",
+              value: otherItems,
+              accent: "amber",
+              sub: "non-tire SKUs",
+            },
+            {
+              label: "Avg Margin",
+              value: (Number(avgMargin) || 0).toFixed(1) + "%",
+              accent: "emerald",
+              sub: "on priced items",
+            },
+          ];
+          return (
+            <div
+              className="prod-kpi-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: "0.75rem",
+              }}
+            >
+              {cards.map((c, i) => (
+                <KpiCard
+                  key={i}
+                  label={c.label}
+                  value={c.value}
+                  accent={c.accent}
+                  sub={c.sub}
+                />
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* Toolbar */}
+        <FilterHeader
+          twoRow
+          leftComponent={
+            <div className="prod-view-tabs">
+              <button
+                className={`prod-view-tab${!showArchived ? " active" : ""}`}
+                onClick={() => setShowArchived(false)}
+              >
+                Active
+              </button>
+              <button
+                className={`prod-view-tab archive-tab${showArchived ? " active" : ""}`}
+                onClick={() => { setShowArchived(true); refetchArchived(); }}
+              >
+                Archived
+                {archivedItems.length > 0 && (
+                  <span style={{ marginLeft: "0.3rem", background: "var(--th-amber-bg)", color: "var(--th-amber)", borderRadius: 4, padding: "1px 5px", fontSize: "0.72rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>
+                    {archivedItems.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          }
+          searchProps={{
+            value: search,
+            onChange: (val) => { setSearch(val); setPage(1); },
+            placeholder: "Search by name, SKU, brand, size…",
+            suggestions,
+            onSuggestionSelect: (s) => { setSearch(s.text); setPage(1); },
+          }}
+          filters={allCats.slice(0, 8).map(c => ({
+            label: c,
+            value: c,
+            active: catFilter === c,
+          }))}
+          onFilterChange={(c) => { setCatFilter(c); setPage(1); }}
+          accentColor="var(--th-orange)"
+        />
+
+        {/* Mobile-only add button above table */}
+        <div className="prod-mobile-add-wrap">
+          <button className="prod-btn-primary" onClick={openAddModal}>
+            + Add Product
+          </button>
+        </div>
+
+        {/* Table + Detail Panel side by side */}
+        <div className="th-section-label">Products</div>
         <div
-          className="prod-modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setFormOpen(false);
+          className="prod-table-panel-layout"
+          style={{
+            display: "flex",
+            gap: "1rem",
+            minHeight: 0,
+            alignItems: "flex-start",
           }}
         >
-          <div className="prod-modal-box">
-            <div className="prod-modal-header">
-              <div className="prod-modal-title">Add New Product</div>
-              <button
-                className="prod-modal-close"
-                onClick={() => setFormOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Item Type Toggle */}
-            <div
-              style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}
-            >
-              <button
-                onClick={() => switchItemType("TIRE")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  padding: "0.45rem 1rem",
-                  borderRadius: 6,
-                  border:
-                    itemType === "TIRE"
-                      ? "2px solid var(--th-orange)"
-                      : "1px solid var(--th-border-strong)",
-                  background:
-                    itemType === "TIRE" ? "var(--th-orange)" : "transparent",
-                  color: itemType === "TIRE" ? "#fff" : "var(--th-text-muted)",
-                  fontWeight: 700,
-                  fontSize: "0.82rem",
-                  cursor: "pointer",
-                }}
-              >
-                🛞 Tire
-              </button>
-              <button
-                onClick={() => switchItemType("OTHER")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  padding: "0.45rem 1rem",
-                  borderRadius: 6,
-                  border:
-                    itemType === "OTHER"
-                      ? "2px solid var(--th-orange)"
-                      : "1px solid var(--th-border-strong)",
-                  background:
-                    itemType === "OTHER" ? "var(--th-orange)" : "transparent",
-                  color: itemType === "OTHER" ? "#fff" : "var(--th-text-muted)",
-                  fontWeight: 700,
-                  fontSize: "0.82rem",
-                  cursor: "pointer",
-                }}
-              >
-                📦 Other
-              </button>
-            </div>
-
-            {/* Row 1: main fields */}
-            <div
-              style={{
-                display: "flex",
-                gap: "0.6rem",
-                flexWrap: "wrap",
-                alignItems: "flex-end",
-              }}
-            >
-              {itemType === "TIRE" ? (
-                <>
-                  <div style={{ flex: "1 1 120px", minWidth: 100 }}>
-                    <div
-                      className="prod-label"
-                      style={{ marginBottom: "0.3rem" }}
-                    >
-                      Brand <span style={{ color: "var(--th-orange)" }}>*</span>
-                    </div>
-                    <input
-                      className="prod-input"
-                      placeholder="e.g. Bridgestone"
-                      value={form.brand}
-                      onChange={(e) => setField("brand", e.target.value)}
-                    />
-                  </div>
-                  <div style={{ flex: "1 1 140px", minWidth: 120 }}>
-                    <div
-                      className="prod-label"
-                      style={{ marginBottom: "0.3rem" }}
-                    >
-                      Design{" "}
-                      <span style={{ color: "var(--th-orange)" }}>*</span>
-                    </div>
-                    <input
-                      className="prod-input"
-                      placeholder="e.g. Turanza"
-                      value={form.design}
-                      onChange={(e) => setField("design", e.target.value)}
-                    />
-                  </div>
-                  <div style={{ flex: "1 1 120px", minWidth: 100 }}>
-                    <div
-                      className="prod-label"
-                      style={{ marginBottom: "0.3rem" }}
-                    >
-                      Size <span style={{ color: "var(--th-orange)" }}>*</span>
-                    </div>
-                    <input
-                      className="prod-input"
-                      placeholder="e.g. 205/55R16"
-                      value={form.size}
-                      onChange={(e) => {
-                        setField("size", e.target.value);
-                        const r = extractRimSize(e.target.value);
-                        if (r) setField("rim_size", r);
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: "0 1 100px", minWidth: 90 }}>
-                    <div
-                      className="prod-label"
-                      style={{
-                        marginBottom: "0.3rem",
-                        color: "var(--th-amber)",
-                      }}
-                    >
-                      DOT / Year{" "}
-                      <span style={{ color: "var(--th-orange)" }}>*</span>
-                    </div>
-                    <input
-                      className="prod-input"
-                      placeholder="e.g. 2025"
-                      value={form.dot_number}
-                      onChange={(e) => setField("dot_number", e.target.value)}
-                      style={{
-                        borderColor: !form.dot_number.trim()
-                          ? "var(--th-rose)"
-                          : undefined,
-                      }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div style={{ flex: "2 1 200px", minWidth: 160 }}>
-                  <div
-                    className="prod-label"
-                    style={{ marginBottom: "0.3rem" }}
-                  >
-                    Item Name{" "}
-                    <span style={{ color: "var(--th-orange)" }}>*</span>
-                  </div>
-                  <input
-                    className="prod-input"
-                    placeholder="e.g. Bridgestone Turanza"
-                    value={form.item_name}
-                    onChange={(e) => setField("item_name", e.target.value)}
-                  />
-                </div>
-              )}
-              <div style={{ flex: "1 1 120px", minWidth: 100 }}>
-                <div className="prod-label" style={{ marginBottom: "0.3rem" }}>
-                  Category <span style={{ color: "var(--th-orange)" }}>*</span>
-                </div>
-                <select
-                  className="prod-input"
-                  value={form.category}
-                  style={{ height: "38px" }}
-                  onChange={(e) => {
-                    if (e.target.value === "__ADD__") {
-                      const name = window.prompt("Enter new category name:");
-                      if (name && name.trim()) {
-                        const trimmed = name.trim();
-                        if (itemType === "TIRE") {
-                          const next = tireCats.includes(trimmed)
-                            ? tireCats
-                            : [...tireCats, trimmed];
-                          setTireCats(next);
-                          prodSaveCats(PROD_LS.tire, next);
-                        } else {
-                          const next = otherCats.includes(trimmed)
-                            ? otherCats
-                            : [...otherCats, trimmed];
-                          setOtherCats(next);
-                          prodSaveCats(PROD_LS.other, next);
-                        }
-                        setField("category", trimmed);
-                      }
-                    } else {
-                      setField("category", e.target.value);
-                    }
-                  }}
-                >
-                  {(itemType === "TIRE" ? tireCats : otherCats).map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                  <option value="__ADD__">+ Add category…</option>
-                </select>
-              </div>
-              <div style={{ flex: "0 1 110px", minWidth: 90 }}>
-                <div className="prod-label" style={{ marginBottom: "0.3rem" }}>
-                  Unit Cost <span style={{ color: "var(--th-orange)" }}>*</span>
-                </div>
-                <input
-                  className="prod-input"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.unit_cost}
-                  onChange={(e) => setField("unit_cost", e.target.value)}
-                />
-              </div>
-              <div style={{ flex: "0 1 110px", minWidth: 90 }}>
-                <div className="prod-label" style={{ marginBottom: "0.3rem" }}>
-                  Selling Price{" "}
-                  <span style={{ color: "var(--th-orange)" }}>*</span>
-                </div>
-                <input
-                  className="prod-input"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.selling_price}
-                  onChange={(e) => setField("selling_price", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Row 2: qty + reorder + supplier + actions */}
-            <div
-              style={{
-                display: "flex",
-                gap: "0.6rem",
-                flexWrap: "wrap",
-                alignItems: "flex-end",
-                marginTop: "0.6rem",
-              }}
-            >
-              <div style={{ flex: "0 1 90px", minWidth: 70 }}>
-                <div className="prod-label" style={{ marginBottom: "0.3rem" }}>
-                  Init. Qty
-                </div>
-                <input
-                  className="prod-input"
-                  type="number"
-                  min="0"
-                  placeholder="10"
-                  value={form.quantity}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, quantity: e.target.value }))
+          {showArchived ? (
+            <DataTable
+              columns={archivedColumns}
+              rows={archivedItems}
+              rowKey="item_id"
+              loading={archiveLoading}
+              skeletonRows={6}
+              emptyTitle="No Archived Items"
+              emptyMessage={archSearch ? "No archived items match your search." : "No archived items."}
+              minWidth={800}
+              currentPage={archPage}
+              totalPages={archTotalPages}
+              onPageChange={setArchPage}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          ) : (
+            <DataTable
+              columns={prodColumns}
+              rows={items}
+              rowKey="item_id"
+              onRowClick={openDetail}
+              selectedKey={selected?.item_id}
+              getRowStyle={(item) =>
+                item.dot_number
+                  ? {
+                    borderLeft: "3px solid var(--th-amber)",
+                    backgroundColor: "rgba(251,191,36,0.03)",
                   }
-                />
-              </div>
-              <div style={{ flex: "0 1 90px", minWidth: 70 }}>
-                <div className="prod-label" style={{ marginBottom: "0.3rem" }}>
-                  Reorder Pt.
-                </div>
-                <input
-                  className="prod-input"
-                  type="number"
-                  min="0"
-                  placeholder="5"
-                  value={form.reorder_point}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, reorder_point: e.target.value }))
-                  }
-                />
-              </div>
-              <div style={{ flex: "1 1 150px", minWidth: 130 }}>
-                <div className="prod-label" style={{ marginBottom: "0.3rem" }}>
-                  Supplier
-                </div>
-                <select
-                  className="prod-input"
-                  value={form.supplier_id}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, supplier_id: e.target.value }))
-                  }
-                  style={{ height: "38px" }}
+                  : undefined
+              }
+              loading={loading}
+              skeletonRows={8}
+              skeletonWidths={[
+                "w80",
+                "w40",
+                "w30",
+                "w40",
+                "w30",
+                "w20",
+                "w20",
+                "w30",
+                "w30",
+                "w20",
+              ]}
+              emptyTitle="No Products Found"
+              emptyMessage={
+                search ? "No products match your search." : "No products found."
+              }
+              emptyIcon={
+                <svg
+                  style={{ opacity: 0.25, marginBottom: "0.25rem" }}
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
                 >
-                  <option value="">— None —</option>
-                  {suppliers.map((s) => (
-                    <option key={s.supplier_id} value={s.supplier_id}>
-                      {s.supplier_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.5rem",
-                  flex: "0 0 auto",
-                  marginTop: "0.5rem",
-                }}
-              >
-                <button
-                  onClick={handleAddItem}
-                  disabled={saving}
-                  style={{
-                    padding: "0.5rem 1.2rem",
-                    borderRadius: 7,
-                    background: "var(--th-orange)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: "0.82rem",
-                    border: "none",
-                    cursor: saving ? "not-allowed" : "pointer",
-                    opacity: saving ? 0.7 : 1,
-                  }}
-                >
-                  {saving ? "Saving…" : "✓ Save Product"}
-                </button>
-                <button
-                  onClick={() => setFormOpen(false)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: 7,
-                    background: "transparent",
-                    color: "var(--th-text-muted)",
-                    fontWeight: 600,
-                    fontSize: "0.82rem",
-                    border: "1px solid var(--th-border-strong)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+                  <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                </svg>
+              }
+              minWidth={920}
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          )}
         </div>
-      )}
+        {/* end flex row */}
 
-      {/* KPI Cards */}
-      {(() => {
-        let totalItems, tireItems, otherItems, avgMargin;
-
-        if (kpi) {
-          totalItems = kpi.totalItems;
-          tireItems  = kpi.tireItems;
-          otherItems = kpi.otherItems;
-          avgMargin  = kpi.avgMargin;
-        } else {
-          // Fallback to current page data if KPI not loaded
-          const tires = items.filter(
-            (i) => i.item_type === "TIRE" || (i.sku || "").startsWith("TIRE"),
-          );
-          const others = items.filter(
-            (i) => i.item_type !== "TIRE" && !(i.sku || "").startsWith("TIRE"),
-          );
-          const margins = items.filter(
-            (i) => i.unit_cost > 0 && i.selling_price > 0,
-          );
-          totalItems = items.length;
-          tireItems  = tires.length;
-          otherItems = others.length;
-          avgMargin = margins.length
-            ? margins.reduce(
-              (s, i) =>
-                s + ((i.selling_price - i.unit_cost) / i.selling_price) * 100,
-              0,
-            ) / margins.length
-            : 0;
-        }
-
-        const cards = [
-          {
-            label: "Total Products",
-            value: totalItems,
-            accent: "sky",
-            sub: "active SKUs",
-          },
-          {
-            label: "Tire Items",
-            value: tireItems,
-            accent: "violet",
-            sub: "tire SKUs",
-          },
-          {
-            label: "Other Items",
-            value: otherItems,
-            accent: "amber",
-            sub: "non-tire SKUs",
-          },
-          {
-            label: "Avg Margin",
-            value: (Number(avgMargin) || 0).toFixed(1) + "%",
-            accent: "emerald",
-            sub: "on priced items",
-          },
-        ];
-        return (
-          <div
-            className="prod-kpi-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4,1fr)",
-              gap: "0.75rem",
-            }}
-          >
-            {cards.map((c, i) => (
-              <KpiCard
-                key={i}
-                label={c.label}
-                value={c.value}
-                accent={c.accent}
-                sub={c.sub}
-              />
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Toolbar */}
-      <FilterHeader
-        twoRow
-        leftComponent={
-          <div className="prod-view-tabs">
-            <button
-              className={`prod-view-tab${!showArchived ? " active" : ""}`}
-              onClick={() => setShowArchived(false)}
-            >
-              Active
-            </button>
-            <button
-              className={`prod-view-tab archive-tab${showArchived ? " active" : ""}`}
-              onClick={() => { setShowArchived(true); refetchArchived(); }}
-            >
-              Archived
-              {archivedItems.length > 0 && (
-                <span style={{ marginLeft: "0.3rem", background: "var(--th-amber-bg)", color: "var(--th-amber)", borderRadius: 4, padding: "1px 5px", fontSize: "0.72rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>
-                  {archivedItems.length}
-                </span>
-              )}
-            </button>
-          </div>
-        }
-        searchProps={{
-          value: search,
-          onChange: (val) => { setSearch(val); setPage(1); },
-          placeholder: "Search by name, SKU, brand, size…",
-          suggestions,
-          onSuggestionSelect: (s) => { setSearch(s.text); setPage(1); },
-        }}
-        filters={allCats.slice(0, 8).map(c => ({
-          label: c,
-          value: c,
-          active: catFilter === c,
-        }))}
-        onFilterChange={(c) => { setCatFilter(c); setPage(1); }}
-        accentColor="var(--th-orange)"
-      />
-
-      {/* Mobile-only add button above table */}
-      <div className="prod-mobile-add-wrap">
-        <button className="prod-btn-primary" onClick={() => setFormOpen(true)}>
-          + Add Product
-        </button>
-      </div>
-
-      {/* Table + Detail Panel side by side */}
-      <div className="th-section-label">Products</div>
-      <div
-        className="prod-table-panel-layout"
-        style={{
-          display: "flex",
-          gap: "1rem",
-          minHeight: 0,
-          alignItems: "flex-start",
-        }}
-      >
-        {showArchived ? (
-          <DataTable
-            columns={archivedColumns}
-            rows={archivedItems}
-            rowKey="item_id"
-            loading={archiveLoading}
-            skeletonRows={6}
-            emptyTitle="No Archived Items"
-            emptyMessage={archSearch ? "No archived items match your search." : "No archived items."}
-            minWidth={800}
-            currentPage={archPage}
-            totalPages={archTotalPages}
-            onPageChange={setArchPage}
-            style={{ flex: 1, minWidth: 0 }}
-          />
-        ) : (
-          <DataTable
-            columns={prodColumns}
-            rows={items}
-            rowKey="item_id"
-            onRowClick={openDetail}
-            selectedKey={selected?.item_id}
-            getRowStyle={(item) =>
-              item.dot_number
-                ? {
-                  borderLeft: "3px solid var(--th-amber)",
-                  backgroundColor: "rgba(251,191,36,0.03)",
-                }
-                : undefined
-            }
-            loading={loading}
-            skeletonRows={8}
-            skeletonWidths={[
-              "w80",
-              "w40",
-              "w30",
-              "w40",
-              "w30",
-              "w20",
-              "w20",
-              "w30",
-              "w30",
-              "w20",
-            ]}
-            emptyTitle="No Products Found"
-            emptyMessage={
-              search ? "No products match your search." : "No products found."
-            }
-            emptyIcon={
-              <svg
-                style={{ opacity: 0.25, marginBottom: "0.25rem" }}
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-              </svg>
-            }
-            minWidth={920}
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            style={{ flex: 1, minWidth: 0 }}
-          />
-        )}
-      </div>
-      {/* end flex row */}
-
-      {/* History Modal */}
-      {selected && (
-        <ItemHistoryModal
-          item={selected}
-          onClose={() => setSelected(null)}
-          currency={prodCurrency}
-          historyContent={
-            histLoading || priceHistLoading ? (
-              <div className="inv-hist-loading">
-                <div className="inv-hist-spinner" /> Loading…
-              </div>
-            ) : (
-              (() => {
-                const txEntries = history.map((h) => ({
-                  _key: h.inventory_ledger_id,
-                  _ts: new Date(h.created_at).getTime(),
-                  _kind: "tx",
-                  ...h,
-                }));
-                const phEntries = priceHistory.map((p) => ({
-                  _key: p.history_id,
-                  _ts: new Date(p.changed_at).getTime(),
-                  _kind: "ph",
-                  ...p,
-                }));
-                const all = [...txEntries, ...phEntries].sort(
-                  (a, b) => b._ts - a._ts,
-                );
-                if (all.length === 0)
-                  return <div className="inv-hist-empty">No history found</div>;
-
-                const groups = [];
-                const usedPh = new Set();
-                for (const e of all) {
-                  if (e._kind !== "tx") continue;
-                  const attached = all.filter(
-                    (p) =>
-                      p._kind === "ph" &&
-                      !usedPh.has(p._key) &&
-                      Math.abs(p._ts - e._ts) <= 10000,
+        {/* History Modal */}
+        {selected && (
+          <ItemHistoryModal
+            item={selected}
+            onClose={() => setSelected(null)}
+            currency={prodCurrency}
+            historyContent={
+              histLoading || priceHistLoading ? (
+                <div className="inv-hist-loading">
+                  <div className="inv-hist-spinner" /> Loading…
+                </div>
+              ) : (
+                (() => {
+                  const txEntries = history.map((h) => ({
+                    _key: h.inventory_ledger_id,
+                    _ts: new Date(h.created_at).getTime(),
+                    _kind: "tx",
+                    ...h,
+                  }));
+                  const phEntries = priceHistory.map((p) => ({
+                    _key: p.history_id,
+                    _ts: new Date(p.changed_at).getTime(),
+                    _kind: "ph",
+                    ...p,
+                  }));
+                  const all = [...txEntries, ...phEntries].sort(
+                    (a, b) => b._ts - a._ts,
                   );
-                  attached.forEach((p) => usedPh.add(p._key));
-                  groups.push({ tx: e, ph: attached, _ts: e._ts });
-                }
-                const remainingPh = all.filter(
-                  (e) => e._kind === "ph" && !usedPh.has(e._key),
-                );
-                const usedRemaining = new Set();
-                for (const e of remainingPh) {
-                  if (usedRemaining.has(e._key)) continue;
-                  const cluster = remainingPh.filter(
-                    (p) =>
-                      !usedRemaining.has(p._key) &&
-                      Math.abs(p._ts - e._ts) <= 10000,
-                  );
-                  cluster.forEach((p) => usedRemaining.add(p._key));
-                  groups.push({ tx: null, ph: cluster, _ts: e._ts });
-                }
-                groups.sort((a, b) => b._ts - a._ts);
+                  if (all.length === 0)
+                    return <div className="inv-hist-empty">No history found</div>;
 
-                return groups.map((g, gi) => {
-                  const { tx, ph } = g;
-                  const dotPh = ph.find((p) => p.price_type === "DOT_NUMBER");
-                  const costPh = ph.find((p) => p.price_type === "UNIT_COST");
-                  const sellPh = ph.find(
-                    (p) => p.price_type === "SELLING_PRICE",
+                  const groups = [];
+                  const usedPh = new Set();
+                  for (const e of all) {
+                    if (e._kind !== "tx") continue;
+                    const attached = all.filter(
+                      (p) =>
+                        p._kind === "ph" &&
+                        !usedPh.has(p._key) &&
+                        Math.abs(p._ts - e._ts) <= 10000,
+                    );
+                    attached.forEach((p) => usedPh.add(p._key));
+                    groups.push({ tx: e, ph: attached, _ts: e._ts });
+                  }
+                  const remainingPh = all.filter(
+                    (e) => e._kind === "ph" && !usedPh.has(e._key),
                   );
+                  const usedRemaining = new Set();
+                  for (const e of remainingPh) {
+                    if (usedRemaining.has(e._key)) continue;
+                    const cluster = remainingPh.filter(
+                      (p) =>
+                        !usedRemaining.has(p._key) &&
+                        Math.abs(p._ts - e._ts) <= 10000,
+                    );
+                    cluster.forEach((p) => usedRemaining.add(p._key));
+                    groups.push({ tx: null, ph: cluster, _ts: e._ts });
+                  }
+                  groups.sort((a, b) => b._ts - a._ts);
 
-                  if (tx) {
-                    const tc =
-                      tx.transaction_type === "PURCHASE"
-                        ? "PURCHASE"
-                        : tx.transaction_type === "SALE"
-                          ? "SALE"
-                          : tx.transaction_type === "ADJUSTMENT"
-                            ? "ADJUSTMENT"
-                            : "other";
-                    return (
-                      <>
+                  return groups.map((g, gi) => {
+                    const { tx, ph } = g;
+                    const dotPh = ph.find((p) => p.price_type === "DOT_NUMBER");
+                    const costPh = ph.find((p) => p.price_type === "UNIT_COST");
+                    const sellPh = ph.find(
+                      (p) => p.price_type === "SELLING_PRICE",
+                    );
+
+                    if (tx) {
+                      const tc =
+                        tx.transaction_type === "PURCHASE"
+                          ? "PURCHASE"
+                          : tx.transaction_type === "SALE"
+                            ? "SALE"
+                            : tx.transaction_type === "ADJUSTMENT"
+                              ? "ADJUSTMENT"
+                              : "other";
+                      return (
                         <div key={tx._key} className={`inv-hist-entry ${tc}`}>
                           <div className="inv-hist-entry-top">
                             <span className={`inv-hist-type ${tc}`}>
@@ -1614,282 +1574,239 @@ function Productspage({ shopId }) {
                             </div>
                           )}
                         </div>
-                      </>
-                    );
-                  } else {
-                    const dotPh2 = ph.find(
-                      (p) => p.price_type === "DOT_NUMBER",
-                    );
-                    const costPh2 = ph.find(
-                      (p) => p.price_type === "UNIT_COST",
-                    );
-                    const sellPh2 = ph.find(
-                      (p) => p.price_type === "SELLING_PRICE",
-                    );
-                    const anchor = ph[0];
-                    const label = dotPh2
-                      ? "DOT Update"
-                      : costPh2
-                        ? "Price Change"
-                        : "Price Change";
-                    return (
-                      <div key={`ph-${gi}`} className="inv-hist-entry PURCHASE">
-                        <div className="inv-hist-entry-top">
-                          <span className="inv-hist-type PURCHASE">
-                            {label}
-                          </span>
-                          <span className="inv-hist-date">
-                            {new Date(anchor._ts).toLocaleString("en-PH", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                              hour12: true,
-                            })}
-                          </span>
+                      );
+                    } else {
+                      const dotPh2 = ph.find(
+                        (p) => p.price_type === "DOT_NUMBER",
+                      );
+                      const costPh2 = ph.find(
+                        (p) => p.price_type === "UNIT_COST",
+                      );
+                      const sellPh2 = ph.find(
+                        (p) => p.price_type === "SELLING_PRICE",
+                      );
+                      const anchor = ph[0];
+                      const label = dotPh2
+                        ? "DOT Update"
+                        : costPh2
+                          ? "Price Change"
+                          : "Price Change";
+                      return (
+                        <div key={`ph-${gi}`} className="inv-hist-entry PURCHASE">
+                          <div className="inv-hist-entry-top">
+                            <span className="inv-hist-type PURCHASE">
+                              {label}
+                            </span>
+                            <span className="inv-hist-date">
+                              {new Date(anchor._ts).toLocaleString("en-PH", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              })}
+                            </span>
+                          </div>
+                          {dotPh2 && (
+                            <div
+                              className="inv-hist-ref"
+                              style={{
+                                color: "var(--th-amber, #fbbf24)",
+                                fontWeight: 700,
+                              }}
+                            >
+                              DOT{" "}
+                              {dotPh2.old_price != null
+                                ? `${dotPh2.old_price} → `
+                                : ""}
+                              DOT {dotPh2.new_price}
+                            </div>
+                          )}
+                          {costPh2 && (
+                            <div className="inv-hist-ref">
+                              Cost:{" "}
+                              {costPh2.old_price != null
+                                ? prodCurrency(costPh2.old_price)
+                                : "—"}{" "}
+                              → <b>{prodCurrency(costPh2.new_price)}</b>
+                            </div>
+                          )}
+                          {sellPh2 && (
+                            <div className="inv-hist-ref">
+                              Sell:{" "}
+                              {sellPh2.old_price != null
+                                ? prodCurrency(sellPh2.old_price)
+                                : "—"}{" "}
+                              → <b>{prodCurrency(sellPh2.new_price)}</b>
+                            </div>
+                          )}
+                          {anchor.notes && !costPh2 && !sellPh2 && !dotPh2 && (
+                            <div className="inv-hist-ref">{anchor.notes}</div>
+                          )}
                         </div>
-                        {dotPh2 && (
-                          <div
-                            className="inv-hist-ref"
-                            style={{
-                              color: "var(--th-amber, #fbbf24)",
-                              fontWeight: 700,
-                            }}
-                          >
-                            DOT{" "}
-                            {dotPh2.old_price != null
-                              ? `${dotPh2.old_price} → `
-                              : ""}
-                            DOT {dotPh2.new_price}
-                          </div>
-                        )}
-                        {costPh2 && (
-                          <div className="inv-hist-ref">
-                            Cost:{" "}
-                            {costPh2.old_price != null
-                              ? prodCurrency(costPh2.old_price)
-                              : "—"}{" "}
-                            → <b>{prodCurrency(costPh2.new_price)}</b>
-                          </div>
-                        )}
-                        {sellPh2 && (
-                          <div className="inv-hist-ref">
-                            Sell:{" "}
-                            {sellPh2.old_price != null
-                              ? prodCurrency(sellPh2.old_price)
-                              : "—"}{" "}
-                            → <b>{prodCurrency(sellPh2.new_price)}</b>
-                          </div>
-                        )}
-                        {anchor.notes && !costPh2 && !sellPh2 && !dotPh2 && (
-                          <div className="inv-hist-ref">{anchor.notes}</div>
-                        )}
-                      </div>
-                    );
-                  }
-                });
-              })()
-            )
-          }
-        >
-          {(selected.current_quantity ?? 0) <= 0 && (
-            <div
-              style={{
-                padding: "0.65rem 1.2rem",
-                borderBottom: "1px solid var(--th-border)",
-              }}
-            >
-              <button
-                className="prod-btn-archive"
+                      );
+                    }
+                  });
+                })()
+              )
+            }
+          >
+            {(selected.current_quantity ?? 0) <= 0 && (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  fontSize: "0.82rem",
+                  padding: "0.65rem 1.2rem",
+                  borderBottom: "1px solid var(--th-border)",
                 }}
-                onClick={() => archiveItem(selected)}
               >
-                Archive this item (stock is 0)
-              </button>
-            </div>
-          )}
-          <div className="prod-adj-wrap">
-            <div className="th-section-label">Stock Adjustment</div>
-            <div className="prod-adj-row">
-              <input
-                className="prod-adj-input"
-                type="number"
-                placeholder="e.g. +10 or -3"
-                value={adjQty}
-                onChange={(e) => setAdjQty(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdjust()}
-              />
-              <button
-                className="prod-btn-primary"
-                style={{ fontSize: "0.82rem", padding: "0.45rem 0.85rem" }}
-                onClick={handleAdjust}
-                disabled={adjSaving}
-              >
-                {adjSaving ? "…" : "Apply"}
-              </button>
-            </div>
-          </div>
-        </ItemHistoryModal>
-      )}
-
-      {/* Toasts */}
-      <div className="prod-toast-wrap">
-        {toasts.map((t) => (
-          <div key={t.id} className={`prod-toast ${t.type}`}>
-            {t.msg}
-          </div>
-        ))}
-      </div>
-
-      {/* Confirm Add Product */}
-      {pending && (
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <div className="confirm-title">Confirm Add Product</div>
-            <div className="confirm-details">
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Item</span>
-                <span className="confirm-detail-val">{pending.item_name}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">SKU</span>
-                <span className="confirm-detail-val">{pending.sku}</span>
-              </div>
-              {pending.brand && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Brand</span>
-                  <span className="confirm-detail-val">{pending.brand}</span>
-                </div>
-              )}
-              {pending.design && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Design</span>
-                  <span className="confirm-detail-val">{pending.design}</span>
-                </div>
-              )}
-              {pending.size && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Size</span>
-                  <span className="confirm-detail-val">{pending.size}</span>
-                </div>
-              )}
-              {pending.dot_number && (
-                <div className="confirm-detail-row">
-                  <span
-                    className="confirm-detail-label"
-                    style={{ color: "var(--th-amber)" }}
-                  >
-                    DOT
-                  </span>
-                  <span className="confirm-detail-val">
-                    {pending.dot_number}
-                  </span>
-                </div>
-              )}
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Category</span>
-                <span className="confirm-detail-val">{pending.category}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Unit Cost</span>
-                <span className="confirm-detail-val">
-                  ₱
-                  {Number(pending.unit_cost).toLocaleString("en-PH", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Selling Price</span>
-                <span className="confirm-detail-val">
-                  ₱
-                  {Number(pending.selling_price).toLocaleString("en-PH", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              {pending.quantity && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Init. Qty</span>
-                  <span className="confirm-detail-val">{pending.quantity}</span>
-                </div>
-              )}
-            </div>
-            <div className="confirm-actions">
-              <button
-                className="confirm-btn-cancel"
-                onClick={() => setPending(null)}
-              >
-                Cancel
-              </button>
-              <button className="confirm-btn-ok" onClick={confirmAddItem}>
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Stock Adjustment */}
-      {pendingAdj && (
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <div className="confirm-title">Confirm Stock Adjustment</div>
-            <div className="confirm-details">
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Product</span>
-                <span className="confirm-detail-val">
-                  {pendingAdj.item.item_name}
-                </span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Current Stock</span>
-                <span className="confirm-detail-val">
-                  {pendingAdj.item.current_quantity ?? 0}
-                </span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Adjustment</span>
-                <span
-                  className="confirm-detail-val"
+                <button
+                  className="prod-btn-archive"
                   style={{
-                    color:
-                      pendingAdj.qty > 0
-                        ? "var(--th-emerald)"
-                        : "var(--th-rose)",
+                    width: "100%",
+                    padding: "0.5rem",
+                    fontSize: "0.82rem",
                   }}
+                  onClick={() => archiveItem(selected)}
                 >
-                  {pendingAdj.qty > 0 ? "+" : ""}
-                  {pendingAdj.qty}
-                </span>
+                  Archive this item (stock is 0)
+                </button>
               </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">New Stock</span>
-                <span className="confirm-detail-val">
-                  {(pendingAdj.item.current_quantity ?? 0) + pendingAdj.qty}
-                </span>
+            )}
+            <div className="prod-adj-wrap">
+              <div className="th-section-label">Stock Adjustment</div>
+              <div className="prod-adj-row">
+                <input
+                  className="prod-adj-input"
+                  type="number"
+                  placeholder="e.g. +10 or -3"
+                  value={adjQty}
+                  onChange={(e) => setAdjQty(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAdjust()}
+                />
+                <button
+                  className="prod-btn-primary"
+                  style={{ fontSize: "0.82rem", padding: "0.45rem 0.85rem" }}
+                  onClick={handleAdjust}
+                  disabled={adjSaving}
+                >
+                  {adjSaving ? "…" : "Apply"}
+                </button>
               </div>
             </div>
-            <div className="confirm-actions">
-              <button
-                className="confirm-btn-cancel"
-                onClick={() => setPendingAdj(null)}
-              >
-                Cancel
-              </button>
-              <button className="confirm-btn-ok" onClick={confirmAdjust}>
-                Confirm
-              </button>
+          </ItemHistoryModal>
+        )}
+
+        {/* Toasts */}
+        <div className="prod-toast-wrap">
+          {toasts.map((t) => (
+            <div key={t.id} className={`prod-toast ${t.type}`}>
+              {t.msg}
+            </div>
+          ))}
+        </div>
+
+        {/* Confirm Add Product */}
+        {pending && Array.isArray(pending) && (
+          <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setPending(null)}>
+            <div className="confirm-box" style={{ maxWidth: "600px", width: "90vw" }}>
+              <div className="confirm-title" style={{ color: "var(--th-orange)" }}>Confirm Bulk Add</div>
+              <div className="confirm-details" style={{ maxHeight: "400px", overflowY: "auto" }}>
+                <p style={{ marginBottom: ".5rem", fontSize: "0.9rem" }}>You are about to add the following <b>{pending.length}</b> product(s):</p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                  {pending.map((p, i) => (
+                    <div key={i} style={{
+                      background: "var(--th-bg-dark)",
+                      padding: "0.8rem",
+                      borderRadius: 8,
+                      borderLeft: "4px solid var(--th-orange)"
+                    }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--th-text-heading)" }}>{p.item_name}</div>
+                      <div style={{ display: "flex", gap: ".5rem", fontSize: "0.75rem", opacity: 0.8, marginTop: "0.2rem" }}>
+                        <span>SKU: {p.sku}</span>
+                        <span>Cat: {p.category}</span>
+                        {p.dot_number && <span style={{ color: "var(--th-amber)" }}>DOT: {p.dot_number}</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: ".5rem", fontSize: "0.75rem", opacity: 0.8, marginTop: "0.1rem" }}>
+                        <span>Cost: ₱{Number(p.unit_cost).toLocaleString()}</span>
+                        <span>Price: ₱{Number(p.selling_price).toLocaleString()}</span>
+                        {p.quantity > 0 && <span style={{ fontWeight: 700, color: "var(--th-emerald)" }}>Init Qty: {p.quantity}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="confirm-actions" style={{ marginTop: "1.5rem" }}>
+                <button
+                  className="confirm-btn-cancel"
+                  onClick={() => setPending(null)}
+                >
+                  Cancel
+                </button>
+                <button className="confirm-btn-ok" style={{ background: "var(--th-orange)" }} onClick={confirmAddItem}>
+                  Confirm Save
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+
+        {/* Confirm Stock Adjustment */}
+        {pendingAdj && (
+          <div className="confirm-overlay">
+            <div className="confirm-box">
+              <div className="confirm-title">Confirm Stock Adjustment</div>
+              <div className="confirm-details">
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Product</span>
+                  <span className="confirm-detail-val">
+                    {pendingAdj.item.item_name}
+                  </span>
+                </div>
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Current Stock</span>
+                  <span className="confirm-detail-val">
+                    {pendingAdj.item.current_quantity ?? 0}
+                  </span>
+                </div>
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Adjustment</span>
+                  <span
+                    className="confirm-detail-val"
+                    style={{
+                      color:
+                        pendingAdj.qty > 0
+                          ? "var(--th-emerald)"
+                          : "var(--th-rose)",
+                    }}
+                  >
+                    {pendingAdj.qty > 0 ? "+" : ""}
+                    {pendingAdj.qty}
+                  </span>
+                </div>
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">New Stock</span>
+                  <span className="confirm-detail-val">
+                    {(pendingAdj.item.current_quantity ?? 0) + pendingAdj.qty}
+                  </span>
+                </div>
+              </div>
+              <div className="confirm-actions">
+                <button
+                  className="confirm-btn-cancel"
+                  onClick={() => setPendingAdj(null)}
+                >
+                  Cancel
+                </button>
+                <button className="confirm-btn-ok" onClick={confirmAdjust}>
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

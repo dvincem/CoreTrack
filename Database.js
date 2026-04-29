@@ -58,6 +58,64 @@ db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='cash_ledger'"
   }
 });
 
+// Migrate returns: remove item_id foreign key to allow custom/misc item returns
+db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='returns'", (err, row) => {
+  if (!err && row && row.sql && row.sql.includes("FOREIGN KEY (item_id) REFERENCES item_master(item_id)")) {
+    console.log("🛠️  Migrating returns table to remove item_id Foreign Key (supporting custom items)...");
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+      // 1. Create a temporary table with the correct schema (no item_id FK)
+      db.run(`CREATE TABLE returns_new (
+        return_id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        return_type TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'PENDING',
+        item_id TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit_cost REAL DEFAULT 0,
+        original_sale_id TEXT,
+        original_sale_item_id TEXT,
+        original_order_id TEXT,
+        original_order_item_id TEXT,
+        supplier_id TEXT,
+        linked_inventory_tx_id TEXT,
+        replacement_return_id TEXT,
+        dot_number TEXT,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_by TEXT,
+        processed_at DATETIME,
+        processed_by TEXT,
+        return_scenario TEXT DEFAULT 'FULL_REFUND',
+        refund_method TEXT,
+        replacement_item_id TEXT,
+        warranty_sent_at DATETIME,
+        warranty_result TEXT,
+        warranty_ref TEXT,
+        customer_name TEXT,
+        FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
+      )`);
+      // 2. Copy data from old to new
+      db.run(`INSERT INTO returns_new SELECT 
+        return_id, shop_id, return_type, reason, status, item_id, quantity, unit_cost,
+        original_sale_id, original_sale_item_id, original_order_id, original_order_item_id,
+        supplier_id, linked_inventory_tx_id, replacement_return_id, dot_number, notes,
+        created_at, created_by, processed_at, processed_by,
+        COALESCE(return_scenario, 'FULL_REFUND'), refund_method, replacement_item_id,
+        warranty_sent_at, warranty_result, warranty_ref, customer_name
+        FROM returns`);
+      // 3. Swap tables
+      db.run(`DROP TABLE returns`);
+      db.run(`ALTER TABLE returns_new RENAME TO returns`);
+      // 4. Re-create index
+      db.run(`CREATE INDEX IF NOT EXISTS idx_returns_shop ON returns(shop_id, created_at)`);
+      db.run("COMMIT");
+      console.log("✅ Returns table migration complete.");
+    });
+  }
+});
+
 db.serialize(() => {
   db.run(`ALTER TABLE labor_log ADD COLUMN sale_id TEXT`, () => { });
   db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 5`, () => { });
@@ -752,8 +810,7 @@ function initializeDatabase() {
             created_by TEXT,
             processed_at DATETIME,
             processed_by TEXT,
-            FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id),
-            FOREIGN KEY (item_id) REFERENCES item_master(item_id)
+            FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
           )`);
           db.run(`ALTER TABLE returns ADD COLUMN dot_number TEXT`, () => { });
           db.run(`ALTER TABLE returns ADD COLUMN return_scenario TEXT DEFAULT 'FULL_REFUND'`, () => { });
@@ -799,6 +856,8 @@ function initializeDatabase() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
           )`);
+          db.run(`ALTER TABLE purchase_header ADD COLUMN is_void BOOLEAN DEFAULT 0`, () => { });
+          db.run(`ALTER TABLE purchase_header ADD COLUMN void_reason TEXT`, () => { });
 
           db.run(`CREATE TABLE IF NOT EXISTS purchase_items (
             purchase_item_id TEXT PRIMARY KEY,

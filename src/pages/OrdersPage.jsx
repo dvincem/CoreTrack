@@ -1,3 +1,4 @@
+import '../pages_css/OrdersPage.css';
 import React from 'react'
 import Pagination from '../components/Pagination'
 import SearchInput from '../components/SearchInput'
@@ -13,11 +14,11 @@ const ordCurrency =
   typeof currency === "function"
     ? currency
     : (n) =>
-        "₱" +
-        Number(n || 0).toLocaleString("en-PH", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+      "₱" +
+      Number(n || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
 /* ── Status helpers ── */
 const STATUS_META = {
@@ -214,7 +215,7 @@ function CreateOrderModal({
       .then(d => {
         if (Array.isArray(d)) setDbSizes(d);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const sizeSuggestions = React.useMemo(() => {
@@ -279,13 +280,13 @@ function CreateOrderModal({
 
   const tabBtn = (tab, label) => (
     <button onClick={() => setLeftTab(tab)} style={{
-      flex:1, padding:"0.5rem 0.75rem", cursor:"pointer",
-      fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:"clamp(0.72rem, 2.7vw, 0.82rem)",
-      textTransform:"uppercase", letterSpacing:"0.06em",
-      border:"none", borderBottom: leftTab===tab ? "2px solid var(--th-orange,#f97316)" : "2px solid transparent",
-      background:"transparent",
-      color: leftTab===tab ? "var(--th-orange,#f97316)" : "var(--th-text-dim,#94a3b8)",
-      transition:"color 0.15s, border-color 0.15s",
+      flex: 1, padding: "0.5rem 0.75rem", cursor: "pointer",
+      fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "clamp(0.72rem, 2.7vw, 0.82rem)",
+      textTransform: "uppercase", letterSpacing: "0.06em",
+      border: "none", borderBottom: leftTab === tab ? "2px solid var(--th-orange,#f97316)" : "2px solid transparent",
+      background: "transparent",
+      color: leftTab === tab ? "var(--th-orange,#f97316)" : "var(--th-text-dim,#94a3b8)",
+      transition: "color 0.15s, border-color 0.15s",
     }}>{label}</button>
   );
 
@@ -294,7 +295,7 @@ function CreateOrderModal({
       <div className="inv-modal">
         <div className="inv-modal-header">
           <div className="inv-modal-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ display:"inline", marginRight:6, verticalAlign:"middle" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }}>
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
               <line x1="3" y1="6" x2="21" y2="6" />
               <path d="M16 10a4 4 0 0 1-8 0" />
@@ -308,145 +309,145 @@ function CreateOrderModal({
           <div className="inv-modal-2col">
             {/* LEFT: item picker */}
             <div>
-              <div style={{ display:"flex", borderBottom:"1px solid var(--th-border,#283245)", marginBottom:"0.6rem" }}>
+              <div style={{ display: "flex", borderBottom: "1px solid var(--th-border,#283245)", marginBottom: "0.6rem" }}>
                 {tabBtn("existing", "Existing Items")}
                 {tabBtn("new", "+ New Item")}
               </div>
 
               {leftTab === "new" ? (
-                <div style={{ display:"flex", flexDirection:"column", gap:"0.55rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
                   <div>
-                    <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Brand <span style={{color:"#38bdf8"}}>*</span></label>
+                    <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Brand <span style={{ color: "#38bdf8" }}>*</span></label>
                     <select className="inv-input" value={newItemForm.brand} onChange={e => handleNewBrandChange(e.target.value)}>
                       <option value="">— Select brand —</option>
                       {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
-                    {availableBrands.length === 0 && <div style={{ fontSize:"0.75rem", color:"#fb7185", marginTop:"0.25rem" }}>No brands added to any supplier yet. Add brands in the Suppliers page first.</div>}
+                    {availableBrands.length === 0 && <div style={{ fontSize: "0.75rem", color: "#fb7185", marginTop: "0.25rem" }}>No brands added to any supplier yet. Add brands in the Suppliers page first.</div>}
                   </div>
                   {newItemForm.brand && (
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Supplier <span style={{color:"#38bdf8"}}>*</span></label>
-                      <select className="inv-input" value={newItemForm.supplier_id} onChange={e => setNewItemForm(f => ({...f, supplier_id: e.target.value}))}>
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Supplier <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <select className="inv-input" value={newItemForm.supplier_id} onChange={e => setNewItemForm(f => ({ ...f, supplier_id: e.target.value }))}>
                         <option value="">— Select supplier —</option>
                         {suppliersForBrand.map(s => <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>)}
                       </select>
                     </div>
                   )}
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.5rem" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Design <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" placeholder="e.g. Turanza" value={newItemForm.design} onChange={e => setNewItemForm(f => ({...f, design: e.target.value}))} />
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Design <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <input className="inv-input" placeholder="e.g. Turanza" value={newItemForm.design} onChange={e => setNewItemForm(f => ({ ...f, design: e.target.value }))} />
                     </div>
                     <div style={{ position: "relative" }}>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Size <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" placeholder="e.g. 205/65R16" value={newItemForm.size} onChange={e => setNewItemForm(f => ({...f, size: e.target.value}))} onFocus={() => setShowSizeSug(true)} onBlur={() => setTimeout(() => setShowSizeSug(false), 200)} />
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Size <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <input className="inv-input" placeholder="e.g. 205/65R16" value={newItemForm.size} onChange={e => setNewItemForm(f => ({ ...f, size: e.target.value }))} onFocus={() => setShowSizeSug(true)} onBlur={() => setTimeout(() => setShowSizeSug(false), 200)} />
                       {showSizeSug && sizeSuggestions.length > 0 && (
                         <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
                           {sizeSuggestions.map(s => (
-                            <div key={s} onMouseDown={() => { setNewItemForm(f => ({...f, size: s})); setShowSizeSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{s}</div>
+                            <div key={s} onMouseDown={() => { setNewItemForm(f => ({ ...f, size: s })); setShowSizeSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{s}</div>
                           ))}
                         </div>
                       )}
                     </div>
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Category <span style={{color:"#38bdf8"}}>*</span></label>
-                      <select className="inv-input" value={newItemForm.category} onChange={e => setNewItemForm(f => ({...f, category: e.target.value}))}>
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Category <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <select className="inv-input" value={newItemForm.category} onChange={e => setNewItemForm(f => ({ ...f, category: e.target.value }))}>
                         <option value="">— Select —</option>
-                        {["PCR","SUV","TRUCK","MOTORCYCLE","VALVE","WEIGHT","SEALANT","MISC"].map(c => <option key={c} value={c}>{c}</option>)}
+                        {["PCR", "SUV", "TRUCK", "MOTORCYCLE", "VALVE", "WEIGHT", "SEALANT", "MISC"].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Qty to Order <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" type="number" min="1" placeholder="1" value={newItemForm.quantity} onChange={e => setNewItemForm(f => ({...f, quantity: e.target.value}))} />
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Qty to Order <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <input className="inv-input" type="number" min="1" placeholder="1" value={newItemForm.quantity} onChange={e => setNewItemForm(f => ({ ...f, quantity: e.target.value }))} />
                     </div>
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Unit Cost <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.unit_cost} onChange={e => setNewItemForm(f => ({...f, unit_cost: e.target.value}))} />
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Unit Cost <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.unit_cost} onChange={e => setNewItemForm(f => ({ ...f, unit_cost: e.target.value }))} />
                     </div>
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Selling Price <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.selling_price} onChange={e => setNewItemForm(f => ({...f, selling_price: e.target.value}))} />
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Selling Price <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.selling_price} onChange={e => setNewItemForm(f => ({ ...f, selling_price: e.target.value }))} />
                     </div>
                     <div>
-                      <label style={{ fontSize:"clamp(0.62rem, 2.2vw, 0.72rem)", textTransform:"uppercase", letterSpacing:"0.07em", color:"#64748b", fontWeight:600, display:"block", marginBottom:"0.25rem" }}>Reorder Point</label>
-                      <input className="inv-input" type="number" min="0" placeholder="0" value={newItemForm.reorder_point} onChange={e => setNewItemForm(f => ({...f, reorder_point: e.target.value}))} />
+                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Reorder Point</label>
+                      <input className="inv-input" type="number" min="0" placeholder="0" value={newItemForm.reorder_point} onChange={e => setNewItemForm(f => ({ ...f, reorder_point: e.target.value }))} />
                     </div>
                   </div>
-                  {newItemError && <div style={{ fontSize:"0.8rem", color:"#fb7185", background:"rgba(251,113,133,0.1)", border:"1px solid #fb7185", borderRadius:6, padding:"0.4rem 0.65rem" }}>{newItemError}</div>}
-                  <button className="inv-btn inv-btn-emerald" onClick={addNewItemToOrder} style={{ marginTop:"0.25rem" }}>+ Add to Order</button>
+                  {newItemError && <div style={{ fontSize: "0.8rem", color: "#fb7185", background: "rgba(251,113,133,0.1)", border: "1px solid #fb7185", borderRadius: 6, padding: "0.4rem 0.65rem" }}>{newItemError}</div>}
+                  <button className="inv-btn inv-btn-emerald" onClick={addNewItemToOrder} style={{ marginTop: "0.25rem" }}>+ Add to Order</button>
                 </div>
               ) : (
-              <>
-              <div className="inv-modal-section-title">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Select Items
-              </div>
-              <div style={{ position:"relative", marginBottom:"0.4rem" }}>
-                <input className="inv-input" style={{ paddingLeft:"2rem" }} placeholder="Search by name, SKU, brand, size…" value={orderSearchQuery} onChange={(e) => onSearchChange(e.target.value)} />
-                <span style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", color:"#475569", pointerEvents:"none" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                </span>
-              </div>
-              <div style={{ maxHeight:"380px", overflowY:"auto" }}>
-                {orderModalCurrentItems.map((item) => {
-                  const qty = item.current_quantity || 0;
-                  const inOrder = orderItems.some(o => o.item_id === item.item_id);
-                  const stockCls = qty > 5 ? "ok" : qty > 0 ? "low" : "out";
-                  return (
-                    <div key={item.item_id} className={`inv-order-item-row${inOrder ? " in-order" : ""}`}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div className="inv-order-item-name">{item.item_name}</div>
-                        <div className="inv-order-item-meta">{item.sku}</div>
-                        <div className={`inv-order-item-stock inv-stock-badge ${stockCls}`} style={{ display:"inline-block", marginTop:3 }}>Stock: {qty}</div>
-                      </div>
-                      <button className="inv-btn inv-btn-sky inv-btn-sm" onClick={() => onAddItem(item)} style={{ marginLeft:"0.5rem" }}>
-                        {inOrder ? "+" : "+ Add"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              {filteredOrderItems.length > ORDER_MODAL_ITEMS_PER_PAGE && (
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"0.6rem", paddingTop:"0.5rem", borderTop:"1px solid #283245" }}>
-                  <span style={{ fontSize:"0.7rem", color:"#475569" }}>
-                    {orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE - ORDER_MODAL_ITEMS_PER_PAGE + 1}–{Math.min(orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE, filteredOrderItems.length)} of {filteredOrderItems.length}
-                  </span>
-                  <div style={{ display:"flex", gap:"0.35rem" }}>
-                    <button className="inv-page-btn" disabled={orderModalCurrentPage === 1} onClick={() => onPageChange(orderModalCurrentPage - 1)}>← Prev</button>
-                    <span className="inv-page-current">{orderModalCurrentPage}/{orderModalTotalPages}</span>
-                    <button className="inv-page-btn" disabled={orderModalCurrentPage === orderModalTotalPages} onClick={() => onPageChange(orderModalCurrentPage + 1)}>Next →</button>
+                <>
+                  <div className="inv-modal-section-title">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    Select Items
                   </div>
-                </div>
-              )}
-              </>
+                  <div style={{ position: "relative", marginBottom: "0.4rem" }}>
+                    <input className="inv-input" style={{ paddingLeft: "2rem" }} placeholder="Search by name, SKU, brand, size…" value={orderSearchQuery} onChange={(e) => onSearchChange(e.target.value)} />
+                    <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    </span>
+                  </div>
+                  <div style={{ maxHeight: "380px", overflowY: "auto" }}>
+                    {orderModalCurrentItems.map((item) => {
+                      const qty = item.current_quantity || 0;
+                      const inOrder = orderItems.some(o => o.item_id === item.item_id);
+                      const stockCls = qty > 5 ? "ok" : qty > 0 ? "low" : "out";
+                      return (
+                        <div key={item.item_id} className={`inv-order-item-row${inOrder ? " in-order" : ""}`}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="inv-order-item-name">{item.item_name}</div>
+                            <div className="inv-order-item-meta">{item.sku}</div>
+                            <div className={`inv-order-item-stock inv-stock-badge ${stockCls}`} style={{ display: "inline-block", marginTop: 3 }}>Stock: {qty}</div>
+                          </div>
+                          <button className="inv-btn inv-btn-sky inv-btn-sm" onClick={() => onAddItem(item)} style={{ marginLeft: "0.5rem" }}>
+                            {inOrder ? "+" : "+ Add"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {filteredOrderItems.length > ORDER_MODAL_ITEMS_PER_PAGE && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.6rem", paddingTop: "0.5rem", borderTop: "1px solid #283245" }}>
+                      <span style={{ fontSize: "0.7rem", color: "#475569" }}>
+                        {orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE - ORDER_MODAL_ITEMS_PER_PAGE + 1}–{Math.min(orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE, filteredOrderItems.length)} of {filteredOrderItems.length}
+                      </span>
+                      <div style={{ display: "flex", gap: "0.35rem" }}>
+                        <button className="inv-page-btn" disabled={orderModalCurrentPage === 1} onClick={() => onPageChange(orderModalCurrentPage - 1)}>← Prev</button>
+                        <span className="inv-page-current">{orderModalCurrentPage}/{orderModalTotalPages}</span>
+                        <button className="inv-page-btn" disabled={orderModalCurrentPage === orderModalTotalPages} onClick={() => onPageChange(orderModalCurrentPage + 1)}>Next →</button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* RIGHT: order cart */}
-            <div style={{ display:"flex", flexDirection:"column", gap:"0.5rem" }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:"0.5rem", borderBottom:"1px solid var(--th-border,#283245)" }}>
-                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:"clamp(0.72rem, 2.6vw, 0.82rem)", textTransform:"uppercase", letterSpacing:"0.06em", color:"var(--th-text-dim,#94a3b8)" }}>Order Items</span>
-                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:"0.78rem", background: orderItems.length>0 ? "rgba(249,115,22,0.15)" : "rgba(100,116,139,0.12)", color: orderItems.length>0 ? "var(--th-orange,#f97316)" : "#475569", border:`1px solid ${orderItems.length>0 ? "rgba(249,115,22,0.3)" : "#283245"}`, borderRadius:20, padding:"0.1rem 0.6rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "0.5rem", borderBottom: "1px solid var(--th-border,#283245)" }}>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "clamp(0.72rem, 2.6vw, 0.82rem)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim,#94a3b8)" }}>Order Items</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.78rem", background: orderItems.length > 0 ? "rgba(249,115,22,0.15)" : "rgba(100,116,139,0.12)", color: orderItems.length > 0 ? "var(--th-orange,#f97316)" : "#475569", border: `1px solid ${orderItems.length > 0 ? "rgba(249,115,22,0.3)" : "#283245"}`, borderRadius: 20, padding: "0.1rem 0.6rem" }}>
                   {orderItems.length} {orderItems.length === 1 ? "item" : "items"}
                 </span>
               </div>
-              <div style={{ flex:1, minHeight:0, maxHeight:"300px", overflowY:"auto" }}>
+              <div style={{ flex: 1, minHeight: 0, maxHeight: "300px", overflowY: "auto" }}>
                 {orderItems.length === 0 ? (
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"120px", gap:"0.5rem", color:"#3d5068" }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity:0.3 }}>
-                      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "120px", gap: "0.5rem", color: "#3d5068" }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.3 }}>
+                      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                     </svg>
-                    <span style={{ fontSize:"0.78rem" }}>No items added yet</span>
+                    <span style={{ fontSize: "0.78rem" }}>No items added yet</span>
                   </div>
                 ) : (
                   orderItems.map((oi) => (
-                    <div key={oi.order_item_id} style={{ borderBottom:"1px solid var(--th-border,#283245)", padding:"0.4rem 0" }}>
-                      <div className="inv-order-cart-row" style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
-                        <div className="inv-order-cart-info" style={{ flex:1, minWidth:0 }}>
-                          <div className="inv-order-cart-name" style={{ display:"flex", alignItems:"center", gap:"0.35rem", flexWrap:"wrap" }}>
+                    <div key={oi.order_item_id} style={{ borderBottom: "1px solid var(--th-border,#283245)", padding: "0.4rem 0" }}>
+                      <div className="inv-order-cart-row" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <div className="inv-order-cart-info" style={{ flex: 1, minWidth: 0 }}>
+                          <div className="inv-order-cart-name" style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
                             {oi.item_name}
-                            {oi.is_new_item && <span style={{ fontSize:"0.62rem", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em", background:"rgba(52,211,153,0.15)", border:"1px solid #34d399", color:"#34d399", borderRadius:4, padding:"0.05rem 0.35rem", lineHeight:1.4 }}>NEW</span>}
+                            {oi.is_new_item && <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", background: "rgba(52,211,153,0.15)", border: "1px solid #34d399", color: "#34d399", borderRadius: 4, padding: "0.05rem 0.35rem", lineHeight: 1.4 }}>NEW</span>}
                           </div>
                           <div className="inv-order-cart-sku">{oi.is_new_item ? oi.category : oi.sku}</div>
                         </div>
@@ -465,24 +466,24 @@ function CreateOrderModal({
                         const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
                         const isFallback = brandSuppliers.length === 0;
                         return (
-                          <div className="inv-order-supplier-wrap" style={{ marginTop:"0.4rem", display:"flex", flexWrap:"wrap", gap:"0.3rem", alignItems:"center" }}>
-                            {isFallback && <span style={{ fontSize:"clamp(0.6rem, 2.1vw, 0.68rem)", color:"#64748b", width:"100%", marginBottom:"0.1rem" }}>No brand match — select supplier:</span>}
+                          <div className="inv-order-supplier-wrap" style={{ marginTop: "0.4rem", display: "flex", flexWrap: "wrap", gap: "0.3rem", alignItems: "center" }}>
+                            {isFallback && <span style={{ fontSize: "clamp(0.6rem, 2.1vw, 0.68rem)", color: "#64748b", width: "100%", marginBottom: "0.1rem" }}>No brand match — select supplier:</span>}
                             {listToShow.map(s => {
                               const selected = oi.supplier_id === s.supplier_id;
                               return (
                                 <button key={s.supplier_id} className="inv-order-supplier-chip" onClick={() => onUpdateSupplier(oi.order_item_id, selected ? "" : s.supplier_id)} style={{
-                                  padding:"0.2rem 0.6rem", borderRadius:20, fontSize:"0.75rem", cursor:"pointer",
-                                  fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.04em",
+                                  padding: "0.2rem 0.6rem", borderRadius: 20, fontSize: "0.75rem", cursor: "pointer",
+                                  fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
                                   border: selected ? "1.5px solid #38bdf8" : "1px solid #3d5068",
                                   background: selected ? "rgba(56,189,248,0.15)" : "var(--th-bg-input,#283245)",
                                   color: selected ? "#38bdf8" : "#64748b",
-                                  transition:"all 0.12s",
+                                  transition: "all 0.12s",
                                 }}>
                                   {selected ? "✓ " : ""}{s.supplier_name}
                                 </button>
                               );
                             })}
-                            {!oi.supplier_id && <span style={{ fontSize:"0.7rem", color:"#f97316" }}>⚠ required</span>}
+                            {!oi.supplier_id && <span style={{ fontSize: "0.7rem", color: "#f97316" }}>⚠ required</span>}
                           </div>
                         );
                       })()}
@@ -500,7 +501,7 @@ function CreateOrderModal({
               </div>
               {error && (
                 <div className="inv-error">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                   {error}
                 </div>
               )}
@@ -509,8 +510,8 @@ function CreateOrderModal({
         </div>
 
         <div className="inv-modal-footer">
-          <button className="inv-btn inv-btn-slate" style={{ flex:"0 0 auto", minWidth:110 }} onClick={onClose}>Cancel</button>
-          <button className="inv-btn inv-btn-orange" style={{ flex:1 }} disabled={loading || orderItems.length === 0} onClick={onSubmit}>
+          <button className="inv-btn inv-btn-slate" style={{ flex: "0 0 auto", minWidth: 110 }} onClick={onClose}>Cancel</button>
+          <button className="inv-btn inv-btn-orange" style={{ flex: 1 }} disabled={loading || orderItems.length === 0} onClick={onSubmit}>
             {loading ? "Creating…" : `✓ Create Order${orderItems.length > 0 ? ` (${orderItems.length})` : ""}`}
           </button>
         </div>
@@ -607,10 +608,12 @@ export default function OrdersPage({ shopId, onRefresh }) {
   // Re-render on theme change
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
-  React.useEffect(() => { const obs = new MutationObserver(() => forceUpdate());
+  React.useEffect(() => {
+    const obs = new MutationObserver(() => forceUpdate());
     obs.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"], });
+      attributeFilter: ["data-theme"],
+    });
     return () => obs.disconnect();
   }, []);
 
@@ -898,7 +901,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       if (!qty || qty <= 0) { setError(`Invalid quantity for ${ri.item_name}`); return; }
       // DOT required for tire items
       const isTire = (ri.category || "").toUpperCase() === "TIRE" || (ri.category || "").toUpperCase().includes("TIRE") ||
-                     /\d+\/\d+[Rr]\d+/.test(ri.size || "") || (ri.item_name || "").toLowerCase().includes("tire");
+        /\d+\/\d+[Rr]\d+/.test(ri.size || "") || (ri.item_name || "").toLowerCase().includes("tire");
       const dot = (ov.dot_number ?? ri.dot_number ?? "").toString().trim();
       if (isTire && !dot) { setError(`DOT number is required for tire: ${ri.item_name}`); return; }
     }
@@ -914,11 +917,13 @@ export default function OrdersPage({ shopId, onRefresh }) {
       rows: [
         { label: "Order", value: selectedOrderForReceive },
         { label: "Items Received", value: `${receivedItems.length} of ${orderDetails.items?.length}` },
-        { label: "Items List", value: receivedItems.map(ri => {
+        {
+          label: "Items List", value: receivedItems.map(ri => {
             const ov = receiveOverrides[ri.order_item_id] || {};
             const dot = (ov.dot_number ?? ri.dot_number ?? "").toString().trim();
             return dot ? `${ri.item_name} [DOT ${dot}]` : ri.item_name;
-          }).join(", ") },
+          }).join(", ")
+        },
         { label: "Payment", value: ordCurrency(totalReceived) },
         { label: "Method", value: paymentLabel },
         { label: "DR #", value: deliveryReceipt },
@@ -1166,9 +1171,9 @@ export default function OrdersPage({ shopId, onRefresh }) {
               onClick={() => { setShowCreateOrderModal(true); setError(""); }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               Create Order
             </button>
@@ -1176,7 +1181,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
           {/* KPIs */}
           {(() => {
-            const totalVal   = orders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
+            const totalVal = orders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
             const pendingVal = orders.filter(o => o.status === 'PENDING').reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
             const receivedVal = orders.filter(o => o.status === 'RECEIVED').reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
             return (
@@ -1221,12 +1226,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
           )}
 
           {/* Search + Filters container — unified card */}
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '0.75rem', 
-            marginTop: '0.5rem', 
-            marginBottom: '0.5rem' 
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
           }}>
             {/* Search */}
             <div style={{ background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', borderRadius: '10px', padding: '0.5rem' }}>
@@ -1248,9 +1251,9 @@ export default function OrdersPage({ shopId, onRefresh }) {
               onClick={() => { setShowCreateOrderModal(true); setError(""); }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               Create Order
             </button>
@@ -1296,43 +1299,43 @@ export default function OrdersPage({ shopId, onRefresh }) {
             {/* Supplier filter */}
             {uniqueSuppliers.length > 0 && (
               <div style={{ background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', borderRadius: '10px', padding: '0.5rem' }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.75rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--th-text-dim)", flexShrink: 0 }}>
-                  Supplier:
-                </span>
-                <button
-                  onClick={() => setSupplierFilter("")}
-                  style={{
-                    fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
-                    textTransform: "uppercase", letterSpacing: "0.04em",
-                    padding: "0.25rem 0.75rem", borderRadius: 20, border: "1px solid",
-                    cursor: "pointer", transition: "all 0.15s",
-                    background: !supplierFilter ? "var(--th-orange)" : "transparent",
-                    color: !supplierFilter ? "#fff" : "var(--th-text-dim)",
-                    borderColor: !supplierFilter ? "var(--th-orange)" : "var(--th-border-strong)",
-                  }}
-                >
-                  All
-                </button>
-                {uniqueSuppliers.map((s) => (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.75rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--th-text-dim)", flexShrink: 0 }}>
+                    Supplier:
+                  </span>
                   <button
-                    key={s.id}
-                    onClick={() => setSupplierFilter(supplierFilter === s.id ? "" : s.id)}
+                    onClick={() => setSupplierFilter("")}
                     style={{
                       fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
                       textTransform: "uppercase", letterSpacing: "0.04em",
                       padding: "0.25rem 0.75rem", borderRadius: 20, border: "1px solid",
                       cursor: "pointer", transition: "all 0.15s",
-                      background: supplierFilter === s.id ? "var(--th-sky)" : "transparent",
-                      color: supplierFilter === s.id ? "#1a2132" : "var(--th-text-dim)",
-                      borderColor: supplierFilter === s.id ? "var(--th-sky)" : "var(--th-border-strong)",
+                      background: !supplierFilter ? "var(--th-orange)" : "transparent",
+                      color: !supplierFilter ? "#fff" : "var(--th-text-dim)",
+                      borderColor: !supplierFilter ? "var(--th-orange)" : "var(--th-border-strong)",
                     }}
                   >
-                    {s.name}
+                    All
                   </button>
-                ))}
+                  {uniqueSuppliers.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSupplierFilter(supplierFilter === s.id ? "" : s.id)}
+                      style={{
+                        fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
+                        textTransform: "uppercase", letterSpacing: "0.04em",
+                        padding: "0.25rem 0.75rem", borderRadius: 20, border: "1px solid",
+                        cursor: "pointer", transition: "all 0.15s",
+                        background: supplierFilter === s.id ? "var(--th-sky)" : "transparent",
+                        color: supplierFilter === s.id ? "#1a2132" : "var(--th-text-dim)",
+                        borderColor: supplierFilter === s.id ? "var(--th-sky)" : "var(--th-border-strong)",
+                      }}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
             )}
           </div>
 
@@ -1355,7 +1358,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                     <tr>
                       <td colSpan="4">
                         <div className="ord-table-empty">
-                          <svg className="ord-table-empty-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/><path d="M12 12v4M10 12h4"/></svg>
+                          <svg className="ord-table-empty-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /><path d="M12 12v4M10 12h4" /></svg>
                           <div className="ord-table-empty-title">
                             {searchQuery || supplierFilter ? "No Orders Match" : "No Orders Found"}
                           </div>
@@ -1896,7 +1899,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
               {/* DR# field */}
               <div style={{ marginBottom: "1rem" }}>
                 <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.3rem" }}>
-                  Delivery Receipt (DR) # <span style={{color:"var(--th-rose)"}}>*</span>
+                  Delivery Receipt (DR) # <span style={{ color: "var(--th-rose)" }}>*</span>
                 </label>
                 <input
                   className="ord-input"
@@ -1909,13 +1912,13 @@ export default function OrdersPage({ shopId, onRefresh }) {
               {/* Payment Mode */}
               <div style={{ marginBottom: "1rem" }}>
                 <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.4rem" }}>
-                  Payment Mode <span style={{color:"var(--th-rose)"}}>*</span>
+                  Payment Mode <span style={{ color: "var(--th-rose)" }}>*</span>
                 </label>
                 <div className="ord-paymode-btns">
                   {[
-                    { value: "CASH",  label: "💵 Cash",          color: "var(--th-emerald)", bg: "var(--th-emerald-bg)" },
-                    { value: "CHECK", label: "🖊 Check Release",  color: "var(--th-violet)",  bg: "var(--th-violet-bg)" },
-                    { value: "TERMS", label: "📅 Supplier Terms", color: "var(--th-sky)",     bg: "var(--th-sky-bg)" },
+                    { value: "CASH", label: "💵 Cash", color: "var(--th-emerald)", bg: "var(--th-emerald-bg)" },
+                    { value: "CHECK", label: "🖊 Check Release", color: "var(--th-violet)", bg: "var(--th-violet-bg)" },
+                    { value: "TERMS", label: "📅 Supplier Terms", color: "var(--th-sky)", bg: "var(--th-sky-bg)" },
                   ].map(opt => (
                     <button key={opt.value} className="ord-paymode-btn" onClick={() => setReceivePaymentMode(opt.value)} style={{
                       border: receivePaymentMode === opt.value ? `1.5px solid ${opt.color}` : "1px solid var(--th-border-strong)",
@@ -1937,15 +1940,15 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 {receivePaymentMode === "CHECK" && (
                   <div style={{ marginTop: "0.6rem", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}>
                     <div>
-                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Check # <span style={{color:"var(--th-rose)"}}>*</span></label>
+                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Check # <span style={{ color: "var(--th-rose)" }}>*</span></label>
                       <input className="ord-input" placeholder="e.g. 001234" value={receiveCheckInfo.check_number} onChange={e => setReceiveCheckInfo(p => ({ ...p, check_number: e.target.value }))} style={{ fontSize: "0.88rem" }} />
                     </div>
                     <div>
-                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Bank <span style={{color:"var(--th-rose)"}}>*</span></label>
+                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Bank <span style={{ color: "var(--th-rose)" }}>*</span></label>
                       <input className="ord-input" placeholder="e.g. BPI, BDO" value={receiveCheckInfo.bank} onChange={e => setReceiveCheckInfo(p => ({ ...p, bank: e.target.value }))} style={{ fontSize: "0.88rem" }} />
                     </div>
                     <div>
-                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Check Date <span style={{color:"var(--th-rose)"}}>*</span></label>
+                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Check Date <span style={{ color: "var(--th-rose)" }}>*</span></label>
                       <input className="ord-input" type="date" value={receiveCheckInfo.check_date} onChange={e => setReceiveCheckInfo(p => ({ ...p, check_date: e.target.value }))} style={{ fontSize: "0.88rem" }} />
                     </div>
                     <div style={{ gridColumn: "1 / -1", padding: "0.45rem 0.7rem", borderRadius: 6, background: "var(--th-violet-bg)", fontSize: "0.82rem", color: "var(--th-violet)" }}>
@@ -1967,9 +1970,9 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 const dispQty = ov.quantity ?? item.quantity;
                 const dispCost = ov.unit_cost ?? item.unit_cost;
                 const isTire = (item.category || "").toUpperCase() === "TIRE" ||
-                               (item.category || "").toUpperCase().includes("TIRE") ||
-                               /\d+\/\d+[Rr]\d+/.test(item.size || "") ||
-                               (item.item_name || "").toLowerCase().includes("tire");
+                  (item.category || "").toUpperCase().includes("TIRE") ||
+                  /\d+\/\d+[Rr]\d+/.test(item.size || "") ||
+                  (item.item_name || "").toLowerCase().includes("tire");
                 const dispDot = ov.dot_number ?? item.dot_number ?? "";
                 return (
                   <div

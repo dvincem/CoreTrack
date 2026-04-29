@@ -1,0 +1,730 @@
+/*
+ * ProfitsPage.css
+ * Extracted from styles.css (lines 14557–15282)
+ * Do not edit class names — JSX uses these selectors as-is.
+ */
+/* â•â•â• PAGE: ProfitsPage â•â•â• */
+.pm-root {
+  font-family: var(--font-body);
+  color: var(--th-text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.pm-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--th-border);
+  padding-bottom: 0.65rem;
+}
+
+.pm-heading {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--th-text-heading);
+}
+
+.pm-heading span {
+  color: var(--th-emerald);
+}
+
+.pm-sub {
+  font-size: 0.78rem;
+  color: var(--th-text-faint);
+}
+
+/* Filter card */
+.pm-filter-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  position: relative;
+  z-index: 20;
+}
+
+.pm-filter-card .si-wrap {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+
+.pm-date-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pm-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--th-text-faint);
+}
+
+.pm-input {
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-primary);
+  padding: 0.45rem 0.7rem;
+  border-radius: 7px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.pm-input:focus {
+  border-color: var(--th-emerald);
+}
+
+.pm-date-input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.pm-date-sep {
+  font-size: 0.85rem;
+  color: var(--th-text-faint);
+  flex-shrink: 0;
+}
+
+.pm-date-lbl {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-faint);
+  white-space: nowrap;
+}
+
+.pm-preset-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pm-preset {
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-muted);
+  padding: 0.42rem 0.75rem;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+
+.pm-preset:hover,
+.pm-preset.active {
+  background: var(--th-emerald-bg);
+  border-color: var(--th-emerald);
+  color: var(--th-emerald);
+}
+
+
+/* Section titles */
+.pm-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--th-text-faint);
+}
+
+.pm-section::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--th-orange);
+  flex-shrink: 0;
+}
+
+.pm-section::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--th-border);
+}
+
+/* Two-column layout */
+.pm-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+@media(max-width:860px) {
+  .pm-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pm-three-col {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0.85rem;
+}
+
+@media(max-width:860px) {
+  .pm-three-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card panel */
+.pm-card {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+/* Ensure touch scroll works on inner DataTable scroll containers */
+.pm-card .th-tbl-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+.pm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--th-border);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-muted);
+}
+
+.pm-card-body {
+  padding: 0;
+}
+
+/* Totals bar */
+.pm-total-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  background: var(--th-bg-card-alt);
+  border-top: 1px solid var(--th-border);
+  padding: 0.6rem 1rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pm-total-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: var(--th-text-faint);
+  margin-right: 0.25rem;
+}
+
+.pm-total-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pm-total-dim {
+  font-size: 0.7rem;
+  color: var(--th-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* DataTable nested inside pm-card — strip th-tbl-wrap's own card chrome to avoid double borders */
+.pm-card .th-tbl-wrap {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Prevent th-kpi-row global margin-bottom from doubling the gap spacing */
+.pm-root .th-kpi-row {
+  margin-bottom: 0;
+}
+
+/* Inventory purchased reference */
+.pm-purchases-ref {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 9px;
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  color: var(--th-text-dim);
+}
+
+.pm-purchases-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-faint);
+}
+
+.pm-purchases-note {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--th-text-faint);
+}
+
+/* Category breakdown table */
+.pm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.pm-table th {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-faint);
+  padding: 0.55rem 1.1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--th-border);
+  background: var(--th-bg-card-alt);
+}
+
+.pm-table th.r {
+  text-align: right;
+}
+
+.pm-table td {
+  padding: 0.65rem 1.1rem;
+  border-bottom: 1px solid var(--th-border);
+  vertical-align: middle;
+}
+
+.pm-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pm-table tr:hover td {
+  background: var(--th-bg-hover);
+}
+
+.pm-table .pm-total-row td {
+  background: var(--th-bg-card-alt);
+  font-weight: 700;
+}
+
+.pm-cat-badge {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 5px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pm-cat-badge.PCR {
+  background: var(--th-sky-bg);
+  color: var(--th-sky);
+}
+
+.pm-cat-badge.SUV {
+  background: var(--th-violet-bg);
+  color: var(--th-violet);
+}
+
+.pm-cat-badge.TRUCK {
+  background: var(--th-amber-bg);
+  color: var(--th-amber);
+}
+
+.pm-cat-badge.MOTORCYCLE {
+  background: var(--th-emerald-bg);
+  color: var(--th-emerald);
+}
+
+.pm-cat-badge.VALVE {
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+}
+
+.pm-cat-badge.WEIGHT {
+  background: var(--th-orange-bg);
+  color: var(--th-orange);
+}
+
+.pm-money {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pm-money.sky {
+  color: var(--th-sky);
+}
+
+.pm-money.amber {
+  color: var(--th-amber);
+}
+
+.pm-money.emerald {
+  color: var(--th-emerald);
+}
+
+.pm-money.violet {
+  color: var(--th-violet);
+}
+
+.pm-money.rose {
+  color: var(--th-rose);
+}
+
+.pm-money.dim {
+  color: var(--th-text-dim);
+}
+
+.pm-pct-pill {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pm-pct-pill.good {
+  background: var(--th-emerald-bg);
+  color: var(--th-emerald);
+}
+
+.pm-pct-pill.warn {
+  background: var(--th-amber-bg);
+  color: var(--th-amber);
+}
+
+.pm-pct-pill.bad {
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+}
+
+/* Bar track */
+.pm-bar-track {
+  height: 4px;
+  background: var(--th-border);
+  border-radius: 2px;
+  margin-top: 3px;
+  min-width: 60px;
+}
+
+.pm-bar-fill {
+  height: 4px;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(.22, .61, .36, 1);
+}
+
+/* Top items list */
+.pm-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 1.1rem;
+  border-bottom: 1px solid var(--th-border);
+}
+
+.pm-item-row:last-child {
+  border-bottom: none;
+}
+
+.pm-item-rank {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: var(--th-text-faint);
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.pm-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pm-item-name {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--th-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pm-item-meta {
+  font-size: 0.68rem;
+  color: var(--th-text-faint);
+}
+
+.pm-item-nums {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.pm-item-profit {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--th-emerald);
+}
+
+.pm-item-pct {
+  font-size: 0.68rem;
+  color: var(--th-text-faint);
+}
+
+/* Transactions table */
+.pm-tx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.81rem;
+}
+
+.pm-tx-table th {
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-faint);
+  padding: 0.5rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--th-border);
+  background: var(--th-bg-card-alt);
+  white-space: nowrap;
+}
+
+.pm-tx-table th.r {
+  text-align: right;
+}
+
+.pm-tx-table td {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--th-border);
+  vertical-align: middle;
+}
+
+.pm-tx-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pm-tx-table tr:hover td {
+  background: var(--th-bg-hover);
+}
+
+.pm-tx-inv {
+  font-weight: 600;
+  color: var(--th-text-primary);
+  font-size: 0.82rem;
+}
+
+.pm-tx-sub {
+  font-size: 0.67rem;
+  color: var(--th-text-faint);
+}
+
+.pm-profit-neg {
+  color: var(--th-rose);
+}
+
+.pm-empty {
+  padding: 2.5rem;
+  text-align: center;
+  color: var(--th-text-faint);
+  font-size: 0.85rem;
+}
+
+.pm-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--th-text-faint);
+}
+
+/* Equation row under KPIs */
+.pm-equation {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 9px;
+  padding: 0.65rem 1rem;
+  font-size: 0.78rem;
+}
+
+.pm-eq-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.pm-eq-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-faint);
+}
+
+.pm-eq-val {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.pm-eq-op {
+  color: var(--th-text-faint);
+  font-size: 1rem;
+  font-weight: 300;
+  padding: 0 0.1rem;
+}
+
+.pm-eq-result {
+  background: var(--th-emerald-bg);
+  border-radius: 7px;
+  padding: 0.2rem 0.65rem;
+}
+
+.pm-eq-result .pm-eq-val {
+  color: var(--th-emerald);
+  font-size: 1.1rem;
+}
+
+.pm-eq-result .pm-eq-label {
+  color: var(--th-emerald);
+}
+
+@media(max-width:640px) {
+  .pm-heading {
+    font-size: 1.4rem;
+    text-align: center;
+  }
+
+  .pm-header-row {
+    justify-content: center;
+  }
+
+  /* Filter card — stack vertically, SearchInput natural height only */
+  .pm-filter-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pm-filter-card .si-wrap {
+    flex: 0 0 auto;
+  }
+
+  .pm-date-group {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.35rem;
+    row-gap: 0;
+    width: 100%;
+  }
+
+  .pm-date-group .pm-date-input {
+    width: 100%;
+    min-width: 0;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.45rem;
+  }
+
+  .pm-date-sep {
+    display: none;
+  }
+
+  .pm-preset-row {
+    width: 100%;
+  }
+
+  .pm-preset {
+    flex: 0 0 auto;
+  }
+
+  /* Grids — single column */
+  .pm-two-col,
+  .pm-three-col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Equation — 2-col grid, hide verbose operators */
+  .pm-equation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 0.75rem;
+    align-items: start;
+  }
+
+  .pm-eq-op {
+    display: none;
+  }
+
+  .pm-eq-result {
+    grid-column: 1/-1;
+    justify-self: stretch;
+  }
+
+  .pm-eq-item {
+    align-items: flex-start;
+  }
+
+  /* Purchases ref */
+  .pm-purchases-ref {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .pm-purchases-note {
+    margin-left: 0;
+  }
+}

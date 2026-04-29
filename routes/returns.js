@@ -229,6 +229,13 @@ router.post("/returns/customer", async (req, res) => {
   }
 
   try {
+    const saleItemIds = items.map(i => i.sale_item_id).filter(Boolean);
+    const saleItemInfo = saleItemIds.length > 0 
+      ? await dbAll(`SELECT sale_item_id, is_custom FROM sale_items WHERE sale_item_id IN (${saleItemIds.map(() => '?').join(',')})`, saleItemIds)
+      : [];
+    const customMap = {};
+    saleItemInfo.forEach(si => { customMap[si.sale_item_id] = si.is_custom; });
+
     await dbRun("BEGIN TRANSACTION");
     const ts = Date.now();
     const returnIds = [];
@@ -236,21 +243,24 @@ router.post("/returns/customer", async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const return_id = `RET-CUST-${ts}-${i}`;
+      const isCustom = customMap[item.sale_item_id] || (item.item_id && item.item_id.startsWith('MISC-'));
       returnIds.push(return_id);
 
       let status = 'PROCESSED';
       let inv_tx_id = null;
 
       if (return_scenario === 'FULL_REFUND') {
-        // Restock the item
-        inv_tx_id = `INVTXN-${ts}-CRET-${i}`;
+        // Restock the item only if NOT custom
+        if (!isCustom) {
+          inv_tx_id = `INVTXN-${ts}-CRET-${i}`;
+          await dbRun(
+            `INSERT INTO inventory_ledger
+              (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, created_by, linked_return_id)
+             VALUES (?, ?, ?, 'CUSTOMER_RETURN', ?, ?, ?, ?, ?)`,
+            [inv_tx_id, shop_id, item.item_id, item.quantity, item.unit_price || 0, item.original_sale_id || null, created_by || 'SYSTEM', return_id]
+          );
+        }
         status = 'PROCESSED';
-        await dbRun(
-          `INSERT INTO inventory_ledger
-            (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, created_by, linked_return_id)
-           VALUES (?, ?, ?, 'CUSTOMER_RETURN', ?, ?, ?, ?, ?)`,
-          [inv_tx_id, shop_id, item.item_id, item.quantity, item.unit_price || 0, item.original_sale_id || null, created_by || 'SYSTEM', return_id]
-        );
       } else if (return_scenario === 'DEFECTIVE_REPLACE_LATER') {
         // Don't restock — tire is defective, awaiting replacement
         status = 'REPLACEMENT_PENDING';
@@ -258,9 +268,9 @@ router.post("/returns/customer", async (req, res) => {
         // Don't restock — sent to supplier
         status = 'WARRANTY_PENDING';
       } else if (return_scenario === 'DEFECTIVE_REPLACE_NOW') {
-        // Don't restock defective, but deduct replacement from stock
+        // Don't restock defective, but deduct replacement from stock (Replacements are always from master catalog)
         status = 'COMPLETED';
-        if (replacement_item_id) {
+        if (replacement_item_id && String(replacement_item_id).trim() !== "") {
           const repl_inv_id = `INVTXN-${ts}-DREPL-${i}`;
           await dbRun(
             `INSERT INTO inventory_ledger
@@ -268,6 +278,8 @@ router.post("/returns/customer", async (req, res) => {
              VALUES (?, ?, ?, 'DEFECTIVE_REPLACEMENT', ?, ?, ?, ?, ?)`,
             [repl_inv_id, shop_id, replacement_item_id, -(replacement_qty || item.quantity), 0, return_id, created_by || 'SYSTEM', return_id]
           );
+        } else {
+          throw new Error("Replacement item ID is required for 'Replace from Stock' scenario.");
         }
       }
 
@@ -302,34 +314,39 @@ router.post("/returns/customer", async (req, res) => {
       // For DEFECTIVE_REPLACE_NOW and DEFECTIVE_REPLACE_LATER:
       // auto-create a supplier return for the defective item.
       // The defective unit is NOT restocked — it's reserved to be sent back to supplier.
-      if (return_scenario === 'DEFECTIVE_REPLACE_NOW' || return_scenario === 'DEFECTIVE_REPLACE_LATER') {
+      // SKIP for custom items as they don't have a linked supplier in the catalog.
+      if (!isCustom && (return_scenario === 'DEFECTIVE_REPLACE_NOW' || return_scenario === 'DEFECTIVE_REPLACE_LATER')) {
         const itemInfo = await dbGet(
-          `SELECT im.item_id, im.item_name, im.supplier_id
-           FROM item_master im WHERE im.item_id = ?`,
+          `SELECT item_id, item_name, supplier_id
+           FROM item_master WHERE item_id = ?`,
           [item.item_id]
         );
-        const supp_return_id = `RET-SUPP-${ts}-${i}`;
-        const suppNote = return_scenario === 'DEFECTIVE_REPLACE_NOW'
-          ? `Auto-created: defective item from customer return ${return_id}. Replacement already dispatched from stock. Send defective unit to supplier for replenishment.`
-          : `Auto-created: defective item from customer return ${return_id}. Item held — NOT restocked. Reserved to be returned to supplier. Replacement to be fulfilled when supplier sends stock.`;
-        await dbRun(
-          `INSERT INTO returns
-            (return_id, shop_id, return_type, reason, status,
-             item_id, quantity, unit_cost,
-             supplier_id, replacement_return_id,
-             notes, created_by, processed_at)
-           VALUES (?, ?, 'SUPPLIER_RETURN', ?, 'REPLACEMENT_PENDING',
-                   ?, ?, ?,
-                   ?, ?,
-                   ?, ?, CURRENT_TIMESTAMP)`,
-          [
-            supp_return_id, shop_id, 'DEFECTIVE',
-            item.item_id, item.quantity, item.unit_price || 0,
-            itemInfo?.supplier_id || null, return_id,
-            suppNote, created_by || 'SYSTEM'
-          ]
-        );
-        returnIds.push(supp_return_id);
+        
+        if (itemInfo) {
+          const supp_return_id = `RET-SUPP-${ts}-${i}`;
+          const suppNote = return_scenario === 'DEFECTIVE_REPLACE_NOW'
+            ? `Auto-created: defective item from customer return ${return_id}. Replacement already dispatched from stock. Send defective unit to supplier for replenishment.`
+            : `Auto-created: defective item from customer return ${return_id}. Item held — NOT restocked. Reserved to be returned to supplier. Replacement to be fulfilled when supplier sends stock.`;
+          
+          await dbRun(
+            `INSERT INTO returns
+              (return_id, shop_id, return_type, reason, status,
+               item_id, quantity, unit_cost,
+               supplier_id, replacement_return_id,
+               notes, created_by, processed_at)
+             VALUES (?, ?, 'SUPPLIER_RETURN', ?, 'REPLACEMENT_PENDING',
+                     ?, ?, ?,
+                     ?, ?,
+                     ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              supp_return_id, shop_id, 'DEFECTIVE',
+              item.item_id, item.quantity, item.unit_price || 0,
+              itemInfo.supplier_id || null, return_id,
+              suppNote, created_by || 'SYSTEM'
+            ]
+          );
+          returnIds.push(supp_return_id);
+        }
       }
     }
 
@@ -357,9 +374,16 @@ router.post("/returns/customer", async (req, res) => {
     ].filter(Boolean).join('\n');
 
     for (const sale_id of saleIds) {
-      const existing = await dbGet(`SELECT sale_notes FROM sale_header WHERE sale_id = ?`, [sale_id]);
-      const prev = existing?.sale_notes ? existing.sale_notes + '\n\n' : '';
-      await dbRun(`UPDATE sale_header SET sale_notes = ? WHERE sale_id = ?`, [prev + noteLines, sale_id]);
+      try {
+        const existing = await dbGet(`SELECT sale_notes FROM sale_header WHERE sale_id = ?`, [sale_id]);
+        if (existing) {
+          const prev = existing.sale_notes ? existing.sale_notes + '\n\n' : '';
+          await dbRun(`UPDATE sale_header SET sale_notes = ? WHERE sale_id = ?`, [prev + noteLines, sale_id]);
+        }
+      } catch (noteErr) {
+        console.warn(`Failed to update sale notes for ${sale_id}:`, noteErr.message);
+        // Continue — don't crash the whole return because of a note failure
+      }
     }
 
     await dbRun("COMMIT");
@@ -396,6 +420,10 @@ router.post("/returns/supplier", async (req, res) => {
   try {
     await dbRun("BEGIN TRANSACTION");
 
+    // Verify item exists to avoid foreign key failure
+    const itemExists = await dbGet("SELECT item_id FROM item_master WHERE item_id = ?", [item_id]);
+    if (!itemExists) throw new Error(`Item ${item_id} not found.`);
+
     await dbRun(
       `INSERT INTO inventory_ledger
         (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, supplier_id, created_by, linked_return_id)
@@ -408,8 +436,10 @@ router.post("/returns/supplier", async (req, res) => {
         (return_id, shop_id, return_type, return_scenario, reason, status, item_id, quantity, unit_cost,
          original_order_id, original_order_item_id, supplier_id, linked_inventory_tx_id, notes, created_by, processed_at)
        VALUES (?, ?, 'SUPPLIER_RETURN', 'SUPPLIER_RETURN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [return_id, shop_id, reason, status, item_id, parseFloat(quantity), parseFloat(unit_cost) || 0,
-       original_order_id || null, original_order_item_id || null, supplier_id || null, inv_tx_id, notes || null, created_by || 'SYSTEM']
+      [
+        return_id, shop_id, reason, status, item_id, parseFloat(quantity), parseFloat(unit_cost) || 0,
+        original_order_id || null, original_order_item_id || null, supplier_id || null, inv_tx_id, notes || null, created_by || 'SYSTEM'
+      ]
     );
 
     await dbRun("COMMIT");

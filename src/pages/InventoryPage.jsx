@@ -1,3 +1,4 @@
+import '../pages_css/InventoryPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch } from '../lib/config'
 import SearchInput from '../components/SearchInput'
@@ -1042,12 +1043,8 @@ function InventoryPage({ shopId, setPageContext }) {
           .inv-table-section       { order: 7; }
           .inv-error               { order: 8; }
         }
-        @media (max-width: 768px) {
-          .th-section-label {
-            font-size: 0.7rem;
-            margin-bottom: .5rem;
-          }
         }
+
         `}</style>      {toast && (
         <InvToast
           title={toast.title}

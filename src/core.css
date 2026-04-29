@@ -1,0 +1,1401 @@
+/*
+ * core.css — TireHub Shared Base Styles
+ * Extracted from styles.css (lines 1–712)
+ * Imported once in main.jsx
+ */
+/*
+ * TireHub â€” Centralized Shared Styles
+ * All pages import this file for consistent typography and UI patterns.
+ * Design tokens (colors, fonts, sizes) are defined in index.css / ThemeProvider.
+ */
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   GLOBAL RESPONSIVE â€” AUTO-FIT / ANTI-OVERLAP SYSTEM
+   Prevents buttons, text, and elements from overlapping at any
+   screen width. Fluid scaling + auto-wrap for the entire app.
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* â”€â”€ Fluid typography tokens (override the fixed ones) â”€â”€ */
+:root {
+  --text-xs: clamp(0.58rem, 0.5rem + 0.35vw, 0.72rem);
+  --text-sm: clamp(0.7rem, 0.6rem + 0.4vw, 0.85rem);
+  --text-base: clamp(0.78rem, 0.68rem + 0.4vw, 0.93rem);
+  --text-md: clamp(0.82rem, 0.72rem + 0.42vw, 1rem);
+  --text-lg: clamp(0.92rem, 0.8rem + 0.5vw, 1.15rem);
+  --text-xl: clamp(1.1rem, 0.9rem + 0.7vw, 1.5rem);
+  --text-2xl: clamp(1.35rem, 1rem + 1.1vw, 2rem);
+  --text-3xl: clamp(1.6rem, 1.2rem + 1.4vw, 2.5rem);
+}
+
+/* â”€â”€ Global text overflow prevention â”€â”€ */
+* {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* â”€â”€ All flex rows: allow wrapping, prevent overflow â”€â”€ */
+[style*="display: flex"],
+[style*="display:flex"],
+[class*="toolbar"],
+[class*="btn-row"],
+[class*="btn-group"],
+[class*="action"],
+[class*="filter"],
+[class*="status-bar"],
+[class*="header"] {
+  flex-wrap: wrap;
+}
+
+/* â”€â”€ Buttons: fluid sizing, never clip â”€â”€ */
+button,
+.th-btn,
+[class*="-btn"] {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Preserve specific button sizes that are icon-only or intentionally small */
+.pos-qty-btn,
+.pos-ci-remove,
+[class*="close-btn"],
+[class*="icon-btn"] {
+  font-size: inherit;
+}
+
+/* â”€â”€ Inputs: fluid sizing â”€â”€ */
+input,
+select,
+textarea {
+  max-width: 100%;
+  font-size: clamp(0.75rem, 0.65rem + 0.35vw, 0.95rem);
+}
+
+/* â”€â”€ Tables: horizontal scroll on small screens â”€â”€ */
+.th-table-wrap,
+[class*="table-wrap"],
+[class*="table-container"] {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* â”€â”€ KPI cards: fluid padding + text â”€â”€ */
+
+/* â”€â”€ Badges: fluid â”€â”€ */
+.th-badge {
+  font-size: clamp(0.55rem, 0.47rem + 0.28vw, 0.72rem);
+  padding: clamp(0.12rem, 0.08rem + 0.15vw, 0.2rem) clamp(0.35rem, 0.25rem + 0.25vw, 0.65rem);
+}
+
+/* â”€â”€ Panel headers/footers: wrap their children â”€â”€ */
+.th-panel-header,
+[class*="modal-header"],
+[class*="modal-footer"],
+[class*="panel-header"],
+[class*="panel-footer"] {
+  flex-wrap: wrap;
+  gap: clamp(0.35rem, 0.25rem + 0.3vw, 0.75rem);
+}
+
+/* â”€â”€ Toolbars: fluid padding â”€â”€ */
+[class*="toolbar"] {
+  padding: clamp(0.5rem, 0.35rem + 0.5vw, 0.85rem) clamp(0.6rem, 0.45rem + 0.55vw, 1.1rem);
+  gap: clamp(0.35rem, 0.25rem + 0.4vw, 0.75rem);
+}
+
+/* â”€â”€ Section titles: fluid â”€â”€ */
+.th-section-title {
+  font-size: clamp(0.65rem, 0.55rem + 0.3vw, 0.82rem);
+}
+
+/* â”€â”€ Alerts: fluid â”€â”€ */
+.th-alert {
+  font-size: clamp(0.72rem, 0.62rem + 0.35vw, 0.9rem);
+  padding: clamp(0.35rem, 0.25rem + 0.3vw, 0.55rem) clamp(0.5rem, 0.38rem + 0.4vw, 0.85rem);
+}
+
+/* ── KPI ROW / GRID CONTAINERS ────────────────────────── */
+.th-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .th-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .th-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+/* â”€â”€ Global responsive breakpoints â”€â”€ */
+@media (max-width: 1024px) {
+  .th-page {
+    gap: 0.7rem;
+  }
+
+  .th-page-title {
+    line-height: 1.1;
+  }
+}
+
+@media (max-width: 768px) {
+  .th-page {
+    gap: 0.55rem;
+  }
+
+  .th-table th {
+    padding: 0.55rem 0.6rem;
+  }
+
+  .th-table td {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .th-btn {
+    padding: clamp(0.35rem, 0.28rem + 0.25vw, 0.55rem) clamp(0.55rem, 0.4rem + 0.4vw, 1.1rem);
+  }
+
+  .th-panel-header {
+    padding: clamp(0.6rem, 0.45rem + 0.4vw, 1rem) clamp(0.7rem, 0.5rem + 0.5vw, 1.25rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .th-page {
+    gap: 0.4rem;
+  }
+
+  .th-table th {
+    padding: 0.4rem 0.45rem;
+    font-size: clamp(0.55rem, 0.48rem + 0.2vw, 0.65rem);
+  }
+
+  .th-table td {
+    padding: 0.38rem 0.45rem;
+  }
+
+  .th-btn {
+    letter-spacing: 0.03em;
+  }
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PAGE LAYOUT
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-page {
+  font-family: var(--font-body);
+  line-height: 1.5;
+  color: var(--th-text-body);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TYPOGRAPHY â€” HEADINGS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* Primary page title  e.g. "INVENTORY", "PAYROLL" */
+.th-page-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-2xl);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--th-text-heading);
+  line-height: 1;
+}
+
+/* Section / card heading */
+.th-section-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* Modal / drawer primary name */
+.th-modal-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-xl);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--th-text-heading);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TYPOGRAPHY â€” BODY
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* Standard body text */
+.th-text-body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--th-text-body);
+}
+
+.th-text-sm {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--th-text-dim);
+}
+
+.th-text-xs {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--th-text-faint);
+}
+
+.th-text-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--th-text-faint);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FORM LABELS & INPUTS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-label {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-dim);
+  margin-bottom: 0.3rem;
+  display: block;
+}
+
+.th-input,
+.th-select,
+.th-textarea {
+  width: 100%;
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-primary);
+  padding: 0.55rem 0.85rem;
+  border-radius: 7px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.th-input:focus,
+.th-select:focus,
+.th-textarea:focus {
+  border-color: var(--th-sky);
+}
+
+/* Search bar variant (with left icon padding) */
+.th-search-input {
+  width: 100%;
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-primary);
+  padding: 0.6rem 2.2rem;
+  border-radius: 7px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.th-search-input:focus {
+  border-color: var(--th-sky);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   BUTTONS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.4rem 1rem;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.th-btn:hover {
+  opacity: 0.88;
+}
+
+.th-btn:active {
+  transform: scale(0.97);
+}
+
+.th-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Colour variants */
+.th-btn-sky {
+  background: var(--th-sky);
+  color: #fff;
+}
+
+.th-btn-emerald {
+  background: var(--th-emerald);
+  color: #fff;
+}
+
+.th-btn-rose {
+  background: var(--th-rose);
+  color: #fff;
+}
+
+.th-btn-amber {
+  background: var(--th-amber);
+  color: #000;
+}
+
+.th-btn-violet {
+  background: var(--th-violet);
+  color: #fff;
+}
+
+.th-btn-ghost {
+  background: var(--th-bg-card-alt);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-body);
+}
+
+/* Full-width variant */
+.th-btn-full {
+  width: 100%;
+  padding: 0.65rem;
+  font-size: 1rem;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TABLE
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+}
+
+.th-table th {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-dim);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--th-border-mid);
+}
+
+.th-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--th-border);
+  color: var(--th-text-body);
+  vertical-align: middle;
+}
+
+.th-table tr:last-child td {
+  border-bottom: none;
+}
+
+.th-table tr:hover td {
+  background: var(--th-bg-row-hover, rgba(255, 255, 255, 0.03));
+}
+
+/* ────────────────────────────────────────────────────────────────
+   DATATABLE — Shared reusable table component (th-tbl-*)
+   Usage: import DataTable from '../components/DataTable'
+   ---------------------------------------------------------------- */
+
+/* -- Wrapper & scroll -- */
+.th-tbl-wrap {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.th-tbl-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* -- Table base -- */
+.th-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* -- Header -- */
+.th-tbl thead tr {
+  background: var(--th-bg-card-alt);
+  border-bottom: 1px solid var(--th-border);
+}
+
+.th-tbl th {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--th-text-faint);
+  white-space: nowrap;
+}
+
+.th-tbl th.right {
+  text-align: right;
+}
+
+.th-tbl th.center {
+  text-align: center;
+}
+
+.th-tbl th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.th-tbl th.sortable:hover {
+  color: var(--th-text-body);
+  background: var(--th-bg-hover);
+}
+
+.th-tbl-sort-content {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.th-tbl th.center .th-tbl-sort-content {
+  justify-content: center;
+}
+
+.th-tbl th.right .th-tbl-sort-content {
+  justify-content: flex-end;
+}
+
+.th-tbl-sort-icon {
+  display: flex;
+  flex-direction: column;
+  color: var(--th-text-faint);
+  opacity: 0.3;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.th-tbl th.sortable:hover .th-tbl-sort-icon {
+  opacity: 0.6;
+}
+
+.th-tbl th.active-sort .th-tbl-sort-icon {
+  opacity: 1;
+  color: var(--th-orange);
+}
+
+/* -- Body -- */
+.th-tbl td {
+  padding: 0.55rem 0.65rem;
+  border-top: 1px solid var(--th-border);
+  color: var(--th-text-body);
+  vertical-align: middle;
+}
+
+.th-tbl td.right {
+  text-align: right;
+}
+
+.th-tbl td.center {
+  text-align: center;
+}
+
+.th-tbl tbody tr {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.th-tbl tbody tr:hover td {
+  background: var(--th-bg-hover);
+}
+
+.th-tbl tbody tr.selected td {
+  background: var(--th-orange-bg);
+}
+
+.th-tbl tbody tr.selected {
+  border-left: 2px solid var(--th-orange);
+}
+
+.th-tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.th-tbl tbody tr:not([onclick]) {
+  cursor: default;
+}
+
+/* -- Empty state -- */
+.th-tbl-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--th-text-faint);
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.th-tbl-empty-icon {
+  opacity: 0.25;
+  margin-bottom: 0.25rem;
+}
+
+.th-tbl-empty-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-dim);
+}
+
+/* Sales page: ensure amount column content stays on one line */
+.sl-root .th-tbl td .sl-amount-inline {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.th-table-empty {
+  padding: 3.5rem;
+  text-align: center;
+  color: var(--th-text-faint);
+  font-size: 0.9rem;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   BADGES / CHIPS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.th-badge-sky {
+  background: var(--th-sky-bg);
+  color: var(--th-sky);
+  border: 1px solid var(--th-sky);
+}
+
+.th-badge-emerald {
+  background: var(--th-emerald-bg);
+  color: var(--th-emerald);
+  border: 1px solid var(--th-emerald);
+}
+
+.th-badge-rose {
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+  border: 1px solid var(--th-rose);
+}
+
+.th-badge-amber {
+  background: var(--th-amber-bg);
+  color: var(--th-amber);
+  border: 1px solid var(--th-amber);
+}
+
+.th-badge-violet {
+  background: var(--th-violet-bg);
+  color: var(--th-violet);
+  border: 1px solid var(--th-violet);
+}
+
+.th-badge-neutral {
+  background: var(--th-bg-card-alt);
+  color: var(--th-text-dim);
+  border: 1px solid var(--th-border);
+}
+
+/* Legacy aliases for backward compatibility */
+.th-kpi-row,
+.exp-kpi-grid,
+.pay-kpi-grid,
+.rcv-kpi-grid,
+.pm-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0;
+}
+
+/* â”€â”€ KPI ROW / GRID CONTAINERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+@media (max-width: 600px) {
+
+  .th-kpi-row,
+  .exp-kpi-grid,
+  .pay-kpi-grid,
+  .rcv-kpi-grid,
+  .pm-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+/* â”€â”€ KPI CARDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.th-kpi {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: default;
+}
+
+.th-kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+
+.th-kpi:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.th-kpi.emerald::before {
+  background: var(--th-emerald);
+}
+
+.th-kpi.emerald {
+  background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(52, 211, 153, 0.07));
+}
+
+.th-kpi.sky::before {
+  background: var(--th-sky);
+}
+
+.th-kpi.sky {
+  background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(56, 189, 248, 0.07));
+}
+
+.th-kpi.violet::before {
+  background: var(--th-violet);
+}
+
+.th-kpi.violet {
+  background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(167, 139, 250, 0.07));
+}
+
+.th-kpi.amber::before {
+  background: var(--th-amber);
+}
+
+.th-kpi.amber {
+  background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(251, 191, 36, 0.07));
+}
+
+.th-kpi.rose::before {
+  background: var(--th-rose);
+}
+
+.th-kpi.rose {
+  background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(251, 113, 133, 0.07));
+}
+
+.th-kpi.orange::before {
+  background: var(--th-orange);
+}
+
+.th-kpi.orange {
+  background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(249, 115, 22, 0.07));
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   UNIVERSAL KPI TYPOGRAPHY â€” edit ONLY these three classes to
+   update label / value / sub text sizes on EVERY page at once.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.kpi-lbl {
+  font-size: clamp(0.72rem, 0.68rem + 0.35vw, 0.8rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kpi-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.5rem, 1.2rem + 0.9vw, 1.85rem);
+  line-height: 1;
+}
+
+.kpi-sub {
+  font-size: clamp(0.7rem, 0.66rem + 0.3vw, 0.75rem);
+}
+
+/* Per-class overrides â€” color / spacing / layout only, NO font-size */
+.th-kpi-label {
+  color: var(--th-muted, var(--th-text-dim));
+}
+
+.th-kpi-value {
+  color: var(--th-text);
+}
+
+.th-kpi-sub {
+  color: var(--th-muted, var(--th-text-dim));
+}
+
+/* â”€â”€ SECTION LABELS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.th-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--th-muted, var(--th-text-dim));
+  margin-top: .5rem;
+  margin-bottom: .5rem;
+}
+
+.th-section-label::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  background: var(--th-orange);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.th-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--th-border);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ALERT / FEEDBACK BANNERS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-alert {
+  border-radius: 7px;
+  padding: 0.55rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.th-alert-error {
+  background: var(--th-rose-bg);
+  border: 1px solid var(--th-rose);
+  color: var(--th-rose);
+}
+
+.th-alert-success {
+  background: var(--th-emerald-bg);
+  border: 1px solid var(--th-emerald);
+  color: var(--th-emerald);
+}
+
+.th-alert-warn {
+  background: var(--th-amber-bg);
+  border: 1px solid var(--th-amber);
+  color: var(--th-amber);
+}
+
+.th-alert-info {
+  background: var(--th-sky-bg);
+  border: 1px solid var(--th-sky);
+  color: var(--th-sky);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PANEL / CARD WRAPPER
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.th-panel {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.th-panel-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--th-border-mid);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 640px) {
+  .th-panel-header {
+    padding: 0;
+  }
+}
+
+.th-panel-body {
+  padding: 1.25rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED CONFIRM MODAL — used across Orders, Purchases, Sales,
+   Expenses, Payables, Receivables, Payroll, and more.
+   Lost during CSS modularisation — restored to core.css so
+   every page that renders ConfirmModal / confirm-overlay gets
+   consistent layout.
+══════════════════════════════════════════════════════════════ */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.confirm-box {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border-strong, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  padding: 1.75rem 1.75rem 1.5rem;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: confirmSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes confirmSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-title {
+  font-family: var(--font-display, 'Barlow Condensed', sans-serif);
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--th-text-primary, #f1f5f9);
+}
+
+/* ── Detail rows: label on left, value on right ── */
+.confirm-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--th-bg-input, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--th-border, rgba(255, 255, 255, 0.07));
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.confirm-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--th-border, rgba(255, 255, 255, 0.06));
+}
+
+.confirm-detail-row:last-child {
+  border-bottom: none;
+}
+
+.confirm-detail-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-faint, #64748b);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.confirm-detail-val {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--th-text-primary, #f1f5f9);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* ── Action buttons ── */
+.confirm-actions {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.confirm-btn-cancel,
+.confirm-btn-ok {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font-display, 'Barlow Condensed', sans-serif);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+
+.confirm-btn-cancel {
+  background: var(--th-bg-input, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--th-border-strong, rgba(255, 255, 255, 0.12));
+  color: var(--th-text-muted, #94a3b8);
+}
+
+.confirm-btn-cancel:hover:not(:disabled) {
+  background: var(--th-bg-card-alt, rgba(255, 255, 255, 0.09));
+  color: var(--th-text-primary, #f1f5f9);
+}
+
+.confirm-btn-ok {
+  background: var(--th-orange, #f97316);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+}
+
+.confirm-btn-ok:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4);
+  transform: translateY(-1px);
+}
+
+.confirm-btn-ok.danger {
+  background: var(--th-rose, #f43f5e);
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.3);
+}
+
+.confirm-btn-ok.danger:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.4);
+}
+
+.confirm-btn-cancel:disabled,
+.confirm-btn-ok:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── th-title-format (used by ControlPanel & others) ── */
+.th-title-format {
+  font-family: var(--font-display, 'Barlow Condensed', sans-serif);
+  font-weight: 900;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2.2rem);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-heading, #f1f5f9);
+  line-height: 1;
+}
+
+/* ── th-spinner (shared loading dots) ── */
+.th-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--th-orange, #f97316);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.th-spinner-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED ANIMATIONS — missing from CSS modularisation
+══════════════════════════════════════════════════════════════ */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Utility animation classes */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse-ring 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease both;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHOP CLOSED / NEXT DAY BADGE
+   .pos-closed-badge + .pulse used in POS, Purchases,
+   Expenses, CashLedger pages
+══════════════════════════════════════════════════════════════ */
+
+.pos-closed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.75rem;
+  border-radius: 20px;
+  background: var(--th-amber-bg, rgba(251, 191, 36, 0.12));
+  border: 1px solid var(--th-amber, #fbbf24);
+  color: var(--th-amber, #fbbf24);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Pulsing dot indicator inside the badge */
+.pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--th-amber, #fbbf24);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--th-amber, #fbbf24);
+  animation: pulse-ring 1.4s ease infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILTER BAR SHARED INPUTS (.fh-date, .fh-select)
+   Used in: FilterHeader component across 8+ pages
+══════════════════════════════════════════════════════════════ */
+
+.fh-date,
+.fh-select {
+  background: var(--th-bg-input, #1e2a3a);
+  border: 1px solid var(--th-border-strong, rgba(255, 255, 255, 0.12));
+  color: var(--th-text-primary, #f1f5f9);
+  padding: 0.42rem 0.7rem;
+  border-radius: 7px;
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.rep-fh-date {
+  color: var(--th-text-primary, #f1f5f9);
+  padding: 0.42rem 0.7rem;
+  border-radius: 7px;
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.fh-date:focus,
+.fh-select:focus {
+  border-color: var(--th-orange, #f97316);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SKELETON CELL — shared loading placeholder
+   .th-skel-cell used in Services, ServicesSummary
+══════════════════════════════════════════════════════════════ */
+
+.th-skel-cell {
+  display: inline-block;
+  border-radius: 4px;
+  background: linear-gradient(90deg,
+      var(--th-bg-card-alt, rgba(255, 255, 255, 0.05)) 25%,
+      var(--th-bg-hover, rgba(255, 255, 255, 0.09)) 50%,
+      var(--th-bg-card-alt, rgba(255, 255, 255, 0.05)) 75%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.4s ease infinite;
+  height: 0.9em;
+  vertical-align: middle;
+}
+
+@keyframes skelShimmer {
+  0% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: -200% center;
+  }
+}
+
+/* DataTable skeleton width helpers */
+.w20 {
+  width: 20%;
+}
+
+.w30 {
+  width: 30%;
+}
+
+.w40 {
+  width: 40%;
+}
+
+.w60 {
+  width: 60%;
+}
+
+.w80 {
+  width: 80%;
+}
+
+.w100 {
+  width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED TEXT / STATE MODIFIERS
+══════════════════════════════════════════════════════════════ */
+
+/* .th-text-dim — muted body text (used directly in DryRun etc.) */
+.th-text-dim {
+  color: var(--th-text-dim, #64748b);
+}
+
+/* .th-btn-orange — orange variant of shared button system */
+.th-btn-orange {
+  background: var(--th-orange, #f97316);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(249, 115, 22, 0.28);
+}
+
+.th-btn-orange:hover:not(:disabled) {
+  opacity: 0.88;
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.38);
+}
+
+/* State color modifiers — used across multiple pages as compound classes */
+.danger {
+  color: var(--th-rose, #f43f5e) !important;
+  border-color: var(--th-rose, #f43f5e) !important;
+}
+
+.dim {
+  opacity: 0.55;
+}
+
+.warn {
+  color: var(--th-amber, #fbbf24) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SETUP WIZARD — .sw-body
+   SetupPage uses this for the main layout container
+══════════════════════════════════════════════════════════════ */
+
+.sw-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--th-bg-base, #0a0f1a);
+  padding: 1rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROFILE PAGE — missing container and error classes
+══════════════════════════════════════════════════════════════ */
+
+.profile-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.pm-error {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--th-rose, #f43f5e);
+  font-size: 0.9rem;
+  background: var(--th-rose-bg, rgba(244, 63, 94, 0.08));
+  border: 1px solid var(--th-rose, #f43f5e);
+  border-radius: 10px;
+  margin: 2rem auto;
+  max-width: 500px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED inv-btn-secondary (used in Profile + other pages)
+══════════════════════════════════════════════════════════════ */
+
+.inv-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.52rem 1rem;
+  border-radius: 7px;
+  border: 1px solid var(--th-border-strong, rgba(255, 255, 255, 0.12));
+  background: var(--th-bg-input, rgba(255, 255, 255, 0.06));
+  color: var(--th-text-muted, #94a3b8);
+  cursor: pointer;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.inv-btn-secondary:hover:not(:disabled) {
+  border-color: var(--th-border-mid);
+  color: var(--th-text-primary);
+}
+
+.inv-btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Shared History Modal Overlay */
+.hist-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 250;
+  padding: 1rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL DARK MODE FIXES
+   Ensures native browser icons are visible on dark backgrounds
+══════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2);
+  cursor: pointer;
+}

@@ -1,0 +1,687 @@
+/*
+ * PayrollPage.css
+ * Extracted from styles.css (lines 12569–13251)
+ * Do not edit class names — JSX uses these selectors as-is.
+ */
+/* â•â•â• PAGE: PayrollPage â•â•â• */
+.pr-root {
+  font-family: var(--font-body);
+  color: var(--th-text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.pr-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--th-border);
+  padding-bottom: 0.65rem;
+  margin-bottom: 0;
+}
+
+.pr-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pr-header-btns-desktop {
+  display: flex;
+}
+
+.pr-heading {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--th-text-heading);
+  margin-bottom: 0;
+}
+
+.pr-heading span {
+  color: var(--th-amber);
+}
+
+/* Filter card */
+.pr-filter-card {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  position: relative;
+  z-index: 20;
+}
+
+.pr-filter-card .si-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+
+.pr-date-input {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.pr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pr-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-faint);
+}
+
+.pr-input,
+.pr-select {
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-primary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pr-input:focus,
+.pr-select:focus {
+  border-color: var(--th-amber);
+}
+
+/* Add-log form */
+.pr-add-card {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.pr-add-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-muted);
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pr-form {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.pr-form .pr-field {
+  flex: 1;
+  min-width: 130px;
+}
+
+.pr-form .pr-field.sm {
+  flex: 0 0 90px;
+  min-width: 0;
+}
+
+.pr-btn {
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.55rem 1.1rem;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.pr-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.pr-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pr-btn-amber {
+  background: var(--th-amber);
+  color: #000;
+}
+
+.pr-btn-sky {
+  background: var(--th-sky);
+  color: #000;
+}
+
+.pr-btn-sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.pr-form-error {
+  color: var(--th-rose);
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+/* Tireman summary table */
+.pr-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--th-text-faint);
+}
+
+.pr-section-title::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--th-orange);
+  flex-shrink: 0;
+}
+
+.pr-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--th-border);
+}
+
+.pr-table-wrap {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+table.pr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pr-table th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-faint);
+  padding: 0.6rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--th-border);
+  background: var(--th-bg-card-alt);
+}
+
+.pr-table th.r {
+  text-align: right;
+}
+
+.pr-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--th-border);
+  font-size: 0.88rem;
+}
+
+.pr-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pr-table tr:hover td {
+  background: var(--th-bg-hover);
+}
+
+.pr-table .pr-total-row td {
+  background: var(--th-bg-card-alt);
+  font-weight: 700;
+  border-top: 2px solid var(--th-border-strong);
+}
+
+.pr-name {
+  font-weight: 600;
+  color: var(--th-text-heading);
+}
+
+.pr-code {
+  font-size: 0.73rem;
+  color: var(--th-text-faint);
+  font-family: monospace;
+}
+
+.pr-money {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  text-align: right;
+}
+
+.pr-money.sky {
+  color: var(--th-sky);
+}
+
+.pr-money.violet {
+  color: var(--th-violet);
+}
+
+.pr-money.amber {
+  color: var(--th-amber);
+}
+
+.pr-money.emerald {
+  color: var(--th-emerald);
+}
+
+.pr-empty {
+  padding: 2.5rem;
+  text-align: center;
+  color: var(--th-text-faint);
+  font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pr-empty-icon {
+  opacity: 0.25;
+  margin-bottom: 0.2rem;
+}
+
+.pr-empty-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--th-text-dim);
+}
+
+/* Log table */
+
+.pr-log-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pr-badge {
+  display: inline-block;
+  background: var(--th-orange-bg);
+  color: var(--th-orange);
+  border-radius: 20px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pr-void-badge {
+  display: inline-block;
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pr-btn-void {
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+  border: 1px solid var(--th-rose);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pr-btn-void:hover {
+  opacity: 0.8;
+}
+
+.pr-export-btn {
+  background: var(--th-emerald-bg);
+  color: var(--th-emerald);
+  border: 1px solid var(--th-emerald);
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  letter-spacing: 0.05em;
+}
+
+.pr-export-btn:hover {
+  opacity: 0.8;
+}
+
+.pr-comm-btn {
+  background: var(--th-violet-bg);
+  color: var(--th-violet);
+  border: 1px solid var(--th-violet);
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pr-comm-btn:hover {
+  opacity: 0.8;
+}
+
+/* Action row below filter card */
+.pr-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pr-action-row.pr-action-row-mobile {
+  display: none;
+}
+
+/* Totals bar below summary table */
+.pr-total-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  flex-wrap: wrap;
+  background: var(--th-bg-card-alt);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pr-total-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: var(--th-text-faint);
+  margin-right: 0.25rem;
+}
+
+.pr-total-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pr-total-dim {
+  font-size: 0.7rem;
+  color: var(--th-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Log toolbar (outside the table card) */
+.pr-log-toolbar {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+}
+
+/* Bale deduct */
+.pr-bale-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--th-amber-bg);
+  border: 1px solid var(--th-amber);
+  color: var(--th-amber);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.pr-bale-badge:hover {
+  opacity: 0.8;
+}
+
+.pr-bale-deduct-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.pr-bale-input {
+  width: 80px;
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-amber);
+  border-radius: 6px;
+  color: var(--th-text-primary);
+  font-size: 0.85rem;
+  padding: 0.25rem 0.4rem;
+  outline: none;
+  text-align: right;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+}
+
+.pr-bale-confirm {
+  background: var(--th-amber);
+  color: #1a0f00;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pr-bale-confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pr-bale-cancel {
+  background: none;
+  border: 1px solid var(--th-border-strong);
+  border-radius: 6px;
+  color: var(--th-text-faint);
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+/* Void confirm modal */
+.pr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.pr-modal {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--th-shadow-modal);
+}
+
+.pr-modal-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--th-rose);
+  margin-bottom: 0.5rem;
+}
+
+.pr-modal-body {
+  font-size: 0.88rem;
+  color: var(--th-text-body);
+  margin-bottom: 1rem;
+}
+
+.pr-modal-btns {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.pr-modal-cancel {
+  background: none;
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-muted);
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pr-modal-ok {
+  background: var(--th-rose);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 1rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+@media(max-width:900px) {
+
+  .pr-table th,
+  .pr-table td {
+    padding: 0.55rem 0.8rem;
+    font-size: 0.84rem;
+  }
+}
+
+@media(max-width:640px) {
+  .pr-heading {
+    font-size: 1.4rem;
+    text-align: center;
+  }
+
+  .pr-header-row {
+    justify-content: center;
+  }
+
+  .pr-header-btns-desktop {
+    display: none;
+  }
+
+  .pr-action-row.pr-action-row-mobile {
+    display: flex;
+  }
+
+  .pr-action-row-mobile .pr-comm-btn,
+  .pr-action-row-mobile .pr-export-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .pr-filter-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .pr-filter-card .pr-date-input {
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 0.38rem 0.55rem;
+  }
+
+  .pr-total-bar {
+    gap: 0.5rem 0.75rem;
+  }
+
+  .pr-form {
+    flex-direction: column;
+  }
+
+  .pr-form .pr-field {
+    min-width: 0;
+  }
+
+  .pr-table th,
+  .pr-table td {
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  .pr-modal {
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+@keyframes prModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

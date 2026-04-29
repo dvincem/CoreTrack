@@ -1,3 +1,4 @@
+import '../pages_css/SalesPage.css';
 import React from 'react'
 import { API_URL, apiFetch } from '../lib/config'
 import DataTable from '../components/DataTable'
@@ -16,7 +17,7 @@ const fmtCompact = (n) => {
   return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-function SalesPage({ shopId }) {
+function SalesPage({ shopId, isShopClosed }) {
   const today = new Date().toISOString().split('T')[0]
   const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0]
 
@@ -329,9 +330,17 @@ function SalesPage({ shopId }) {
   }
 
   return (
-    <div className="pr-root">
+    <div className="sl-root">
       <div className="sl-header-row">
-        <div className="th-title-format">Sales <span style={{ color: 'var(--th-sky)' }}>Ledger</span></div>
+        <div className="th-title-format">
+          Sales <span style={{ color: 'var(--th-sky)' }}>Ledger</span>
+          {isShopClosed && (
+            <div className="pos-closed-badge" style={{ marginLeft: '1rem', display: 'inline-flex', verticalAlign: 'middle' }}>
+              <span className="pulse"></span>
+              NEXT DAY MODE
+            </div>
+          )}
+        </div>
         <div className="sl-header-actions">
           <button className="sl-export-btn sl-export-desktop" onClick={exportExcel}>⬇ Export Excel</button>
         </div>
@@ -533,9 +542,9 @@ function SalesPage({ shopId }) {
               <div className="confirm-detail-row"><span className="confirm-detail-label">Total</span><span className="confirm-detail-val">{fmt(voidTarget.total_amount)}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{color:'var(--th-rose)'}}>Restocks inventory + voids labor</span></div>
             </div>
-            <div className="pr-field" style={{marginTop:'1rem', marginBottom:'1rem'}}>
-              <div className="pr-label">Reason for voiding</div>
-              <input className="pr-input" value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Wrong items selected" style={{width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)'}} />
+            <div className="sl-field" style={{marginTop:'1rem', marginBottom:'1rem'}}>
+              <div className="sl-label">Reason for voiding</div>
+              <input className="sl-input" value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Wrong items selected" style={{width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)'}} />
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>

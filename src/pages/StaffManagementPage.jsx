@@ -1,7 +1,8 @@
+import '../pages_css/StaffManagementPage.css';
 import React, { useState, useEffect, useMemo } from 'react'
+
 import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
 import KpiCard from '../components/KpiCard'
-import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import Pagination from '../components/Pagination'
 import Modal from '../components/Modal'
@@ -19,14 +20,6 @@ export const SERVICE_ROLES = ['Tireman', 'Technician', 'Mechanic', 'Vulcanizer',
 const WORK_STATUS_LABELS = { ACTIVE: 'Active', VACATION: 'On Leave', SUSPENDED: 'Suspended', ALWAYS_PRESENT: 'Always Present', TERMINATED: 'Terminated' }
 const WORK_STATUS_CLASS = { ACTIVE: 'active', VACATION: 'leave', SUSPENDED: 'suspended', ALWAYS_PRESENT: 'active', TERMINATED: 'suspended' }
 const WS_ICONS = { ACTIVE: '●', ALWAYS_PRESENT: '★', VACATION: '✈', SUSPENDED: '⛔', TERMINATED: '✖' }
-
-function roleBadgeStyle(role) {
-  const isMgmt = MANAGEMENT_ROLES.map(r => r.toLowerCase()).includes((role || '').toLowerCase())
-  return {
-    background: isMgmt ? 'var(--th-orange-bg)' : 'var(--th-sky-bg)',
-    color: isMgmt ? 'var(--th-orange)' : 'var(--th-sky)',
-  }
-}
 
 const BLANK_FORM = { full_name: '', email: '', role: '' }
 
@@ -84,29 +77,29 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
       isOpen={!!staff}
       onClose={onClose}
       title={
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="sm-modal-title-group">
           <span>{staff.full_name}</span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--th-text-faint)', textTransform: 'none', letterSpacing: 'normal', fontWeight: 500, fontFamily: 'Inter, system-ui, sans-serif', marginTop: '0.15rem' }}>
+          <span className="sm-modal-subtitle">
             {staff.staff_code} · {staff.role || 'Staff Member'}
           </span>
         </div>
       }
       maxWidth="600px"
       headerActions={
-        <button className="sp-btn-edit" onClick={onEdit} style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}>Edit Profile</button>
+        <button className="sm-btn-edit th-text-xs" onClick={onEdit}>Edit Profile</button>
       }
     >
-      <div className="staff-detail-content" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className="staff-detail-content">
         {/* Staff Info Grid */}
-        <div className="inv-hist-item-card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', padding: '0.5rem' }}>
-          <div className="inv-hist-stat" style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div className="inv-hist-stat-label" style={{ margin: 0 }}>Contact</div>
-            <div className="inv-hist-stat-val" style={{ fontSize: '0.85rem', color: 'var(--th-sky)' }}>{staff.email || 'None'}</div>
+        <div className="inv-hist-item-card sm-info-grid">
+          <div className="sm-info-stat">
+            <div className="inv-hist-stat-label">Contact</div>
+            <div className="sm-info-val-sky">{staff.email || 'None'}</div>
           </div>
-          <div className="inv-hist-stat" style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div className="inv-hist-stat-label" style={{ margin: 0 }}>Work Status</div>
+          <div className="sm-info-stat">
+            <div className="inv-hist-stat-label">Work Status</div>
             <div className="inv-hist-stat-val">
-              <button className={`sp-status-badge ${WORK_STATUS_CLASS[staff.work_status] || 'active'}`} onClick={onStatusToggle} style={{ margin: 0, padding: '0.2rem 0.5rem' }}>
+              <button className={`sm-status-badge ${WORK_STATUS_CLASS[staff.work_status] || 'active'}`} onClick={onStatusToggle}>
                 {WS_ICONS[staff.work_status] || '✓'} {WORK_STATUS_LABELS[staff.work_status] || 'Active'}
               </button>
             </div>
@@ -114,22 +107,22 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
         </div>
 
         {/* Attendance History Section */}
-        <div style={{ borderTop: '1px solid var(--th-border)', paddingTop: '1rem' }}>
-          <div className="th-section-label" style={{ marginTop: 0, marginBottom: '0.75rem' }}>Attendance History</div>
+        <div className="sm-section-divider">
+          <div className="th-section-label">Attendance History</div>
 
-          <div className="att-cal-nav" style={{ marginBottom: '1rem' }}>
+          <div className="att-cal-nav">
             <button className="att-cal-nav-btn" onClick={() => setViewDate(new Date(year, month - 1, 1))}>‹</button>
             <span className="att-cal-month-label">{viewDate.toLocaleString('default', { month: 'long' })} {year}</span>
             <button className="att-cal-nav-btn" onClick={() => setViewDate(new Date(year, month + 1, 1))} disabled={year === today.getFullYear() && month >= today.getMonth()}>›</button>
           </div>
 
-          <div className="att-cal-legend" style={{ marginBottom: '1rem' }}>
-            <span className="att-cal-leg-dot present" /> <span className="th-text-xs" style={{ marginRight: '1rem' }}>Present ({presentDays})</span>
+          <div className="att-cal-legend">
+            <span className="att-cal-leg-dot present" /> <span className="th-text-xs">Present ({presentDays})</span>
             <span className="att-cal-leg-dot absent" /> <span className="th-text-xs">Absent ({absentDays})</span>
           </div>
 
           {calLoading ? <div className="th-table-empty">Loading Calendar...</div> : (
-            <div className="att-cal-grid" style={{ padding: '0.5rem', background: 'var(--th-bg-card-alt)', borderRadius: '10px' }}>
+            <div className="att-cal-grid sm-table-card-alt">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="att-cal-day-label">{d}</div>)}
               {cells.map((dayNum, i) => {
                 if (!dayNum) return <div key={i} className="att-cal-cell empty" />;
@@ -146,15 +139,15 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-start', borderTop: '1px solid var(--th-border)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
-          <button
-            style={{ background: 'none', border: 'none', color: 'var(--th-rose)', fontSize: '0.75rem', cursor: 'pointer', padding: '0', textDecoration: 'underline', textUnderlineOffset: '3px', opacity: 0.7 }}
-            onClick={onRemove}
-          >
+        <div className="sm-footer-action-row">
+          <button className="sm-btn-link-rose" onClick={onRemove}>
             Manage Status / Remove Member
           </button>
         </div>
       </div>
+      <style>{`
+        .sm-table-card-alt { padding: 0.5rem; background: var(--th-bg-card-alt); border-radius: 10px; }
+      `}</style>
     </Modal>
   );
 }
@@ -163,7 +156,7 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
 export default function StaffManagementPage({ shopId, setPageContext, userRole, userPower }) {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
   const [attendance, setAttendance] = useState([]);
-  const [statsRange, setStatsRange] = useState("month");
+  const [statsRange] = useState("month");
   const [staffStats, setStaffStats] = useState({});
   const [kpiData, setKpiData] = useState(null);
 
@@ -222,13 +215,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
 
   async function fetchAttendanceStats() {
     const now = new Date(attendanceDate);
-    let from;
-    if (statsRange === "week") {
-      const d = new Date(now); d.setDate(d.getDate() - 6);
-      from = d.toISOString().split("T")[0];
-    } else if (statsRange === "month") {
-      from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    } else from = `${now.getFullYear()}-01-01`;
+    const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
     try {
       const r = await apiFetch(`${API_URL}/attendance-stats/${shopId}?from=${from}&to=${attendanceDate}`);
@@ -348,23 +335,23 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
   }, [total, presentCount, attRate, onLeave, mgmtCount, serviceCount, attendanceDate, setPageContext]);
 
   return (
-    <div className="sp-root animate-slide-in-right">
+    <div className="sm-root animate-slide-in-right">
       {/* Header */}
-      <div className="sp-header-row">
-        <div className="th-title-format">Staff <span style={{ color: 'var(--th-orange)' }}>Management</span></div>
-        <div className="att-header-actions" style={{ display: 'flex', gap: '0.65rem', alignItems: 'center' }}>
+      <div className="sm-header-row">
+        <div className="th-title-format">Staff <span className="th-text-orange">Management</span></div>
+        <div className="sm-header-actions">
           {/* PC Add Button */}
-          <button className="sp-btn-add sp-add-desktop" onClick={() => { setShowAdd(true); setAddForm(BLANK_FORM); }}>+ Add Staff</button>
+          <button className="sm-btn-add sm-add-desktop" onClick={() => { setShowAdd(true); setAddForm(BLANK_FORM); }}>+ Add Staff</button>
 
           {selectedIds.size > 0 ? (
             <>
-              <span className="th-text-xs" style={{ color: 'var(--th-text-dim)' }}>{selectedIds.size} Selected</span>
-              <button className="sp-btn-add sp-add-desktop" style={{ background: 'var(--th-emerald)' }} onClick={() => setPendingBulkMark({ status: 'PRESENT', ids: [...selectedIds], count: selectedIds.size })}>✓ Present</button>
-              <button className="sp-btn-add sp-add-desktop" style={{ background: 'var(--th-rose)' }} onClick={() => setPendingBulkMark({ status: 'ABSENT', ids: [...selectedIds], count: selectedIds.size })}>✕ Absent</button>
-              <button className="th-btn th-btn-ghost" style={{ padding: '0.5rem 1rem' }} onClick={() => setSelectedIds(new Set())}>Clear</button>
+              <span className="th-text-xs th-text-dim">{selectedIds.size} Selected</span>
+              <button className="sm-btn-add sm-add-desktop th-bg-emerald" onClick={() => setPendingBulkMark({ status: 'PRESENT', ids: [...selectedIds], count: selectedIds.size })}>✓ Present</button>
+              <button className="sm-btn-add sm-add-desktop th-bg-rose" onClick={() => setPendingBulkMark({ status: 'ABSENT', ids: [...selectedIds], count: selectedIds.size })}>✕ Absent</button>
+              <button className="th-btn th-btn-ghost th-btn-xs-padding" onClick={() => setSelectedIds(new Set())}>Clear</button>
             </>
           ) : (
-            <button className="sp-btn-add sp-add-desktop" style={{ background: 'var(--th-emerald)' }} onClick={() => setPendingMarkAll({ date: attendanceDate, count: filteredStaff.length })}>Mark All Present</button>
+            <button className="sm-btn-add sm-add-desktop th-bg-emerald" onClick={() => setPendingMarkAll({ date: attendanceDate, count: filteredStaff.length })}>Mark All Present</button>
           )}
         </div>
       </div>
@@ -400,40 +387,31 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
         accentColor="var(--th-orange)"
       />
 
-      <style>{`
-        .sp-btn-add { background: var(--th-orange); color: #fff !important; }
-        .sp-mobile-actions-row { display: none; gap: 0.5rem; margin-bottom: 1rem; }
-        @media (max-width: 640px) {
-          .sp-mobile-actions-row { display: flex; }
-          .sp-add-mobile { display: none !important; }
-        }
-      `}</style>
-
       {/* Mobile-only Action Row */}
-      <div className="sp-mobile-actions-row">
-        <button className="sp-btn-add" style={{ flex: 1, padding: '0.65rem', fontSize: '0.9rem' }} onClick={() => { setShowAdd(true); setAddForm(BLANK_FORM); }}>+ Add Staff</button>
+      <div className="sm-mobile-actions-row">
+        <button className="sm-btn-add th-btn-full" onClick={() => { setShowAdd(true); setAddForm(BLANK_FORM); }}>+ Add Staff</button>
         {selectedIds.size > 0 ? (
-          <button className="sp-btn-add" style={{ flex: 1, background: 'var(--th-emerald)', padding: '0.65rem', fontSize: '0.9rem' }} onClick={() => setPendingBulkMark({ status: 'PRESENT', ids: [...selectedIds], count: selectedIds.size })}>✓ Present</button>
+          <button className="sm-btn-add th-btn-full th-bg-emerald" onClick={() => setPendingBulkMark({ status: 'PRESENT', ids: [...selectedIds], count: selectedIds.size })}>✓ Present</button>
         ) : (
-          <button className="sp-btn-add" style={{ flex: 1, background: 'var(--th-emerald)', padding: '0.65rem', fontSize: '0.9rem' }} onClick={() => setPendingMarkAll({ date: attendanceDate, count: filteredStaff.length })}>Mark Present</button>
+          <button className="sm-btn-add th-btn-full th-bg-emerald" onClick={() => setPendingMarkAll({ date: attendanceDate, count: filteredStaff.length })}>Mark Present</button>
         )}
       </div>
 
       {/* Unified Table */}
       <div className="th-section-label">Staff Roster & Attendance</div>
-      <div className="sp-table-card">
-        <div className="sp-table-scroll">
-          <table className="sp-table">
+      <div className="sm-table-card">
+        <div className="sm-table-scroll">
+          <table className="sm-table">
             <thead>
               <tr>
-                <th style={{ width: 40, whiteSpace: 'nowrap' }}>
+                <th className="th-w-40">
                   <input type="checkbox" checked={filteredStaff.length > 0 && filteredStaff.every(s => selectedIds.has(s.staff_id))}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(filteredStaff.map(s => s.staff_id)) : new Set())} />
                 </th>
-                <th style={{ whiteSpace: 'nowrap' }}>Staff Member</th>
-                <th style={{ whiteSpace: 'nowrap' }}>Today's Status</th>
-                <th style={{ whiteSpace: 'nowrap' }}>Consistency</th>
-                <th style={{ whiteSpace: 'nowrap' }}>Work Status</th>
+                <th className="th-no-wrap">Staff Member</th>
+                <th className="th-no-wrap">Today's Status</th>
+                <th className="th-no-wrap">Consistency</th>
+                <th className="th-no-wrap">Work Status</th>
               </tr>
             </thead>
             <tbody>
@@ -448,8 +426,8 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
                   const pct = st && st.total_days > 0 ? Math.round((st.present_days / st.total_days) * 100) : 0;
 
                   return (
-                    <tr key={s.staff_id} onClick={() => setDetailTarget(s)} style={{ cursor: 'pointer' }}>
-                      <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
+                    <tr key={s.staff_id} onClick={() => setDetailTarget(s)} className="th-pointer">
+                      <td onClick={e => e.stopPropagation()} className="th-no-wrap">
                         <input type="checkbox" checked={selectedIds.has(s.staff_id)}
                           onChange={e => {
                             const next = new Set(selectedIds);
@@ -457,13 +435,13 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
                             setSelectedIds(next);
                           }} />
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <div className="sp-name" style={{ fontWeight: 600 }}>{s.full_name}</div>
-                        <div className="sp-code" style={{ fontSize: '0.75rem', color: 'var(--th-text-faint)', marginTop: '0.15rem' }}>
+                      <td className="th-no-wrap">
+                        <div className="sm-name">{s.full_name}</div>
+                        <div className="sm-code">
                           {s.staff_code} · {s.role || 'Staff Member'}
                         </div>
                       </td>
-                      <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
+                      <td onClick={e => e.stopPropagation()} className="th-no-wrap">
                         <button
                           className={`att-badge att-badge-${(att?.status || (s.work_status === 'ALWAYS_PRESENT' ? 'PRESENT' : 'none'))} att-badge-btn`}
                           onClick={() => {
@@ -474,20 +452,20 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
                           {att?.status === 'PRESENT' ? '✓ Present' : att?.status === 'ABSENT' ? '✕ Absent' : (s.work_status === 'ALWAYS_PRESENT' ? '★ Always Present' : '— Not Set')}
                         </button>
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
+                      <td className="th-no-wrap">
                         {st ? (
-                          <div style={{ width: 80 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: 2 }}>
+                          <div className="sm-consistency-bar-wrap">
+                            <div className="sm-consistency-label">
                               <span>{pct}%</span>
                             </div>
-                            <div style={{ height: 4, borderRadius: 4, background: 'var(--th-bg-input)', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${pct}%`, background: pct >= 85 ? 'var(--th-emerald)' : pct >= 65 ? 'var(--th-amber)' : 'var(--th-rose)' }} />
+                            <div className="sm-consistency-track">
+                              <div className="sm-consistency-fill" style={{ width: `${pct}%`, background: pct >= 85 ? 'var(--th-emerald)' : pct >= 65 ? 'var(--th-amber)' : 'var(--th-rose)' }} />
                             </div>
                           </div>
                         ) : '—'}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <div style={{ position: 'relative' }}>
+                      <td className="th-no-wrap">
+                        <div className="sm-ws-container">
                           <button
                             className={`att-ws-badge att-ws-${s.work_status || "ACTIVE"}`}
                             onClick={e => {
@@ -522,7 +500,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0.75rem 0' }}>
+        <div className="sm-pagination-wrap">
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}
@@ -551,14 +529,14 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
           </>
         }
       >
-        <div className="sp-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <div className="sp-modal-field">
-            <label className="sp-modal-label">Full Name *</label>
-            <input className="sp-modal-input" placeholder="e.g. Juan Dela Cruz" value={addForm.full_name} onChange={e => setAddForm({ ...addForm, full_name: e.target.value })} autoFocus />
+        <div className="sm-modal-grid">
+          <div className="sm-modal-field">
+            <label className="sm-modal-label">Full Name *</label>
+            <input className="sm-modal-input" placeholder="e.g. Juan Dela Cruz" value={addForm.full_name} onChange={e => setAddForm({ ...addForm, full_name: e.target.value })} autoFocus />
           </div>
-          <div className="sp-modal-field">
-            <label className="sp-modal-label">Role *</label>
-            <select className="sp-modal-input" value={addForm.role} onChange={e => setAddForm({ ...addForm, role: e.target.value })}>
+          <div className="sm-modal-field">
+            <label className="sm-modal-label">Role *</label>
+            <select className="sm-modal-input" value={addForm.role} onChange={e => setAddForm({ ...addForm, role: e.target.value })}>
               <option value="">— Select Role —</option>
               <optgroup label="Management / Sales">
                 {MANAGEMENT_ROLES.filter(r => r !== 'Owner' || isSuperAdmin).map(r => <option key={r} value={r}>{r}</option>)}
@@ -567,11 +545,11 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
             </select>
           </div>
         </div>
-        <div className="sp-modal-field" style={{ marginTop: '1rem' }}>
-          <label className="sp-modal-label">Contact (Email/Phone)</label>
-          <input className="sp-modal-input" placeholder="Optional" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} />
+        <div className="sm-modal-field th-mt-1rem">
+          <label className="sm-modal-label">Contact (Email/Phone)</label>
+          <input className="sm-modal-input" placeholder="Optional" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} />
         </div>
-        {addError && <div className="sp-modal-error" style={{ color: 'var(--th-rose)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{addError}</div>}
+        {addError && <div className="sm-modal-error th-text-rose th-text-xs th-mt-05rem">{addError}</div>}
       </Modal>
 
       {/* Edit Staff Modal */}
@@ -586,14 +564,14 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
           </>
         }
       >
-        <div className="sp-modal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <div className="sp-modal-field">
-            <label className="sp-modal-label">Full Name *</label>
-            <input className="sp-modal-input" value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })} autoFocus />
+        <div className="sm-modal-grid">
+          <div className="sm-modal-field">
+            <label className="sm-modal-label">Full Name *</label>
+            <input className="sm-modal-input" value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })} autoFocus />
           </div>
-          <div className="sp-modal-field">
-            <label className="sp-modal-label">Role *</label>
-            <select className="sp-modal-input" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}>
+          <div className="sm-modal-field">
+            <label className="sm-modal-label">Role *</label>
+            <select className="sm-modal-input" value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value })}>
               <optgroup label="Management / Sales">
                 {MANAGEMENT_ROLES.filter(r => r !== 'Owner' || isSuperAdmin || editForm.role === 'Owner').map(r => <option key={r} value={r}>{r}</option>)}
               </optgroup>
@@ -601,11 +579,11 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
             </select>
           </div>
         </div>
-        <div className="sp-modal-field" style={{ marginTop: '1rem' }}>
-          <label className="sp-modal-label">Contact</label>
-          <input className="sp-modal-input" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
+        <div className="sm-modal-field th-mt-1rem">
+          <label className="sm-modal-label">Contact</label>
+          <input className="sm-modal-input" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
         </div>
-        {editError && <div className="sp-modal-error" style={{ color: 'var(--th-rose)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{editError}</div>}
+        {editError && <div className="sm-modal-error th-text-rose th-text-xs th-mt-05rem">{editError}</div>}
       </Modal>
 
       {/* Remove / Status Management Modal */}
@@ -615,16 +593,16 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
         title="Manage Staff Status"
         maxWidth="450px"
       >
-        <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--th-text-heading)' }}>{removeTarget?.full_name}</div>
-          <div className="th-text-xs">Current Status: <span className={`sp-status-badge ${WORK_STATUS_CLASS[removeTarget?.work_status]}`}>{WORK_STATUS_LABELS[removeTarget?.work_status]}</span></div>
+        <div className="th-mb-125rem">
+          <div className="th-text-bold th-text-lg th-text-heading">{removeTarget?.full_name}</div>
+          <div className="th-text-xs">Current Status: <span className={`sm-status-badge ${WORK_STATUS_CLASS[removeTarget?.work_status]}`}>{WORK_STATUS_LABELS[removeTarget?.work_status]}</span></div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <div className="th-flex-col th-gap-065rem">
           <button className="th-btn th-btn-emerald th-btn-full" onClick={() => updateWorkStatus(removeTarget, 'ACTIVE')}>
             Activate / Set Active
           </button>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+          <div className="th-grid-2col th-gap-065rem">
             <button className="th-btn th-btn-amber" onClick={() => updateWorkStatus(removeTarget, 'SUSPENDED')}>
               Suspend Staff
             </button>
@@ -634,14 +612,11 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
           </div>
         </div>
 
-        <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--th-border)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
-            style={{ background: 'none', border: 'none', color: 'var(--th-rose)', fontSize: '0.72rem', cursor: 'pointer', opacity: 0.7, textDecoration: 'underline' }}
-            onClick={handleRemove}
-          >
+        <div className="sm-footer-action-row th-flex th-justify-between th-items-center">
+          <button className="sm-btn-link-rose th-text-xxs" onClick={handleRemove}>
             Permanent Remove from Database
           </button>
-          <button className="th-btn th-btn-ghost" style={{ fontSize: '0.8rem' }} onClick={() => setRemoveTarget(null)}>Cancel</button>
+          <button className="th-btn th-btn-ghost th-text-xs" onClick={() => setRemoveTarget(null)}>Cancel</button>
         </div>
       </Modal>
 
@@ -675,6 +650,28 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
       >
         <p className="th-text-sm">Mark all {pendingMarkAll?.count} staff as <b>PRESENT</b> for {pendingMarkAll?.date}?</p>
       </Modal>
+
+      <style>{`
+        .th-w-40 { width: 40px; }
+        .th-no-wrap { white-space: nowrap; }
+        .th-pointer { cursor: pointer; }
+        .th-text-bold { fontWeight: 600; }
+        .th-text-orange { color: var(--th-orange); }
+        .th-text-dim { color: var(--th-text-dim); }
+        .th-bg-emerald { background: var(--th-emerald); }
+        .th-bg-rose { background: var(--th-rose); }
+        .th-btn-xs-padding { padding: 0.5rem 1rem; }
+        .th-btn-full { flex: 1; padding: 0.65rem; fontSize: 0.9rem; }
+        .th-mt-1rem { margin-top: 1rem; }
+        .th-mt-05rem { margin-top: 0.5rem; }
+        .th-mb-125rem { margin-bottom: 1.25rem; }
+        .th-text-lg { fontSize: 1.1rem; }
+        .th-flex-col { display: flex; flex-direction: column; }
+        .th-gap-065rem { gap: 0.65rem; }
+        .th-grid-2col { display: grid; grid-template-columns: 1fr 1fr; }
+        .th-text-xxs { fontSize: 0.72rem; }
+        .th-text-xs { fontSize: 0.8rem; }
+      `}</style>
     </div>
   );
 }

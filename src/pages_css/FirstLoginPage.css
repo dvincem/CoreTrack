@@ -1,0 +1,168 @@
+/*
+ * FirstLoginPage.css
+ * Extracted from styles.css (lines 4861–5024)
+ * Do not edit class names — JSX uses these selectors as-is.
+ */
+/* â•â•â• PAGE: FirstLoginPage â•â•â• */
+.fl-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--th-bg-page);
+}
+
+.fl-card {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 14px;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--th-shadow-card);
+}
+
+.fl-logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 2rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--th-text-heading);
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.fl-logo span {
+  color: var(--th-orange);
+}
+
+.fl-title {
+  text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--th-text-primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.fl-sub {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--th-text-faint);
+  margin-bottom: 2rem;
+  font-family: var(--font-body);
+  line-height: 1.5;
+}
+
+.fl-notice {
+  background: var(--th-orange-bg, rgba(249, 115, 22, 0.1));
+  border: 1px solid var(--th-orange);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--th-orange);
+  font-family: var(--font-body);
+  margin-bottom: 1.4rem;
+  line-height: 1.5;
+}
+
+.fl-field {
+  margin-bottom: 1rem;
+}
+
+.fl-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--th-text-muted);
+  margin-bottom: 0.4rem;
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fl-hint {
+  font-size: 0.75rem;
+  color: var(--th-text-faint);
+  margin-top: 0.25rem;
+  font-family: var(--font-body);
+}
+
+.fl-input {
+  width: 100%;
+  background: var(--th-bg-input);
+  border: 1px solid var(--th-border-strong);
+  color: var(--th-text-primary);
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.fl-input:focus {
+  border-color: var(--th-orange);
+}
+
+.fl-input.error {
+  border-color: var(--th-rose);
+}
+
+.fl-divider {
+  border: none;
+  border-top: 1px solid var(--th-border);
+  margin: 1.4rem 0;
+}
+
+.fl-btn {
+  width: 100%;
+  background: var(--th-orange);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: opacity 0.15s;
+}
+
+.fl-btn:hover {
+  opacity: 0.88;
+}
+
+.fl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fl-error {
+  background: var(--th-rose-bg);
+  color: var(--th-rose);
+  border: 1px solid var(--th-rose);
+  border-radius: 7px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  margin-bottom: 1rem;
+}
+
+.fl-success {
+  background: var(--th-green-bg, rgba(34, 197, 94, 0.1));
+  color: var(--th-green, #22c55e);
+  border: 1px solid var(--th-green, #22c55e);
+  border-radius: 7px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  margin-bottom: 1rem;
+}

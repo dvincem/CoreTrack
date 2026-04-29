@@ -1,3 +1,4 @@
+import '../pages_css/Servicespage.css';
 import React from 'react'
 import { API_URL, apiFetch } from '../lib/config'
 import KpiCard from '../components/KpiCard'

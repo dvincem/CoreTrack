@@ -1,3 +1,4 @@
+import '../pages_css/ServicesSummaryPage.css';
 import React from 'react'
 import { API_URL, apiFetch } from '../lib/config'
 import usePaginatedResource from '../hooks/usePaginatedResource'
@@ -9,7 +10,7 @@ import FilterHeader from '../components/FilterHeader'
 const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const today = () => new Date().toISOString().split('T')[0]
 
-export default function ServicesSummaryPage({ shopId }) {
+export default function ServicesSummaryPage({ shopId, isShopClosed }) {
   const [activeTab, setActiveTab] = React.useState('summary')
 
   // Shared date state
@@ -111,7 +112,15 @@ export default function ServicesSummaryPage({ shopId }) {
     <div className="ss-root">
       {/* Header */}
       <div className="ss-page-header">
-        <div className="th-title-format">SERVICES <span style={{ color: 'var(--th-orange)' }}>Summary</span></div>
+        <div className="th-title-format">
+          SERVICES <span style={{ color: 'var(--th-orange)' }}>Summary</span>
+          {isShopClosed && (
+            <div className="pos-closed-badge" style={{ marginLeft: '1rem', display: 'inline-flex', verticalAlign: 'middle' }}>
+              <span className="pulse"></span>
+              NEXT DAY MODE
+            </div>
+          )}
+        </div>
         <div className="ss-tabs ss-tabs-desktop">
           <button className={`ss-tab${activeTab === 'summary' ? ' active' : ''}`} onClick={() => setActiveTab('summary')}>Summary</button>
           <button className={`ss-tab${activeTab === 'history' ? ' active' : ''}`} onClick={() => setActiveTab('history')}>History</button>

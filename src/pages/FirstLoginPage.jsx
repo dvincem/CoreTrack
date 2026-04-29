@@ -1,3 +1,4 @@
+import '../pages_css/FirstLoginPage.css';
 import React from 'react'
 import { API_URL } from '../lib/config'
 
