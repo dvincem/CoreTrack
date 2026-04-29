@@ -186,11 +186,10 @@ function Productspage({ shopId }) {
         "data-theme",
         (() => {
           try {
-            return localStorage.getItem("th-theme") || "dark";
-          } catch {
-            return "dark";
-          }
-        })(),
+            return localStorage.getItem("th-theme") || "light";
+            } catch {
+            return "light";
+            }        })(),
       );
     }
     const obs = new MutationObserver(() => forceUpdate());

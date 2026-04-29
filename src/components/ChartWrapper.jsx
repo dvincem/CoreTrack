@@ -6,7 +6,7 @@ import { PieChart } from '@mui/x-charts/PieChart'
 const ChartThemeContext = createContext()
 
 export const ChartThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark')
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'light')
 
   useEffect(() => {
     const observer = new MutationObserver((mutations) => {

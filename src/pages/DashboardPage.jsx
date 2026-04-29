@@ -21,13 +21,13 @@ function MonthlyChart({ shopId }) {
   const [chartData, setChartData] = React.useState([])
   const [total, setTotal] = React.useState(0)
   const [isDark, setIsDark] = React.useState(
-    () => document.documentElement.getAttribute('data-theme') !== 'light'
+    () => document.documentElement.getAttribute('data-theme') === 'dark'
   )
 
   // Reactively track theme changes
   React.useEffect(() => {
     const obs = new MutationObserver(() => {
-      setIsDark(document.documentElement.getAttribute('data-theme') !== 'light')
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
     })
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => obs.disconnect()

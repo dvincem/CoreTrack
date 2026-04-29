@@ -1314,11 +1314,10 @@ textarea {
 ══════════════════════════════════════════════════════════════ */
 
 .sw-body {
-  min-height: 100vh;
+  min-height: 50vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--th-bg-base, #0a0f1a);
   padding: 1rem;
 }
 

@@ -190,7 +190,7 @@ function injectThemeStyle() {
 injectThemeStyle();
 
 /* ── ThemeProvider ── */
-function ThemeProvider({ children, defaultTheme = "dark" }) {
+function ThemeProvider({ children, defaultTheme = "light" }) {
   const [theme, setTheme] = React.useState(() => {
     try {
       return localStorage.getItem("th-theme") || defaultTheme;
@@ -223,9 +223,9 @@ function ThemeProvider({ children, defaultTheme = "dark" }) {
 function ThemeToggle({ collapsed = false, asMenuItem = false }) {
   const [theme, setTheme] = React.useState(() => {
     try {
-      return localStorage.getItem("th-theme") || "dark";
+      return localStorage.getItem("th-theme") || "light";
     } catch {
-      return "dark";
+      return "light";
     }
   });
 

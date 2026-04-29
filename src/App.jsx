@@ -24,6 +24,7 @@ import PurchasesPage from './pages/PurchasesPage'
 import CashLedgerPage from './pages/CashLedgerPage'
 import ReturnsPage from './pages/ReturnsPage'
 import ControlPanelPage from './pages/ControlPanelPage'
+import LandingPage from './pages/LandingPage'
 import FirstLoginPage from './pages/FirstLoginPage'
 import ServicesSummaryPage from './pages/ServicesSummaryPage'
 import SalesProjectionPage from './pages/SalesProjectionPage'
@@ -534,8 +535,8 @@ injectAppStyle();
 ; (() => {
   try {
     const saved = localStorage.getItem("th-theme");
-    document.documentElement.setAttribute("data-theme", saved || "dark");
-    window.__thTheme = saved || "dark";
+    document.documentElement.setAttribute("data-theme", saved || "light");
+    window.__thTheme = saved || "light";
   } catch { }
 })();
 
@@ -911,6 +912,7 @@ function TireHub() {
   });
   const [backupState, setBackupState] = React.useState("idle"); // idle | saving | ok | error
   const [pendingFirstLogin, setPendingFirstLogin] = React.useState(null); // loginData when must_change_pin
+  const [showLanding, setShowLanding] = React.useState(() => !localStorage.getItem("th-token") && !sessionStorage.getItem("th-landing-seen"));
   const [showSettings, setShowSettings] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [isShopClosed, setIsShopClosed] = React.useState(false);
@@ -1202,6 +1204,14 @@ function TireHub() {
         </div>
       </div>
     );
+  }
+
+  // Show landing page once per session before any login or setup
+  if (!token && showLanding) {
+    return <LandingPage onEnter={() => {
+      sessionStorage.setItem("th-landing-seen", "1");
+      setShowLanding(false);
+    }} />;
   }
 
   // ── First-run: show Setup Wizard ─────────────────────────────────────────
