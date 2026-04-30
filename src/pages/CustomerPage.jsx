@@ -9,7 +9,7 @@ import FilterHeader from '../components/FilterHeader'
 
 
 
-const BLANK_FORM = { customer_name: '', company: '', contact_number: '', address: '', car_plate_number: '' }
+const BLANK_FORM = { customer_name: '', company: '', contact_number: '', tin_number: '', address: '', car_plate_number: '' }
 
 const CU_PAGE_SIZE = 15
 
@@ -83,7 +83,14 @@ function CustomerPage({ shopId }) {
     try {
       const r = await apiFetch(`${API_URL}/customers`, {
         method: 'POST',
-        body: JSON.stringify({ shop_id: shopId, customer_name: addForm.customer_name.trim(), company: addForm.company || null, contact_number: addForm.contact_number || null, address: addForm.address || null }),
+        body: JSON.stringify({ 
+          shop_id: shopId, 
+          customer_name: addForm.customer_name.trim(), 
+          company: addForm.company || null, 
+          contact_number: addForm.contact_number || null, 
+          tin_number: addForm.tin_number || null,
+          address: addForm.address || null 
+        }),
       })
       const data = await r.json()
       if (!r.ok) { setAddError(data.error || 'Failed to add'); return }
@@ -107,7 +114,13 @@ function CustomerPage({ shopId }) {
     try {
       const r = await apiFetch(`${API_URL}/customers/${editTarget.customer_id}`, {
         method: 'PUT',
-        body: JSON.stringify({ customer_name: editForm.customer_name.trim(), company: editForm.company || null, contact_number: editForm.contact_number || null, address: editForm.address || null }),
+        body: JSON.stringify({ 
+          customer_name: editForm.customer_name.trim(), 
+          company: editForm.company || null, 
+          contact_number: editForm.contact_number || null, 
+          tin_number: editForm.tin_number || null,
+          address: editForm.address || null 
+        }),
       })
       const data = await r.json()
       if (!r.ok) { setEditError(data.error || 'Failed to update'); return }
@@ -175,6 +188,7 @@ function CustomerPage({ shopId }) {
       if (c.customer_code?.toLowerCase().includes(q)) add(c.customer_code, 'ID', '🆔')
       if (c.company?.toLowerCase().includes(q)) add(c.company, 'COMPANY', '🏢')
       if (c.contact_number?.toLowerCase().includes(q)) add(c.contact_number, 'CONTACT', '📞')
+      if (c.tin_number?.toLowerCase().includes(q)) add(c.tin_number, 'TIN', '📄')
     }
     setSuggestions(results.slice(0, 10))
   }, [search, customers])
@@ -319,10 +333,16 @@ function CustomerPage({ shopId }) {
                   <input className="cp-modal-input" placeholder="e.g. ABC-1234" value={addForm.car_plate_number} onChange={e => setAddForm(f => ({ ...f, car_plate_number: e.target.value }))} />
                 </div>
               </div>
-              {/* Row 3: Address */}
-              <div className="cp-modal-field">
-                <label className="cp-modal-label">Address</label>
-                <input className="cp-modal-input" placeholder="Optional" value={addForm.address} onChange={e => setAddForm(f => ({ ...f, address: e.target.value }))} />
+              {/* Row 3: TIN Number + Address */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">TIN Number</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={addForm.tin_number} onChange={e => setAddForm(f => ({ ...f, tin_number: e.target.value }))} />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Address</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={addForm.address} onChange={e => setAddForm(f => ({ ...f, address: e.target.value }))} />
+                </div>
               </div>
               {addError && <div className="cp-modal-error">{addError}</div>}
               {/* Row 4: Actions footer */}
@@ -353,10 +373,16 @@ function CustomerPage({ shopId }) {
                   <input className="cp-modal-input" placeholder="Optional" value={editForm.company} onChange={e => setEditForm(f => ({ ...f, company: e.target.value }))} />
                 </div>
               </div>
-              {/* Row 2: Contact Number */}
-              <div className="cp-modal-field">
-                <label className="cp-modal-label">Contact Number</label>
-                <input className="cp-modal-input" type="tel" placeholder="Optional" value={editForm.contact_number} onChange={e => setEditForm(f => ({ ...f, contact_number: e.target.value }))} />
+              {/* Row 2: Contact Number + TIN Number */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Contact Number</label>
+                  <input className="cp-modal-input" type="tel" placeholder="Optional" value={editForm.contact_number} onChange={e => setEditForm(f => ({ ...f, contact_number: e.target.value }))} />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">TIN Number</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={editForm.tin_number} onChange={e => setEditForm(f => ({ ...f, tin_number: e.target.value }))} />
+                </div>
               </div>
               {/* Row 3: Address */}
               <div className="cp-modal-field">
@@ -410,7 +436,14 @@ function CustomerPage({ shopId }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
                   <button className="cp-btn-edit" onClick={() => {
                     setEditTarget(detailCustomer)
-                    setEditForm({ customer_name: detailCustomer.customer_name, company: detailCustomer.company || '', contact_number: detailCustomer.contact_number || '', address: detailCustomer.address || '', car_plate_number: '' })
+                    setEditForm({ 
+                      customer_name: detailCustomer.customer_name, 
+                      company: detailCustomer.company || '', 
+                      contact_number: detailCustomer.contact_number || '', 
+                      tin_number: detailCustomer.tin_number || '',
+                      address: detailCustomer.address || '', 
+                      car_plate_number: '' 
+                    })
                     setEditError('')
                     setDetailCustomer(null)
                   }}>Edit</button>
@@ -429,6 +462,12 @@ function CustomerPage({ shopId }) {
                       <div className="inv-hist-stat">
                         <div className="inv-hist-stat-label">Company</div>
                         <div className="inv-hist-stat-val sky">{detailCustomer.company}</div>
+                      </div>
+                    )}
+                    {detailCustomer.tin_number && (
+                      <div className="inv-hist-stat">
+                        <div className="inv-hist-stat-label">TIN</div>
+                        <div className="inv-hist-stat-val amber">{detailCustomer.tin_number}</div>
                       </div>
                     )}
                     {detailCustomer.contact_number && (

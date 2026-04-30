@@ -33,12 +33,12 @@ router.get("/customers/:shop_id", (req, res) => {
   }
   if (q && String(q).trim()) {
     const needle = `%${String(q).trim()}%`;
-    whereParts.push(`(cm.customer_name LIKE ? OR cm.contact_number LIKE ? OR cm.company LIKE ? OR cm.customer_code LIKE ?)`);
-    params.push(needle, needle, needle, needle);
+    whereParts.push(`(cm.customer_name LIKE ? OR cm.contact_number LIKE ? OR cm.company LIKE ? OR cm.customer_code LIKE ? OR cm.tin_number LIKE ?)`);
+    params.push(needle, needle, needle, needle, needle);
   }
   const whereSql = `WHERE ${whereParts.join(" AND ")}`;
   const baseSql = `SELECT cm.customer_id, cm.customer_code, cm.customer_name, cm.company,
-    cm.contact_number, cm.address, cm.created_at, cm.updated_at
+    cm.contact_number, cm.tin_number, cm.address, cm.created_at, cm.updated_at
     FROM customer_master cm ${whereSql} ORDER BY cm.created_at DESC`;
 
   const hydrateCustomers = (customers, cb) => {
@@ -89,7 +89,7 @@ router.get("/customers/:shop_id/:customer_id", (req, res) => {
 });
 
 router.post("/customers", (req, res) => {
-  const { shop_id, customer_name, company, contact_number, address } = req.body;
+  const { shop_id, customer_name, company, contact_number, tin_number, address } = req.body;
   if (!shop_id || !customer_name) {
     return res.status(400).json({ error: "shop_id and customer_name are required" });
   }
@@ -99,9 +99,9 @@ router.post("/customers", (req, res) => {
     const customer_code = `CUST-${namePrefix}-${timestamp}`;
     const customer_id = `CUST-${uuidv4()}`;
     db.run(
-      `INSERT INTO customer_master (customer_id, shop_id, customer_code, customer_name, company, contact_number, address, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [customer_id, shop_id, customer_code, customer_name, company || null, contact_number || null, address || null],
+      `INSERT INTO customer_master (customer_id, shop_id, customer_code, customer_name, company, contact_number, tin_number, address, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [customer_id, shop_id, customer_code, customer_name, company || null, contact_number || null, tin_number || null, address || null],
       function (err) {
         if (err) return res.status(500).json({ error: err.message });
         res.status(201).json({ customer_id, customer_code, customer_name, message: "Customer created successfully" });
@@ -114,11 +114,11 @@ router.post("/customers", (req, res) => {
 
 router.put("/customers/:customer_id", (req, res) => {
   const { customer_id } = req.params;
-  const { customer_name, company, contact_number, address } = req.body;
+  const { customer_name, company, contact_number, tin_number, address } = req.body;
   if (!customer_name) return res.status(400).json({ error: "customer_name is required" });
   db.run(
-    `UPDATE customer_master SET customer_name = ?, company = ?, contact_number = ?, address = ?, updated_at = CURRENT_TIMESTAMP WHERE customer_id = ?`,
-    [customer_name, company || null, contact_number || null, address || null, customer_id],
+    `UPDATE customer_master SET customer_name = ?, company = ?, contact_number = ?, tin_number = ?, address = ?, updated_at = CURRENT_TIMESTAMP WHERE customer_id = ?`,
+    [customer_name, company || null, contact_number || null, tin_number || null, address || null, customer_id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: "Customer not found" });

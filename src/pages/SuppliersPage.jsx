@@ -9,7 +9,7 @@ import FilterHeader from '../components/FilterHeader'
 
 
 const BLANK_FORM = { supplier_name: '', contact_person: '', contact_number: '', email_address: '', address: '', default_payment_terms_days: '30' }
-const BLANK_BRAND = () => ({ id: Date.now(), brand_name: '', item_type: '', brand_origins: '' })
+const BLANK_BRAND = () => ({ id: Date.now(), brand_name: '', item_types: [], brand_origins: '' })
 const SUPP_PAGE_SIZE = 15
 const ITEM_TYPES = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'RECAP', 'TUBE', 'ACCESSORY', 'OTHER']
 
@@ -46,9 +46,18 @@ function SuppliersPage({ shopId }) {
   const [brandInputs, setBrandInputs] = React.useState([BLANK_BRAND()])
   const [brandSaving, setBrandSaving] = React.useState(false)
   const [detailError, setDetailError] = React.useState('')
+  const [openTypeIdx, setOpenTypeIdx] = React.useState(null)
 
   // Delete brand confirm
   const [deleteBrand, setDeleteBrand] = React.useState(null)
+
+  // Click outside to close types dropdown
+  React.useEffect(() => {
+    if (openTypeIdx === null) return
+    const handler = () => setOpenTypeIdx(null)
+    window.addEventListener('click', handler)
+    return () => window.removeEventListener('click', handler)
+  }, [openTypeIdx])
 
   React.useEffect(() => { fetchSuppliers() }, [shopId])
   React.useEffect(() => { setSuppPage(1) }, [search, filter])
@@ -132,34 +141,57 @@ function SuppliersPage({ shopId }) {
   }
 
   async function handleAddBrands() {
-    const valid = brandInputs.filter(b => b.brand_name.trim() && b.item_type.trim() && b.brand_origins.trim())
-    if (valid.length === 0) { setDetailError('Fill in at least one complete brand entry.'); return }
+    const valid = brandInputs.filter(b => b.brand_name.trim() && b.item_types.length > 0 && b.brand_origins.trim())
+    if (valid.length === 0) { setDetailError('Fill in at least one brand name and select at least one type.'); return }
     setBrandSaving(true); setDetailError('')
     try {
-      const results = await Promise.all(valid.map(b =>
-        apiFetch(`${API_URL}/supplier-brands`, {
-          method: 'POST',
-          body: JSON.stringify({ supplier_id: detail.supplier_id, brand_name: b.brand_name, item_type: b.item_type, brand_origins: b.brand_origins }),
-        }).then(r => r.json())
-      ))
+      const allReqs = []
+      valid.forEach(b => {
+        b.item_types.forEach(type => {
+          allReqs.push(
+            apiFetch(`${API_URL}/supplier-brands`, {
+              method: 'POST',
+              body: JSON.stringify({ 
+                supplier_id: detail.supplier_id, 
+                brand_name: b.brand_name.trim(), 
+                item_type: type, 
+                brand_origins: b.brand_origins.trim() 
+              }),
+            }).then(r => r.json())
+          )
+        })
+      })
+
+      const results = await Promise.all(allReqs)
       const err = results.find(r => r.error)
       if (err) { setDetailError(err.error); return }
-      const updated = { ...detail, supplier_brands: [...(detail.supplier_brands || []), ...results.filter(r => !r.error)] }
+
+      // Update state with newly added items
+      const newItems = results.filter(r => !r.error)
+      const updated = { ...detail, supplier_brands: [...(detail.supplier_brands || []), ...newItems] }
       setDetail(updated)
       setSuppliers(prev => prev.map(s => s.supplier_id === updated.supplier_id ? updated : s))
       setBrandInputs([BLANK_BRAND()])
       setShowBrandForm(false)
+      setOpenTypeIdx(null)
     } catch { setDetailError('Could not connect to server.') }
     finally { setBrandSaving(false) }
   }
 
   async function confirmDeleteBrand() {
-    const { brand_id } = deleteBrand
+    const brandData = deleteBrand
     setDeleteBrand(null)
     try {
-      const r = await apiFetch(`${API_URL}/supplier-brands/${brand_id}`, { method: 'DELETE' })
-      if (!r.ok) return
-      const updated = { ...detail, supplier_brands: detail.supplier_brands.filter(b => b.brand_id !== brand_id) }
+      // If it's a grouped brand, we might have multiple IDs to delete
+      const idsToDelete = brandData.ids || [brandData.brand_id]
+      await Promise.all(idsToDelete.map(id => 
+        apiFetch(`${API_URL}/supplier-brands/${id}`, { method: 'DELETE' })
+      ))
+      
+      const updated = { 
+        ...detail, 
+        supplier_brands: detail.supplier_brands.filter(b => !idsToDelete.includes(b.brand_id)) 
+      }
       setDetail(updated)
       setSuppliers(prev => prev.map(s => s.supplier_id === updated.supplier_id ? updated : s))
     } catch { }
@@ -220,6 +252,15 @@ function SuppliersPage({ shopId }) {
             flex-direction: column;
             gap: .5rem;
         }
+        .supp-modal-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .supp-brand-form-row { 
+          display: grid; 
+          grid-template-columns: 1fr 1.5fr 1fr 40px; 
+          gap: 0.5rem; 
+          align-items: end; 
+          margin-bottom: 0.45rem; 
+        }
+        .supp-brand-form-row > div { min-width: 0; }
       `}</style>
       <div className="supp-root">
         {/* Header row: title + desktop Add button */}
@@ -292,8 +333,15 @@ function SuppliersPage({ shopId }) {
                         <td>
                           {s.supplier_brands?.length > 0 ? (
                             <div>
-                              {s.supplier_brands.slice(0, 2).map((b, i) => <span key={i} className="supp-brand-chip">{b.brand_name}</span>)}
-                              {s.supplier_brands.length > 2 && <span className="supp-more-chip">+{s.supplier_brands.length - 2}</span>}
+                              {(() => {
+                                const uniqueNames = Array.from(new Set(s.supplier_brands.map(b => b.brand_name)))
+                                return (
+                                  <>
+                                    {uniqueNames.slice(0, 2).map((name, i) => <span key={i} className="supp-brand-chip">{name}</span>)}
+                                    {uniqueNames.length > 2 && <span className="supp-more-chip">+{uniqueNames.length - 2}</span>}
+                                  </>
+                                )
+                              })()}
                             </div>
                           ) : <span style={{ color: 'var(--th-text-faint)' }}>—</span>}
                         </td>
@@ -522,12 +570,41 @@ function SuppliersPage({ shopId }) {
                               {i === 0 && <div className="supp-modal-label">Brand Name</div>}
                               <input className="supp-modal-input" placeholder="e.g. BRIDGESTONE" value={b.brand_name} onChange={e => setBrandInputs(prev => prev.map((x, j) => j === i ? { ...x, brand_name: e.target.value } : x))} />
                             </div>
-                            <div>
-                              {i === 0 && <div className="supp-modal-label">Item Type</div>}
-                              <select className="supp-modal-input" value={b.item_type} onChange={e => setBrandInputs(prev => prev.map((x, j) => j === i ? { ...x, item_type: e.target.value } : x))}>
-                                <option value="">— Type —</option>
-                                {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                              </select>
+                            <div style={{ position: 'relative' }}>
+                              {i === 0 && <div className="supp-modal-label">Item Types</div>}
+                              <button 
+                                className="supp-modal-input" 
+                                style={{ textAlign: 'left', background: 'var(--th-bg-input)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                                onClick={(e) => { e.stopPropagation(); setOpenTypeIdx(openTypeIdx === i ? null : i); }}
+                              >
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                                  {b.item_types.length === 0 ? '— Select —' : 
+                                   b.item_types.length <= 2 ? b.item_types.join(', ') : 
+                                   `${b.item_types.length} types selected`}
+                                </span>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.6, flexShrink: 0, marginLeft: 4 }}><path d="M6 9l6 6 6-6"/></svg>
+                              </button>
+                              {openTypeIdx === i && (
+                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--th-bg-card)', border: '1px solid var(--th-border-strong)', borderRadius: 8, zIndex: 10, padding: '0.5rem', marginTop: 4, display: 'grid', gridTemplateColumns: '1fr', gap: '0.2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '200px', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                                  {ITEM_TYPES.map(t => (
+                                    <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', padding: '0.3rem 0.5rem', borderRadius: 4 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--th-bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                      <input 
+                                        type="checkbox" 
+                                        style={{ accentColor: 'var(--th-amber)' }}
+                                        checked={b.item_types.includes(t)} 
+                                        onChange={e => {
+                                          const checked = e.target.checked
+                                          setBrandInputs(prev => prev.map((x, j) => j === i ? { 
+                                            ...x, 
+                                            item_types: checked ? [...x.item_types, t] : x.item_types.filter(y => y !== t) 
+                                          } : x))
+                                        }} 
+                                      />
+                                      {t}
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div>
                               {i === 0 && <div className="supp-modal-label">Origins</div>}
@@ -547,17 +624,29 @@ function SuppliersPage({ shopId }) {
                     )}
 
                     <div>
-                      {detail.supplier_brands?.length > 0 ? (
-                        detail.supplier_brands.map(b => (
-                          <div key={b.brand_id} className="supp-brand-row">
+                      {(() => {
+                        const grouped = {}
+                        detail.supplier_brands?.forEach(b => {
+                          const k = `${b.brand_name}|${b.brand_origins || ''}`
+                          if (!grouped[k]) grouped[k] = { ...b, types: [], ids: [] }
+                          grouped[k].types.push(b.item_type)
+                          grouped[k].ids.push(b.brand_id)
+                        })
+                        const brands = Object.values(grouped)
+                        if (brands.length === 0) return <div className="supp-brand-empty">No brands added yet</div>
+                        return brands.map((b, idx) => (
+                          <div key={idx} className="supp-brand-row">
                             <div>
                               <div className="supp-brand-name">{b.brand_name}</div>
-                              <div className="supp-brand-meta">{b.item_type}{b.brand_origins ? ` · ${b.brand_origins}` : ''}</div>
+                              <div className="supp-brand-meta">
+                                <span style={{ color: 'var(--th-text-body)' }}>{b.types.join(', ')}</span>
+                                {b.brand_origins ? ` · ${b.brand_origins}` : ''}
+                              </div>
                             </div>
                             <button className="supp-brand-del" onClick={() => setDeleteBrand(b)}>✕ Remove</button>
                           </div>
                         ))
-                      ) : <div className="supp-brand-empty">No brands added yet</div>}
+                      })()}
                     </div>
                   </>
                 )}
@@ -620,7 +709,10 @@ function SuppliersPage({ shopId }) {
               <div className="supp-modal-title" style={{ color: 'var(--th-rose)' }}>Remove Brand?</div>
               <div style={{ background: 'var(--th-bg-card-alt)', border: '1px solid var(--th-border)', borderRadius: 8, padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>Brand</span><span style={{ fontWeight: 700, color: 'var(--th-amber,#fbbf24)' }}>{deleteBrand.brand_name}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>Type</span><span>{deleteBrand.item_type}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600 }}>Types</span>
+                  <span style={{ textAlign: 'right' }}>{deleteBrand.types ? deleteBrand.types.join(', ') : deleteBrand.item_type}</span>
+                </div>
               </div>
               <div className="supp-modal-actions">
                 <button className="supp-modal-cancel" onClick={() => setDeleteBrand(null)}>Cancel</button>

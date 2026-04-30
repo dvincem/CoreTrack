@@ -456,11 +456,13 @@ function initializeDatabase() {
         customer_name TEXT NOT NULL,
         company TEXT,
         contact_number TEXT,
+        tin_number TEXT,
         address TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
       )`);
+      db.run(`ALTER TABLE customer_master ADD COLUMN tin_number TEXT`, () => { });
 
       db.run(`CREATE TABLE IF NOT EXISTS vehicle_plates (
         plate_id TEXT PRIMARY KEY,
