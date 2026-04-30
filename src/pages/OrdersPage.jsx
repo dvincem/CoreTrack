@@ -209,11 +209,34 @@ function CreateOrderModal({
   const [dbSizes, setDbSizes] = React.useState([]);
   const [showSizeSug, setShowSizeSug] = React.useState(false);
 
+  const [dbBrands, setDbBrands] = React.useState([]);
+  const [showBrandSug, setShowBrandSug] = React.useState(false);
+
+  const [dbDesigns, setDbDesigns] = React.useState([]);
+  const [showDesignSug, setShowDesignSug] = React.useState(false);
+
   React.useEffect(() => {
+    // Sizes
     apiFetch(`${API_URL}/item-sizes/any`)
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d)) setDbSizes(d);
+      })
+      .catch(() => { });
+
+    // Brands
+    apiFetch(`${API_URL}/item-brands/any`)
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) setDbBrands(d);
+      })
+      .catch(() => { });
+
+    // Designs
+    apiFetch(`${API_URL}/item-designs/any`)
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) setDbDesigns(d);
       })
       .catch(() => { });
   }, []);
@@ -223,6 +246,33 @@ function CreateOrderModal({
     const q = newItemForm.size.toLowerCase();
     return dbSizes.filter(s => s.toLowerCase().includes(q)).slice(0, 8);
   }, [newItemForm.size, dbSizes]);
+
+  const brandSuggestions = React.useMemo(() => {
+    if (!newItemForm.brand) return [];
+    const q = newItemForm.brand.toLowerCase();
+    return dbBrands.filter(b => b.toLowerCase().includes(q)).slice(0, 8);
+  }, [newItemForm.brand, dbBrands]);
+
+  const designSuggestions = React.useMemo(() => {
+    if (!newItemForm.design) return [];
+    const q = newItemForm.design.toLowerCase();
+    const brand = newItemForm.brand.toLowerCase();
+
+    // Prefer designs that match the current brand
+    const filtered = dbDesigns.filter(d => {
+      const matchQuery = d.design.toLowerCase().includes(q);
+      const matchBrand = brand ? (d.brand || "").toLowerCase() === brand : true;
+      return matchQuery && matchBrand;
+    }).map(d => d.design);
+
+    if (filtered.length > 0) return Array.from(new Set(filtered)).slice(0, 8);
+
+    // Fallback to any design matching the query
+    const fallback = dbDesigns
+      .filter(d => d.design.toLowerCase().includes(q))
+      .map(d => d.design);
+    return Array.from(new Set(fallback)).slice(0, 8);
+  }, [newItemForm.design, newItemForm.brand, dbDesigns]);
 
   const availableBrands = React.useMemo(() => {
     const seen = new Set();
@@ -237,9 +287,10 @@ function CreateOrderModal({
 
   const suppliersForBrand = React.useMemo(() => {
     if (!newItemForm.brand) return [];
-    return (suppliers || []).filter(s =>
-      (s.supplier_brands || []).some(b => b.brand_name === newItemForm.brand)
+    const filtered = (suppliers || []).filter(s =>
+      (s.supplier_brands || []).some(b => b.brand_name.toUpperCase() === newItemForm.brand.toUpperCase())
     );
+    return filtered.length > 0 ? filtered : (suppliers || []);
   }, [suppliers, newItemForm.brand]);
 
   function handleNewBrandChange(brand) {
@@ -316,13 +367,16 @@ function CreateOrderModal({
 
               {leftTab === "new" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-                  <div>
+                  <div style={{ position: "relative" }}>
                     <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Brand <span style={{ color: "#38bdf8" }}>*</span></label>
-                    <select className="inv-input" value={newItemForm.brand} onChange={e => handleNewBrandChange(e.target.value)}>
-                      <option value="">— Select brand —</option>
-                      {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                    {availableBrands.length === 0 && <div style={{ fontSize: "0.75rem", color: "#fb7185", marginTop: "0.25rem" }}>No brands added to any supplier yet. Add brands in the Suppliers page first.</div>}
+                    <input className="inv-input" placeholder="e.g. PRINX" value={newItemForm.brand} onChange={e => handleNewBrandChange(e.target.value)} onFocus={() => setShowBrandSug(true)} onBlur={() => setTimeout(() => setShowBrandSug(false), 200)} />
+                    {showBrandSug && brandSuggestions.length > 0 && (
+                      <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                        {brandSuggestions.map(b => (
+                          <div key={b} onMouseDown={() => { handleNewBrandChange(b); setShowBrandSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{b}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {newItemForm.brand && (
                     <div>
@@ -334,9 +388,16 @@ function CreateOrderModal({
                     </div>
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                    <div>
+                    <div style={{ position: "relative" }}>
                       <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Design <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <input className="inv-input" placeholder="e.g. Turanza" value={newItemForm.design} onChange={e => setNewItemForm(f => ({ ...f, design: e.target.value }))} />
+                      <input className="inv-input" placeholder="e.g. Turanza" value={newItemForm.design} onChange={e => setNewItemForm(f => ({ ...f, design: e.target.value }))} onFocus={() => setShowDesignSug(true)} onBlur={() => setTimeout(() => setShowDesignSug(false), 200)} />
+                      {showDesignSug && designSuggestions.length > 0 && (
+                        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                          {designSuggestions.map(d => (
+                            <div key={d} onMouseDown={() => { setNewItemForm(f => ({ ...f, design: d })); setShowDesignSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{d}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div style={{ position: "relative" }}>
                       <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Size <span style={{ color: "#38bdf8" }}>*</span></label>

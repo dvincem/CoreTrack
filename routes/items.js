@@ -337,6 +337,39 @@ router.put("/items/:item_id/supplier", (req, res) => {
   });
 });
 
+router.put("/items/:item_id/details", (req, res) => {
+  const { item_id } = req.params;
+  const { category, brand, design, size } = req.body;
+  
+  const upperBrand = brand ? brand.toUpperCase().trim() : null;
+  const upperDesign = design ? design.toUpperCase().trim() : null;
+  const trimmedSize = size ? size.trim() : null;
+  const trimmedCat = category ? category.trim() : "MISC";
+
+  // Recalculate item_name
+  const item_name = [upperBrand, upperDesign, trimmedSize].filter(Boolean).join(' ');
+
+  db.run(
+    `UPDATE item_master 
+     SET category = ?, brand = ?, design = ?, size = ?, item_name = ?
+     WHERE item_id = ?`,
+    [trimmedCat, upperBrand, upperDesign, trimmedSize, item_name, item_id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Item not found" });
+      res.json({ 
+        item_id, 
+        category: trimmedCat, 
+        brand: upperBrand, 
+        design: upperDesign, 
+        size: trimmedSize, 
+        item_name,
+        message: "Item details updated successfully" 
+      });
+    }
+  );
+});
+
 // ── Price history for an item ─────────────────────────────────────────────────
 router.get("/item-price-history/:item_id", (req, res) => {
   const { item_id } = req.params;
@@ -723,6 +756,31 @@ router.get("/item-sizes/:shop_id", (req, res) => {
     }
   );
 });
+
+// GET unique brands
+router.get("/item-brands/:shop_id", (req, res) => {
+  db.all(
+    `SELECT DISTINCT brand FROM item_master WHERE is_active = 1 AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows.map(r => r.brand));
+    }
+  );
+});
+
+// GET unique designs
+router.get("/item-designs/:shop_id", (req, res) => {
+  db.all(
+    `SELECT DISTINCT design, brand FROM item_master WHERE is_active = 1 AND design IS NOT NULL AND design != '' ORDER BY brand, design ASC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
 
 module.exports = router;
 module.exports.logPriceHistory = logPriceHistory;

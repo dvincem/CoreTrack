@@ -131,6 +131,17 @@ function Productspage({ shopId }) {
   const [formOpen, setFormOpen] = React.useState(false);
   const [assignSupplierId, setAssignSupplierId] = React.useState("");
   const [assigningSupplier, setAssigningSupplier] = React.useState(false);
+  
+  // Detail editing state
+  const [detailForm, setDetailForm] = React.useState({
+    category: "",
+    brand: "",
+    design: "",
+    size: ""
+  });
+  const [detailsSaving, setDetailsSaving] = React.useState(false);
+  const [detailsVisible, setDetailsVisible] = React.useState(false);
+
   const [itemsToAdd, setItemsToAdd] = React.useState([
     {
       id: Date.now() + Math.random(),
@@ -535,6 +546,13 @@ function Productspage({ shopId }) {
     setDetailTab("transactions");
     setHistLoading(true);
     setPriceHistLoading(true);
+    setDetailsVisible(false);
+    setDetailForm({
+      category: item.category || "",
+      brand: item.brand || "",
+      design: item.design || "",
+      size: item.size || ""
+    });
     try {
       const data = await apiFetch(
         `${API_URL}/inventory-ledger/${shopId}?item_id=${item.item_id}&page=1&perPage=100`,
@@ -554,6 +572,36 @@ function Productspage({ shopId }) {
       setPriceHistory([]);
     }
     setPriceHistLoading(false);
+  }
+
+  async function handleUpdateDetails() {
+    setDetailsSaving(true);
+    try {
+      const res = await apiFetch(`${API_URL}/items/${selected.item_id}/details`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(detailForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update details");
+
+      const updatedItem = {
+        ...selected,
+        category: data.category,
+        brand: data.brand,
+        design: data.design,
+        size: data.size,
+        item_name: data.item_name
+      };
+      setSelected(updatedItem);
+      setItems(prev => prev.map(i => i.item_id === selected.item_id ? updatedItem : i));
+      toast("Details updated successfully", "success");
+      setDetailsVisible(false);
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setDetailsSaving(false);
+    }
   }
 
   async function handleAssignSupplier() {
@@ -1704,6 +1752,82 @@ function Productspage({ shopId }) {
                 </button>
               </div>
             )}
+            
+            {/* Edit Details Section */}
+            <div className="prod-adj-wrap" style={{ borderBottom: "1px solid var(--th-border)" }}>
+              <div 
+                className="th-section-label" 
+                style={{ color: "var(--th-sky)", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                onClick={() => setDetailsVisible(!detailsVisible)}
+              >
+                Edit Item Details
+                <span>{detailsVisible ? "▲" : "▼"}</span>
+              </div>
+              
+              {detailsVisible && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                    <div>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Category</label>
+                      <select 
+                        className="prod-adj-input" 
+                        value={detailForm.category}
+                        onChange={e => setDetailForm({ ...detailForm, category: e.target.value })}
+                        style={{ width: "100%" }}
+                      >
+                        {[...DEFAULT_TIRE_CATS, ...DEFAULT_OTHER_CATS].map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Size</label>
+                      <input 
+                        className="prod-adj-input" 
+                        type="text" 
+                        placeholder="Size"
+                        value={detailForm.size}
+                        onChange={e => setDetailForm({ ...detailForm, size: e.target.value })}
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                    <div>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Brand</label>
+                      <input 
+                        className="prod-adj-input" 
+                        type="text" 
+                        placeholder="Brand"
+                        value={detailForm.brand}
+                        onChange={e => setDetailForm({ ...detailForm, brand: e.target.value.toUpperCase() })}
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Design</label>
+                      <input 
+                        className="prod-adj-input" 
+                        type="text" 
+                        placeholder="Design"
+                        value={detailForm.design}
+                        onChange={e => setDetailForm({ ...detailForm, design: e.target.value.toUpperCase() })}
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    className="prod-btn-primary"
+                    style={{ fontSize: "0.82rem", padding: "0.5rem", background: "var(--th-sky)" }}
+                    onClick={handleUpdateDetails}
+                    disabled={detailsSaving}
+                  >
+                    {detailsSaving ? "Saving..." : "Update Details"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {!selected.supplier_id && (
               <div className="prod-adj-wrap" style={{ borderBottom: "1px solid var(--th-border)" }}>
                 <div className="th-section-label" style={{ color: "var(--th-orange)" }}>Assign Supplier</div>
