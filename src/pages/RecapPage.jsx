@@ -264,9 +264,13 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const RECAP_SIZES = ['700-15', '750-15', '700-16', '750-16', '825-16'];
   const RECAP_TYPES = ['Fullcap', 'Topcap', 'Cold Process'];
 
-  const blankCasing = () => ({ brand: "", design: "Topcap", size: "", _customSize: "", dot_number: "", recap_cost: "", expected_selling_price: "" });
+  const blankCasing = () => ({ brand: "", design: "Topcap", size: "", dot_number: "", recap_cost: "", expected_selling_price: "" });
   const [newJob, setNewJob] = React.useState({ ownership_type: "CUSTOMER_OWNED", customer_id: "", supplier_id: "" });
   const [casings, setCasings] = React.useState([blankCasing()]);
+
+  const updateCasing = (idx, patch) => {
+    setCasings(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+  };
 
   // Theme re-render
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
@@ -487,8 +491,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     if (!newJob.supplier_id) { setError("Recap Supplier is required"); return; }
     for (let i = 0; i < casings.length; i++) {
       const c = casings[i];
-      const size = c.size === '__custom__' ? (c._customSize || '').trim() : c.size;
-      if (!c.brand || !size) { setError(`Casing ${i + 1}: Brand and Size are required`); return; }
+      if (!c.brand || !c.size) { setError(`Casing ${i + 1}: Brand and Size are required`); return; }
       if (!c.dot_number || c.dot_number.length !== 4) { setError(`Casing ${i + 1}: DOT must be 4 digits`); return; }
     }
     setLoading(true);
@@ -497,7 +500,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     const deadlineDate = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10); })();
     try {
       for (const c of casings) {
-        const size = c.size === '__custom__' ? (c._customSize || '').trim() : c.size;
         const res = await apiFetch(`${API_URL}/recap-jobs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -508,7 +510,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
             supplier_id: newJob.supplier_id,
             brand: c.brand,
             design: c.design || null,
-            size,
+            size: c.size,
             dot_number: c.dot_number || null,
             recap_cost: parseFloat(c.recap_cost) || 0,
             expected_selling_price: parseFloat(c.expected_selling_price) || 0,
@@ -674,8 +676,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   /* Derived */
   const statusCounts = kpiCounts?.statusCounts || {};
   const currentJobs = jobs;
-  const effectiveSizeForSKU = newJob.size === '__custom__' ? (newJob._customSize || '') : newJob.size;
-  const autoSKU = generateSKU(newJob.brand, newJob.design, effectiveSizeForSKU);
   const hasFilters = searchQuery || statusFilter || ownershipFilter || dateFilter;
 
   function exportExcel() {
@@ -1370,15 +1370,16 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                         </div>
                         <div>
                           <label className="rc-form-label">Size *</label>
-                          <select className="rc-input" value={c.size} onChange={e => updateCasing(i, { size: e.target.value })}>
-                            <option value="">— Size —</option>
-                            {RECAP_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                            <option value="__custom__">Other…</option>
-                          </select>
-                          {c.size === '__custom__' && (
-                            <input className="rc-input" style={{ marginTop: '0.3rem' }} placeholder="e.g., 265/65R17"
-                              value={c._customSize} onChange={e => updateCasing(i, { _customSize: e.target.value })} />
-                          )}
+                          <input 
+                            list={`recap-sizes-${i}`}
+                            className="rc-input" 
+                            placeholder="e.g., 750-16"
+                            value={c.size} 
+                            onChange={e => updateCasing(i, { size: e.target.value })} 
+                          />
+                          <datalist id={`recap-sizes-${i}`}>
+                            {RECAP_SIZES.map(s => <option key={s} value={s} />)}
+                          </datalist>
                         </div>
                         <div>
                           <label className="rc-form-label" style={{ color: 'var(--th-amber)' }}>DOT * <span style={{ textTransform: 'none', color: 'var(--th-text-faint)', fontWeight: 400, fontSize: '0.72rem' }}>(4 digits)</span></label>

@@ -152,10 +152,25 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const [voidingId, setVoidingId] = React.useState(null) // purchase_id to void
   const [voidReason, setVoidReason] = React.useState('')
 
+  // DB suggestions
+  const [dbBrands, setDbBrands] = React.useState([])
+  const [dbDesigns, setDbDesigns] = React.useState([])
+  const [dbSizes, setDbSizes] = React.useState([])
+  const [activeSug, setActiveSug] = React.useState(null) // { idx, field }
+
   React.useEffect(() => {
     fetchSuppliers()
     load()
+    fetchDbSuggestions()
   }, [shopId, startDate, endDate])
+
+  async function fetchDbSuggestions() {
+    try {
+      apiFetch(`${API_URL}/item-brands/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbBrands(d)).catch(() => {})
+      apiFetch(`${API_URL}/item-designs/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbDesigns(d)).catch(() => {})
+      apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => {})
+    } catch { }
+  }
 
   async function fetchSuppliers() {
     try {
@@ -672,17 +687,54 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                       item.itemType === 'TIRE' ? (
                         <>
                           <div className="pur-row">
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, position: 'relative' }}>
                               <label className="pur-label">Brand *</label>
-                              <input className="pur-input" placeholder="Bridgestone" value={item.brand} onChange={e => updateItemToAdd(idx, 'brand', e.target.value)} />
+                              <input className="pur-input" placeholder="Bridgestone" value={item.brand} 
+                                onChange={e => updateItemToAdd(idx, 'brand', e.target.value)} 
+                                onFocus={() => setActiveSug({ idx, field: 'brand' })}
+                                onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                              />
+                              {activeSug?.idx === idx && activeSug?.field === 'brand' && item.brand && (
+                                <div className="pur-sug-drop">
+                                  {dbBrands.filter(b => b.toLowerCase().includes(item.brand.toLowerCase())).slice(0, 8).map(b => (
+                                    <div key={b} className="pur-sug-item" onMouseDown={() => updateItemToAdd(idx, 'brand', b)}>{b}</div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, position: 'relative' }}>
                               <label className="pur-label">Design *</label>
-                              <input className="pur-input" placeholder="Turanza" value={item.design} onChange={e => updateItemToAdd(idx, 'design', e.target.value)} />
+                              <input className="pur-input" placeholder="Turanza" value={item.design} 
+                                onChange={e => updateItemToAdd(idx, 'design', e.target.value)} 
+                                onFocus={() => setActiveSug({ idx, field: 'design' })}
+                                onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                              />
+                              {activeSug?.idx === idx && activeSug?.field === 'design' && item.design && (
+                                <div className="pur-sug-drop">
+                                  {dbDesigns.filter(d => {
+                                    const m = d.design.toLowerCase().includes(item.design.toLowerCase());
+                                    const b = item.brand ? d.brand?.toLowerCase() === item.brand.toLowerCase() : true;
+                                    return m && b;
+                                  }).slice(0, 8).map(d => (
+                                    <div key={d.design} className="pur-sug-item" onMouseDown={() => updateItemToAdd(idx, 'design', d.design)}>{d.design}</div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, position: 'relative' }}>
                               <label className="pur-label">Size *</label>
-                              <input className="pur-input" placeholder="205/55R16" value={item.size} onChange={e => updateItemToAdd(idx, 'size', e.target.value)} />
+                              <input className="pur-input" placeholder="205/55R16" value={item.size} 
+                                onChange={e => updateItemToAdd(idx, 'size', e.target.value)} 
+                                onFocus={() => setActiveSug({ idx, field: 'size' })}
+                                onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                              />
+                              {activeSug?.idx === idx && activeSug?.field === 'size' && item.size && (
+                                <div className="pur-sug-drop">
+                                  {dbSizes.filter(s => s.toLowerCase().includes(item.size.toLowerCase())).slice(0, 8).map(s => (
+                                    <div key={s} className="pur-sug-item" onMouseDown={() => updateItemToAdd(idx, 'size', s)}>{s}</div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label" style={{ color: 'var(--th-amber)' }}>DOT *</label>

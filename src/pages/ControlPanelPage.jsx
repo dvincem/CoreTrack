@@ -292,6 +292,7 @@ function StaffAccessTab({ callerPower }) {
   const [busy, setBusy]       = React.useState({})
   const [managingPages, setManagingPages] = React.useState(null)
   const [managingRoles, setManagingRoles] = React.useState(null)
+  const [pinResetConfirm, setPinResetConfirm] = React.useState(null) // { id, name }
 
   function load() {
     setLoading(true)
@@ -311,8 +312,14 @@ function StaffAccessTab({ callerPower }) {
     load()
   }
 
-  async function resetPin(credential_id) {
-    if (!confirm("Reset this staff member's PIN?")) return
+  async function resetPin(s) {
+    setPinResetConfirm({ id: s.credential_id, name: s.full_name })
+  }
+
+  async function handleConfirmResetPin() {
+    if (!pinResetConfirm) return
+    const credential_id = pinResetConfirm.id
+    setPinResetConfirm(null)
     setBusy(b => ({ ...b, [credential_id]: true }))
     const r = await apiFetch(`${API_URL}/credentials/${credential_id}/reset`, { method: 'POST' })
     const d = await r.json()
@@ -428,7 +435,7 @@ function StaffAccessTab({ callerPower }) {
               </button>
             )}
             <button className="cp-btn reset" disabled={isBusy}
-              onClick={() => resetPin(s.credential_id)}>
+              onClick={() => resetPin(s)}>
               {isBusy ? '…' : '↺ Reset PIN'}
             </button>
             <button className={`cp-btn ${s.is_active ? 'toggle-off' : 'toggle-on'}`}
@@ -525,6 +532,29 @@ function StaffAccessTab({ callerPower }) {
               ⚠ Staff will be prompted to change this PIN on first login.
             </div>
             <button className="cp-modal-ok" onClick={() => setRevealed(null)}>Got it</button>
+          </div>
+        </div>
+      {pinResetConfirm && (
+        <div className="cp-overlay" onClick={() => setPinResetConfirm(null)}>
+          <div className="cp-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="cp-modal-title" style={{ color: 'var(--th-amber)' }}>
+              Reset PIN?
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <div className="cp-modal-sub" style={{ marginBottom: '1.5rem' }}>
+              Are you sure you want to reset the login PIN for <b>{pinResetConfirm.name}</b>?
+              <div style={{ marginTop: '0.5rem', color: 'var(--th-text-muted)', fontSize: '0.78rem' }}>
+                A new temporary PIN will be generated.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button className="cp-pages-cancel" style={{ flex: 1 }} onClick={() => setPinResetConfirm(null)}>Cancel</button>
+              <button className="cp-modal-ok" style={{ flex: 1, background: 'var(--th-amber)' }} onClick={handleConfirmResetPin}>
+                Yes, Reset
+              </button>
+            </div>
           </div>
         </div>
       )}
