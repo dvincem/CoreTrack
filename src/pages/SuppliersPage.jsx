@@ -585,7 +585,7 @@ function SuppliersPage({ shopId }) {
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.6, flexShrink: 0, marginLeft: 4 }}><path d="M6 9l6 6 6-6"/></svg>
                               </button>
                               {openTypeIdx === i && (
-                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--th-bg-card)', border: '1px solid var(--th-border-strong)', borderRadius: 8, zIndex: 10, padding: '0.5rem', marginTop: 4, display: 'grid', gridTemplateColumns: '1fr', gap: '0.2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '200px', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--th-bg-card)', border: '1px solid var(--th-border-strong)', borderRadius: 8, zIndex: 10, padding: '0.5rem', marginTop: 4, display: 'flex', flexDirection: 'column', gap: '0.2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '250px', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                                   {ITEM_TYPES.map(t => (
                                     <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', padding: '0.3rem 0.5rem', borderRadius: 4 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--th-bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                       <input 
@@ -603,6 +603,42 @@ function SuppliersPage({ shopId }) {
                                       {t}
                                     </label>
                                   ))}
+                                  
+                                  {/* Custom types already added */}
+                                  {b.item_types.filter(t => !ITEM_TYPES.includes(t)).map(t => (
+                                    <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', padding: '0.3rem 0.5rem', borderRadius: 4 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--th-bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                      <input 
+                                        type="checkbox" 
+                                        style={{ accentColor: 'var(--th-amber)' }}
+                                        checked={true} 
+                                        onChange={() => {
+                                          setBrandInputs(prev => prev.map((x, j) => j === i ? { 
+                                            ...x, 
+                                            item_types: x.item_types.filter(y => y !== t) 
+                                          } : x))
+                                        }} 
+                                      />
+                                      <span style={{ color: 'var(--th-amber)' }}>{t}</span>
+                                    </label>
+                                  ))}
+
+                                  <div style={{ borderTop: '1px solid var(--th-border)', marginTop: '0.3rem', paddingTop: '0.5rem' }}>
+                                    <input 
+                                      className="supp-modal-input" 
+                                      style={{ fontSize: '0.72rem', padding: '0.3rem 0.5rem', height: 'auto' }} 
+                                      placeholder="+ Add Custom Type..." 
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          const val = e.target.value.trim().toUpperCase();
+                                          if (val && !b.item_types.includes(val)) {
+                                            setBrandInputs(prev => prev.map((x, j) => j === i ? { ...x, item_types: [...x.item_types, val] } : x));
+                                            e.target.value = '';
+                                          }
+                                        }
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               )}
                             </div>

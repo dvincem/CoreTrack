@@ -502,8 +502,8 @@ function CustomerPage({ shopId }) {
                 </div>
                 {showPlateForm && (
                   <div className="cp-add-plate-row">
-                    <input className="cp-modal-input" style={{ flex: 1 }} placeholder="e.g. ABC-1234" value={plateInput} onChange={e => setPlateInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddPlate()} autoFocus />
-                    <button className="cp-modal-ok" style={{ flex: '0 0 auto', padding: '0.5rem 1rem', marginTop: 0 }} onClick={handleAddPlate} disabled={plateSaving}>{plateSaving ? <span className="cp-spinner" /> : 'Add'}</button>
+                    <input className="cp-modal-input" placeholder="e.g. ABC-1234" value={plateInput} onChange={e => setPlateInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddPlate()} autoFocus />
+                    <button className="cp-modal-ok" style={{ marginTop: 0 }} onClick={handleAddPlate} disabled={plateSaving}>{plateSaving ? <span className="cp-spinner" /> : 'Add'}</button>
                   </div>
                 )}
                 <div className="cp-plates-wrap" style={{ marginBottom: '0.85rem' }}>

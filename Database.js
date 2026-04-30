@@ -118,7 +118,7 @@ db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='returns'", (e
 
 db.serialize(() => {
   db.run(`ALTER TABLE labor_log ADD COLUMN sale_id TEXT`, () => { });
-  db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 5`, () => { });
+  db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 2`, () => { });
   db.run(`ALTER TABLE item_master ADD COLUMN supplier_id TEXT`, () => { });
   db.run(`ALTER TABLE item_master ADD COLUMN dot_number TEXT`, () => { });
   db.run(`ALTER TABLE item_master ADD COLUMN parent_item_id TEXT`, () => { });
@@ -205,7 +205,7 @@ function initializeDatabase() {
         selling_price REAL NOT NULL DEFAULT 0,
         unit TEXT DEFAULT 'PCS',
         supplier_id TEXT,
-        reorder_point INTEGER DEFAULT 5,
+        reorder_point INTEGER DEFAULT 2,
         dot_number TEXT,
         parent_item_id TEXT,
         is_active BOOLEAN DEFAULT 1,
@@ -749,7 +749,7 @@ function initializeDatabase() {
 
           // ── Performance indexes ──────────────────────────────────
           db.run(`ALTER TABLE labor_log ADD COLUMN sale_id TEXT`, () => { });
-          db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 5`, () => { });
+          db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 2`, () => { });
           db.run(`ALTER TABLE item_master ADD COLUMN supplier_id TEXT`, () => { });
           db.run(`ALTER TABLE inventory_ledger ADD COLUMN supplier_id TEXT`, () => { });
           db.run(`ALTER TABLE order_items ADD COLUMN supplier_id TEXT`, () => { });

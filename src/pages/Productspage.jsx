@@ -157,7 +157,7 @@ function Productspage({ shopId }) {
       unit_cost: "",
       selling_price: "",
       quantity: "",
-      reorder_point: "5",
+      reorder_point: "2",
       supplier_id: "",
     }
   ]);
@@ -329,7 +329,7 @@ function Productspage({ shopId }) {
       unit_cost: "",
       selling_price: "",
       quantity: "",
-      reorder_point: "5",
+      reorder_point: "2",
       supplier_id: "",
     }]);
   }
@@ -390,7 +390,7 @@ function Productspage({ shopId }) {
         unit_cost: "",
         selling_price: "",
         quantity: "",
-        reorder_point: "5",
+        reorder_point: "2",
         supplier_id: "",
       }
     ]);
@@ -447,7 +447,7 @@ function Productspage({ shopId }) {
         rim_size: isTire ? extractRimSize(item.size) : (item.rim_size ? parseFloat(item.rim_size) : null),
         unit_cost: parseFloat(item.unit_cost),
         selling_price: parseFloat(item.selling_price),
-        reorder_point: parseInt(item.reorder_point) || 5,
+        reorder_point: parseInt(item.reorder_point) || 2,
         dot_number: item.dot_number?.trim() || null,
       });
     }
@@ -489,7 +489,7 @@ function Productspage({ shopId }) {
             unit_cost: "",
             selling_price: "",
             quantity: "",
-            reorder_point: "5",
+            reorder_point: "2",
             supplier_id: "",
           }
         ]);

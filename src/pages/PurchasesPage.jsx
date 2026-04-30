@@ -829,9 +829,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                             <label className="pur-label">Category</label>
                             <CategorySelect value={item.category} onChange={v => updateItemToAdd(idx, 'category', v)} options={supplyCats} setOptions={setSupplyCats} storageKey={LS_KEYS.supply} />
                           </div>
-                        </div>
-                        <div className="pur-row">
-                          <div style={{ flex: 1 }}>
+                          <div style={{ flex: 0.6 }}>
                             <label className="pur-label">Qty</label>
                             <input className="pur-input" type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
                           </div>

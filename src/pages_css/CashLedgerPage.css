@@ -347,6 +347,37 @@ input.fh-date {
   animation: clModalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.cl-form-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.cl-form-modal-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-xl);
+  color: var(--th-text-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cl-form-modal-close {
+  background: none;
+  border: none;
+  color: var(--th-text-faint);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.cl-form-modal-close:hover {
+  color: var(--th-rose);
+}
+
 .cl-form-actions {
   display: flex;
   gap: 0.5rem;

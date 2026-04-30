@@ -360,6 +360,20 @@ table.cp-table {
   text-transform: uppercase;
 }
 
+.cp-modal-ok {
+  flex: 2;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  background: var(--th-sky);
+  color: #fff;
+}
+
 .cp-modal-ok.danger {
   background: var(--th-rose) !important;
   color: #fff !important;
@@ -534,7 +548,8 @@ table.cp-table {
 }
 
 .cp-add-plate-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 100px;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
 }
