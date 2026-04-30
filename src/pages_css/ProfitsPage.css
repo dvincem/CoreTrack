@@ -3,16 +3,17 @@
  * Extracted from styles.css (lines 14557–15282)
  * Do not edit class names — JSX uses these selectors as-is.
  */
-/* â•â•â• PAGE: ProfitsPage â•â•â• */
-.pm-root {
+/* ═══ PAGE: ProfitsPage ═══ */
+.pf-root {
   font-family: var(--font-body);
   color: var(--th-text-primary);
   display: flex;
   flex-direction: column;
   gap: .5rem;
+  width: 100%;
 }
 
-.pm-header-row {
+.pf-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -22,7 +23,7 @@
   padding-bottom: 0.65rem;
 }
 
-.pm-heading {
+.pf-heading {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 2rem;
   font-weight: 900;
@@ -31,17 +32,17 @@
   color: var(--th-text-heading);
 }
 
-.pm-heading span {
+.pf-heading span {
   color: var(--th-emerald);
 }
 
-.pm-sub {
+.pf-sub {
   font-size: 0.78rem;
   color: var(--th-text-faint);
 }
 
 /* Filter card */
-.pm-filter-card {
+.pf-filter-card {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -54,26 +55,26 @@
   z-index: 20;
 }
 
-.pm-filter-card .si-wrap {
+.pf-filter-card .si-wrap {
   flex: 1 1 200px;
   min-width: 0;
   margin-bottom: 0 !important;
 }
 
-.pm-date-group {
+.pf-date-group {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
 }
 
-.pm-field {
+.pf-field {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
 
-.pm-label {
+.pf-label {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -81,7 +82,7 @@
   color: var(--th-text-faint);
 }
 
-.pm-input {
+.pf-input {
   background: var(--th-bg-input);
   border: 1px solid var(--th-border-strong);
   color: var(--th-text-primary);
@@ -92,22 +93,22 @@
   outline: none;
 }
 
-.pm-input:focus {
+.pf-input:focus {
   border-color: var(--th-emerald);
 }
 
-.pm-date-input {
+.pf-date-input {
   width: auto;
   flex: 0 0 auto;
 }
 
-.pm-date-sep {
+.pf-date-sep {
   font-size: 0.85rem;
   color: var(--th-text-faint);
   flex-shrink: 0;
 }
 
-.pm-date-lbl {
+.pf-date-lbl {
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -116,7 +117,7 @@
   white-space: nowrap;
 }
 
-.pm-preset-row {
+.pf-preset-row {
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
@@ -124,7 +125,7 @@
   flex-shrink: 0;
 }
 
-.pm-preset {
+.pf-preset {
   background: var(--th-bg-input);
   border: 1px solid var(--th-border-strong);
   color: var(--th-text-muted);
@@ -139,8 +140,8 @@
   transition: all 0.15s;
 }
 
-.pm-preset:hover,
-.pm-preset.active {
+.pf-preset:hover,
+.pf-preset.active {
   background: var(--th-emerald-bg);
   border-color: var(--th-emerald);
   color: var(--th-emerald);
@@ -148,7 +149,7 @@
 
 
 /* Section titles */
-.pm-section {
+.pf-section {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -160,7 +161,7 @@
   color: var(--th-text-faint);
 }
 
-.pm-section::before {
+.pf-section::before {
   content: '';
   width: 3px;
   height: 13px;
@@ -169,7 +170,7 @@
   flex-shrink: 0;
 }
 
-.pm-section::after {
+.pf-section::after {
   content: '';
   flex: 1;
   height: 1px;
@@ -177,32 +178,32 @@
 }
 
 /* Two-column layout */
-.pm-two-col {
+.pf-two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.85rem;
 }
 
 @media(max-width:860px) {
-  .pm-two-col {
+  .pf-two-col {
     grid-template-columns: 1fr;
   }
 }
 
-.pm-three-col {
+.pf-three-col {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 0.85rem;
 }
 
 @media(max-width:860px) {
-  .pm-three-col {
+  .pf-three-col {
     grid-template-columns: 1fr;
   }
 }
 
 /* Card panel */
-.pm-card {
+.pf-card {
   background: var(--th-bg-card);
   border: 1px solid var(--th-border);
   border-radius: 11px;
@@ -210,11 +211,11 @@
 }
 
 /* Ensure touch scroll works on inner DataTable scroll containers */
-.pm-card .th-tbl-scroll {
+.pf-card .th-tbl-scroll {
   -webkit-overflow-scrolling: touch;
 }
 
-.pm-card-head {
+.pf-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -228,12 +229,12 @@
   color: var(--th-text-muted);
 }
 
-.pm-card-body {
+.pf-card-body {
   padding: 0;
 }
 
 /* Totals bar */
-.pm-total-bar {
+.pf-total-bar {
   display: flex;
   align-items: center;
   gap: 0.5rem 1rem;
@@ -246,7 +247,7 @@
   font-weight: 700;
 }
 
-.pm-total-label {
+.pf-total-label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.72rem;
@@ -254,21 +255,21 @@
   margin-right: 0.25rem;
 }
 
-.pm-total-item {
+.pf-total-item {
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-.pm-total-dim {
+.pf-total-dim {
   font-size: 0.7rem;
   color: var(--th-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-/* DataTable nested inside pm-card — strip th-tbl-wrap's own card chrome to avoid double borders */
-.pm-card .th-tbl-wrap {
+/* DataTable nested inside pf-card — strip th-tbl-wrap's own card chrome to avoid double borders */
+.pf-card .th-tbl-wrap {
   border: none;
   border-radius: 0;
   background: transparent;
@@ -276,12 +277,12 @@
 }
 
 /* Prevent th-kpi-row global margin-bottom from doubling the gap spacing */
-.pm-root .th-kpi-row {
+.pf-root .th-kpi-row {
   margin-bottom: 0;
 }
 
 /* Inventory purchased reference */
-.pm-purchases-ref {
+.pf-purchases-ref {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -294,7 +295,7 @@
   color: var(--th-text-dim);
 }
 
-.pm-purchases-label {
+.pf-purchases-label {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   font-size: 0.72rem;
@@ -303,20 +304,20 @@
   color: var(--th-text-faint);
 }
 
-.pm-purchases-note {
+.pf-purchases-note {
   margin-left: auto;
   font-size: 0.72rem;
   color: var(--th-text-faint);
 }
 
 /* Category breakdown table */
-.pm-table {
+.pf-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.83rem;
 }
 
-.pm-table th {
+.pf-table th {
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -328,30 +329,30 @@
   background: var(--th-bg-card-alt);
 }
 
-.pm-table th.r {
+.pf-table th.r {
   text-align: right;
 }
 
-.pm-table td {
+.pf-table td {
   padding: 0.65rem 1.1rem;
   border-bottom: 1px solid var(--th-border);
   vertical-align: middle;
 }
 
-.pm-table tr:last-child td {
+.pf-table tr:last-child td {
   border-bottom: none;
 }
 
-.pm-table tr:hover td {
+.pf-table tr:hover td {
   background: var(--th-bg-hover);
 }
 
-.pm-table .pm-total-row td {
+.pf-table .pf-total-row td {
   background: var(--th-bg-card-alt);
   font-weight: 700;
 }
 
-.pm-cat-badge {
+.pf-cat-badge {
   display: inline-block;
   padding: 0.12rem 0.5rem;
   border-radius: 5px;
@@ -362,37 +363,37 @@
   letter-spacing: 0.04em;
 }
 
-.pm-cat-badge.PCR {
+.pf-cat-badge.PCR {
   background: var(--th-sky-bg);
   color: var(--th-sky);
 }
 
-.pm-cat-badge.SUV {
+.pf-cat-badge.SUV {
   background: var(--th-violet-bg);
   color: var(--th-violet);
 }
 
-.pm-cat-badge.TRUCK {
+.pf-cat-badge.TRUCK {
   background: var(--th-amber-bg);
   color: var(--th-amber);
 }
 
-.pm-cat-badge.MOTORCYCLE {
+.pf-cat-badge.MOTORCYCLE {
   background: var(--th-emerald-bg);
   color: var(--th-emerald);
 }
 
-.pm-cat-badge.VALVE {
+.pf-cat-badge.VALVE {
   background: var(--th-rose-bg);
   color: var(--th-rose);
 }
 
-.pm-cat-badge.WEIGHT {
+.pf-cat-badge.WEIGHT {
   background: var(--th-orange-bg);
   color: var(--th-orange);
 }
 
-.pm-money {
+.pf-money {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   font-size: 0.92rem;
@@ -400,31 +401,31 @@
   white-space: nowrap;
 }
 
-.pm-money.sky {
+.pf-money.sky {
   color: var(--th-sky);
 }
 
-.pm-money.amber {
+.pf-money.amber {
   color: var(--th-amber);
 }
 
-.pm-money.emerald {
+.pf-money.emerald {
   color: var(--th-emerald);
 }
 
-.pm-money.violet {
+.pf-money.violet {
   color: var(--th-violet);
 }
 
-.pm-money.rose {
+.pf-money.rose {
   color: var(--th-rose);
 }
 
-.pm-money.dim {
+.pf-money.dim {
   color: var(--th-text-dim);
 }
 
-.pm-pct-pill {
+.pf-pct-pill {
   display: inline-block;
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
@@ -433,23 +434,23 @@
   white-space: nowrap;
 }
 
-.pm-pct-pill.good {
+.pf-pct-pill.good {
   background: var(--th-emerald-bg);
   color: var(--th-emerald);
 }
 
-.pm-pct-pill.warn {
+.pf-pct-pill.warn {
   background: var(--th-amber-bg);
   color: var(--th-amber);
 }
 
-.pm-pct-pill.bad {
+.pf-pct-pill.bad {
   background: var(--th-rose-bg);
   color: var(--th-rose);
 }
 
 /* Bar track */
-.pm-bar-track {
+.pf-bar-track {
   height: 4px;
   background: var(--th-border);
   border-radius: 2px;
@@ -457,14 +458,14 @@
   min-width: 60px;
 }
 
-.pm-bar-fill {
+.pf-bar-fill {
   height: 4px;
   border-radius: 2px;
   transition: width 0.6s cubic-bezier(.22, .61, .36, 1);
 }
 
 /* Top items list */
-.pm-item-row {
+.pf-item-row {
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -472,11 +473,11 @@
   border-bottom: 1px solid var(--th-border);
 }
 
-.pm-item-row:last-child {
+.pf-item-row:last-child {
   border-bottom: none;
 }
 
-.pm-item-rank {
+.pf-item-rank {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 900;
   font-size: 1.1rem;
@@ -485,12 +486,12 @@
   flex-shrink: 0;
 }
 
-.pm-item-info {
+.pf-item-info {
   flex: 1;
   min-width: 0;
 }
 
-.pm-item-name {
+.pf-item-name {
   font-size: 0.83rem;
   font-weight: 600;
   color: var(--th-text-primary);
@@ -499,36 +500,36 @@
   text-overflow: ellipsis;
 }
 
-.pm-item-meta {
+.pf-item-meta {
   font-size: 0.68rem;
   color: var(--th-text-faint);
 }
 
-.pm-item-nums {
+.pf-item-nums {
   text-align: right;
   flex-shrink: 0;
 }
 
-.pm-item-profit {
+.pf-item-profit {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--th-emerald);
 }
 
-.pm-item-pct {
+.pf-item-pct {
   font-size: 0.68rem;
   color: var(--th-text-faint);
 }
 
 /* Transactions table */
-.pm-tx-table {
+.pf-tx-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.81rem;
 }
 
-.pm-tx-table th {
+.pf-tx-table th {
   font-size: 0.63rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -541,54 +542,54 @@
   white-space: nowrap;
 }
 
-.pm-tx-table th.r {
+.pf-tx-table th.r {
   text-align: right;
 }
 
-.pm-tx-table td {
+.pf-tx-table td {
   padding: 0.55rem 1rem;
   border-bottom: 1px solid var(--th-border);
   vertical-align: middle;
 }
 
-.pm-tx-table tr:last-child td {
+.pf-tx-table tr:last-child td {
   border-bottom: none;
 }
 
-.pm-tx-table tr:hover td {
+.pf-tx-table tr:hover td {
   background: var(--th-bg-hover);
 }
 
-.pm-tx-inv {
+.pf-tx-inv {
   font-weight: 600;
   color: var(--th-text-primary);
   font-size: 0.82rem;
 }
 
-.pm-tx-sub {
+.pf-tx-sub {
   font-size: 0.67rem;
   color: var(--th-text-faint);
 }
 
-.pm-profit-neg {
+.pf-profit-neg {
   color: var(--th-rose);
 }
 
-.pm-empty {
+.pf-empty {
   padding: 2.5rem;
   text-align: center;
   color: var(--th-text-faint);
   font-size: 0.85rem;
 }
 
-.pm-loading {
+.pf-loading {
   padding: 2rem;
   text-align: center;
   color: var(--th-text-faint);
 }
 
 /* Equation row under KPIs */
-.pm-equation {
+.pf-equation {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -600,69 +601,69 @@
   font-size: 0.78rem;
 }
 
-.pm-eq-item {
+.pf-eq-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
 }
 
-.pm-eq-label {
+.pf-eq-label {
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--th-text-faint);
 }
 
-.pm-eq-val {
+.pf-eq-val {
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   font-weight: 700;
   font-size: 1rem;
 }
 
-.pm-eq-op {
+.pf-eq-op {
   color: var(--th-text-faint);
   font-size: 1rem;
   font-weight: 300;
   padding: 0 0.1rem;
 }
 
-.pm-eq-result {
+.pf-eq-result {
   background: var(--th-emerald-bg);
   border-radius: 7px;
   padding: 0.2rem 0.65rem;
 }
 
-.pm-eq-result .pm-eq-val {
+.pf-eq-result .pf-eq-val {
   color: var(--th-emerald);
   font-size: 1.1rem;
 }
 
-.pm-eq-result .pm-eq-label {
+.pf-eq-result .pf-eq-label {
   color: var(--th-emerald);
 }
 
 @media(max-width:640px) {
-  .pm-heading {
+  .pf-heading {
     font-size: 1.4rem;
     text-align: center;
   }
 
-  .pm-header-row {
+  .pf-header-row {
     justify-content: center;
   }
 
   /* Filter card — stack vertically, SearchInput natural height only */
-  .pm-filter-card {
+  .pf-filter-card {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .pm-filter-card .si-wrap {
+  .pf-filter-card .si-wrap {
     flex: 0 0 auto;
   }
 
-  .pm-date-group {
+  .pf-date-group {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
@@ -671,60 +672,60 @@
     width: 100%;
   }
 
-  .pm-date-group .pm-date-input {
+  .pf-date-group .pf-date-input {
     width: 100%;
     min-width: 0;
     font-size: 0.75rem;
     padding: 0.35rem 0.45rem;
   }
 
-  .pm-date-sep {
+  .pf-date-sep {
     display: none;
   }
 
-  .pm-preset-row {
+  .pf-preset-row {
     width: 100%;
   }
 
-  .pm-preset {
+  .pf-preset {
     flex: 0 0 auto;
   }
 
   /* Grids — single column */
-  .pm-two-col,
-  .pm-three-col {
+  .pf-two-col,
+  .pf-three-col {
     grid-template-columns: 1fr !important;
   }
 
   /* Equation — 2-col grid, hide verbose operators */
-  .pm-equation {
+  .pf-equation {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem 0.75rem;
     align-items: start;
   }
 
-  .pm-eq-op {
+  .pf-eq-op {
     display: none;
   }
 
-  .pm-eq-result {
+  .pf-eq-result {
     grid-column: 1/-1;
     justify-self: stretch;
   }
 
-  .pm-eq-item {
+  .pf-eq-item {
     align-items: flex-start;
   }
 
   /* Purchases ref */
-  .pm-purchases-ref {
+  .pf-purchases-ref {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.35rem;
   }
 
-  .pm-purchases-note {
+  .pf-purchases-note {
     margin-left: 0;
   }
 }

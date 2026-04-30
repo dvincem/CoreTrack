@@ -696,9 +696,32 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                               />
                               {activeSug?.idx === idx && activeSug?.field === 'brand' && item.brand && (
                                 <div className="pur-sug-drop">
-                                  {dbBrands.filter(b => b.toLowerCase().includes(item.brand.toLowerCase())).slice(0, 8).map(b => (
-                                    <div key={b} className="pur-sug-item" onMouseDown={() => updateItemToAdd(idx, 'brand', b)}>{b}</div>
-                                  ))}
+                                  {(() => {
+                                  const q = item.brand.toLowerCase();
+                                  const matches = [];
+                                  const seen = new Set();
+                                  dbBrands.forEach(b => {
+                                    if (b.toLowerCase().includes(q)) {
+                                      matches.push({ brand: b });
+                                      seen.add(b.toUpperCase());
+                                    }
+                                  });
+                                  dbDesigns.forEach(d => {
+                                    if (d.design.toLowerCase().includes(q) && !seen.has(d.brand?.toUpperCase())) {
+                                      matches.push({ brand: d.brand, fromDesign: d.design });
+                                      seen.add(d.brand?.toUpperCase());
+                                    }
+                                  });
+                                  return matches.slice(0, 8).map((s, si) => (
+                                    <div key={si} className="pur-sug-item" onMouseDown={() => {
+                                      updateItemToAdd(idx, 'brand', s.brand);
+                                      if (s.fromDesign) updateItemToAdd(idx, 'design', s.fromDesign);
+                                    }}>
+                                      {s.brand}
+                                      {s.fromDesign && <span style={{ fontSize: '0.7rem', color: 'var(--th-orange)', marginLeft: '0.5rem' }}>({s.fromDesign})</span>}
+                                    </div>
+                                  ));
+                                })()}
                                 </div>
                               )}
                             </div>
@@ -715,8 +738,15 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                                     const m = d.design.toLowerCase().includes(item.design.toLowerCase());
                                     const b = item.brand ? d.brand?.toLowerCase() === item.brand.toLowerCase() : true;
                                     return m && b;
-                                  }).slice(0, 8).map(d => (
-                                    <div key={d.design} className="pur-sug-item" onMouseDown={() => updateItemToAdd(idx, 'design', d.design)}>{d.design}</div>
+                                  }).slice(0, 8).map((d, di) => (
+                                    <div key={di} className="pur-sug-item" onMouseDown={() => {
+                                      updateItemToAdd(idx, 'design', d.design);
+                                      if (d.brand) updateItemToAdd(idx, 'brand', d.brand);
+                                      if (d.category) updateItemToAdd(idx, 'category', d.category);
+                                    }}>
+                                      {d.design}
+                                      {!item.brand && d.brand && <span style={{ fontSize: '0.7rem', color: 'var(--th-text-muted)', marginLeft: '0.5rem' }}>({d.brand})</span>}
+                                    </div>
                                   ))}
                                 </div>
                               )}

@@ -527,10 +527,12 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                 )
               },
               {
-                key: 'services', label: 'Services', render: r => {
-                  const svcs = r.services ? r.services.split(',').filter(Boolean) : []
-                  return svcs.length > 0 ? svcs.map((s, i) => <span key={i} className="sh-svc-pill">{s.trim()}</span>) : <span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem' }}>—</span>
-                }
+                key: 'type', label: 'Type', render: r => (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem' }}>
+                    {r.total_amount > 0 && <span className="sh-svc-pill" style={{ background: 'var(--th-sky-bg)', color: 'var(--th-sky)' }}>Service</span>}
+                    {r.total_commission > 0 && <span className="sh-svc-pill" style={{ background: 'var(--th-emerald-bg)', color: 'var(--th-emerald)' }}>Commission</span>}
+                  </div>
+                )
               },
               { key: 'staff', label: 'Handled By', render: r => <div className="sh-staff">{r.staff_name || r.created_by || '—'}</div> },
               {

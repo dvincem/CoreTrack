@@ -772,7 +772,7 @@ router.get("/item-brands/:shop_id", (req, res) => {
 // GET unique designs
 router.get("/item-designs/:shop_id", (req, res) => {
   db.all(
-    `SELECT DISTINCT design, brand FROM item_master WHERE is_active = 1 AND design IS NOT NULL AND design != '' ORDER BY brand, design ASC`,
+    `SELECT DISTINCT design, brand, category FROM item_master WHERE is_active = 1 AND design IS NOT NULL AND design != '' ORDER BY brand, design ASC`,
     [],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });

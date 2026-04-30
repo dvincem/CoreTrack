@@ -125,28 +125,46 @@ function CreateOrderModal({
   const brandSuggestions = React.useMemo(() => {
     if (!newItemForm.brand) return [];
     const q = newItemForm.brand.toLowerCase();
-    return dbBrands.filter(b => b.toLowerCase().includes(q)).slice(0, 8);
-  }, [newItemForm.brand, dbBrands]);
+    const matches = [];
+    const seen = new Set();
+
+    // 1. Exact/partial brand matches
+    dbBrands.forEach(b => {
+      if (b.toLowerCase().includes(q)) {
+        matches.push({ brand: b });
+        seen.add(b.toUpperCase());
+      }
+    });
+
+    // 2. Matching designs -> suggest their brands
+    dbDesigns.forEach(d => {
+      if (d.design.toLowerCase().includes(q) && !seen.has(d.brand?.toUpperCase())) {
+        matches.push({ brand: d.brand, fromDesign: d.design });
+        seen.add(d.brand?.toUpperCase());
+      }
+    });
+
+    return matches.slice(0, 8);
+  }, [newItemForm.brand, dbBrands, dbDesigns]);
 
   const designSuggestions = React.useMemo(() => {
     if (!newItemForm.design) return [];
     const q = newItemForm.design.toLowerCase();
     const brand = newItemForm.brand.toLowerCase();
 
-    // Prefer designs that match the current brand
+    // Filter by query and optionally by brand
     const filtered = dbDesigns.filter(d => {
       const matchQuery = d.design.toLowerCase().includes(q);
       const matchBrand = brand ? (d.brand || "").toLowerCase() === brand : true;
       return matchQuery && matchBrand;
-    }).map(d => d.design);
+    });
 
-    if (filtered.length > 0) return Array.from(new Set(filtered)).slice(0, 8);
+    if (filtered.length > 0) return filtered.slice(0, 8);
 
     // Fallback to any design matching the query
-    const fallback = dbDesigns
+    return dbDesigns
       .filter(d => d.design.toLowerCase().includes(q))
-      .map(d => d.design);
-    return Array.from(new Set(fallback)).slice(0, 8);
+      .slice(0, 8);
   }, [newItemForm.design, newItemForm.brand, dbDesigns]);
 
   // All unique brands available from at least 1 supplier
@@ -267,8 +285,19 @@ function CreateOrderModal({
                     <input className="inv-input" placeholder="e.g. PRINX" value={newItemForm.brand} onChange={e => handleNewBrandChange(e.target.value)} onFocus={() => setShowBrandSug(true)} onBlur={() => setTimeout(() => setShowBrandSug(false), 200)} />
                     {showBrandSug && brandSuggestions.length > 0 && (
                       <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-                        {brandSuggestions.map(b => (
-                          <div key={b} onMouseDown={() => { handleNewBrandChange(b); setShowBrandSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{b}</div>
+                        {brandSuggestions.map((s, si) => (
+                          <div key={si} onMouseDown={() => {
+                            setNewItemForm(f => ({
+                              ...f,
+                              brand: s.brand,
+                              design: s.fromDesign || f.design,
+                              supplier_id: ""
+                            }));
+                            setShowBrandSug(false);
+                          }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            {s.brand}
+                            {s.fromDesign && <span style={{ fontSize: "0.7rem", color: "var(--th-orange)", marginLeft: "0.5rem", opacity: 0.8 }}>({s.fromDesign})</span>}
+                          </div>
                         ))}
                       </div>
                     )}
@@ -288,8 +317,19 @@ function CreateOrderModal({
                       <input className="inv-input" placeholder="e.g. Turanza" value={newItemForm.design} onChange={e => setNewItemForm(f => ({...f, design: e.target.value}))} onFocus={() => setShowDesignSug(true)} onBlur={() => setTimeout(() => setShowDesignSug(false), 200)} />
                       {showDesignSug && designSuggestions.length > 0 && (
                         <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-                          {designSuggestions.map(d => (
-                            <div key={d} onMouseDown={() => { setNewItemForm(f => ({...f, design: d})); setShowDesignSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{d}</div>
+                          {designSuggestions.map((d, di) => (
+                            <div key={di} onMouseDown={() => {
+                              setNewItemForm(f => ({
+                                ...f,
+                                design: d.design,
+                                brand: d.brand || f.brand,
+                                category: d.category || f.category
+                              }));
+                              setShowDesignSug(false);
+                            }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                              {d.design}
+                              {!newItemForm.brand && d.brand && <span style={{ fontSize: "0.7rem", color: "var(--th-text-muted)", marginLeft: "0.5rem" }}>({d.brand})</span>}
+                            </div>
                           ))}
                         </div>
                       )}

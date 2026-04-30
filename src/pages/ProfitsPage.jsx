@@ -165,30 +165,30 @@ function ProfitsPage({ shopId, setPageContext }) {
       label: 'Category',
       render: (c) => (
         <>
-          <span className={`pm-cat-badge ${c.category}`}>{c.category}</span>
+          <span className={`pf-cat-badge ${c.category}`}>{c.category}</span>
           <div style={{fontSize:'0.68rem',color:'var(--th-text-faint)',marginTop:2}}>{c.transactions} sales</div>
-          <div className="pm-bar-track">
-            <div className="pm-bar-fill" style={{width:`${Math.max(4,(c.net_profit/maxCatProfit)*100)}%`,background:CAT_COLORS[c.category]||'var(--th-emerald)'}} />
+          <div className="pf-bar-track">
+            <div className="pf-bar-fill" style={{width:`${Math.max(4,(c.net_profit/maxCatProfit)*100)}%`,background:CAT_COLORS[c.category]||'var(--th-emerald)'}} />
           </div>
         </>
       ),
     },
     { key: 'total_qty',    label: 'Qty',          align: 'right', render: c => c.total_qty },
-    { key: 'revenue',      label: 'Revenue',       align: 'right', render: c => <div className="pm-money sky">{fmtK(c.revenue)}</div> },
-    { key: 'cogs',         label: 'COGS',          align: 'right', render: c => <div className="pm-money amber">{fmtK(c.cogs)}</div> },
-    { key: 'gross_profit', label: 'Gross Profit',  align: 'right', render: c => <div className="pm-money violet">{fmtK(c.gross_profit)}</div> },
-    { key: 'commission',   label: 'Commission',    align: 'right', render: c => <div className="pm-money rose">{fmtK(c.commission)}</div> },
-    { key: 'net_profit',   label: 'Net Profit',    align: 'right', render: c => <div className="pm-money emerald">{fmtK(c.net_profit)}</div> },
+    { key: 'revenue',      label: 'Revenue',       align: 'right', render: c => <div className="pf-money sky">{fmtK(c.revenue)}</div> },
+    { key: 'cogs',         label: 'COGS',          align: 'right', render: c => <div className="pf-money amber">{fmtK(c.cogs)}</div> },
+    { key: 'gross_profit', label: 'Gross Profit',  align: 'right', render: c => <div className="pf-money violet">{fmtK(c.gross_profit)}</div> },
+    { key: 'commission',   label: 'Commission',    align: 'right', render: c => <div className="pf-money rose">{fmtK(c.commission)}</div> },
+    { key: 'net_profit',   label: 'Net Profit',    align: 'right', render: c => <div className="pf-money emerald">{fmtK(c.net_profit)}</div> },
     {
       key: 'net_margin_pct', label: 'Margin %', align: 'right',
-      render: c => <span className={`pm-pct-pill ${pctClass(c.net_margin_pct)}`}>{c.net_margin_pct}%</span>,
+      render: c => <span className={`pf-pct-pill ${pctClass(c.net_margin_pct)}`}>{c.net_margin_pct}%</span>,
     },
   ], [maxCatProfit])
 
   const txColumns = React.useMemo(() => [
     {
       key: 'invoice_number', label: 'Invoice',
-      render: tx => <div className="pm-tx-inv">{tx.invoice_number || tx.sale_id}</div>,
+      render: tx => <div className="pf-tx-inv">{tx.invoice_number || tx.sale_id}</div>,
     },
     {
       key: 'sale_datetime', label: 'Date / Time',
@@ -208,64 +208,65 @@ function ProfitsPage({ shopId, setPageContext }) {
       key: 'staff_name', label: 'Staff',
       render: tx => <span style={{color:'var(--th-text-body)',fontSize:'0.8rem'}}>{tx.staff_name || '—'}</span>,
     },
-    { key: 'product_revenue',   label: 'Product Rev',      align: 'right', render: tx => <div className="pm-money sky">{fmtK(tx.product_revenue)}</div> },
-    { key: 'product_cogs',      label: 'COGS',             align: 'right', render: tx => <div className="pm-money amber">{fmtK(tx.product_cogs)}</div> },
-    { key: 'gross_profit',      label: 'Gross Profit',     align: 'right', render: tx => <div className="pm-money violet">{fmtK(tx.gross_profit)}</div> },
-    { key: 'commission',        label: 'Commission',       align: 'right', render: tx => <div className="pm-money rose">{fmtK(tx.commission)}</div> },
-    { key: 'net_tire_profit',   label: 'Net Tire Profit',  align: 'right', render: tx => <div className={`pm-money ${tx.net_tire_profit >= 0 ? 'emerald' : 'rose'}`}>{fmtK(tx.net_tire_profit)}</div> },
-    { key: 'service_revenue',   label: 'Service Rev',      align: 'right', render: tx => <div className="pm-money dim">{fmtK(tx.service_revenue)}</div> },
-    { key: 'service_margin',    label: 'Svc Margin',       align: 'right', render: tx => <div className="pm-money sky">{fmtK(tx.service_margin)}</div> },
-    { key: 'net_profit',        label: 'Net Profit',       align: 'right', render: tx => <div className={`pm-money ${tx.net_profit >= 0 ? 'emerald' : 'rose'}`} style={{fontSize:'0.95rem'}}>{fmtK(tx.net_profit)}</div> },
-    { key: 'margin_pct',        label: 'Margin %',         align: 'right', render: tx => <span className={`pm-pct-pill ${pctClass(tx.margin_pct)}`}>{tx.margin_pct}%</span> },
+    { key: 'product_revenue',   label: 'Product Rev',      align: 'right', render: tx => <div className="pf-money sky">{fmtK(tx.product_revenue)}</div> },
+    { key: 'product_cogs',      label: 'COGS',             align: 'right', render: tx => <div className="pf-money amber">{fmtK(tx.product_cogs)}</div> },
+    { key: 'gross_profit',      label: 'Gross Profit',     align: 'right', render: tx => <div className="pf-money violet">{fmtK(tx.gross_profit)}</div> },
+    { key: 'commission',        label: 'Commission',       align: 'right', render: tx => <div className="pf-money rose">{fmtK(tx.commission)}</div> },
+    { key: 'net_tire_profit',   label: 'Net Tire Profit',  align: 'right', render: tx => <div className={`pf-money ${tx.net_tire_profit >= 0 ? 'emerald' : 'rose'}`}>{fmtK(tx.net_tire_profit)}</div> },
+    { key: 'service_revenue',   label: 'Service Rev',      align: 'right', render: tx => <div className="pf-money dim">{fmtK(tx.service_revenue)}</div> },
+    { key: 'service_margin',    label: 'Svc Margin',       align: 'right', render: tx => <div className="pf-money sky">{fmtK(tx.service_margin)}</div> },
+    { key: 'net_profit',        label: 'Net Profit',       align: 'right', render: tx => <div className={`pf-money ${tx.net_profit >= 0 ? 'emerald' : 'rose'}`} style={{fontSize:'0.95rem'}}>{fmtK(tx.net_profit)}</div> },
+    { key: 'margin_pct',        label: 'Margin %',         align: 'right', render: tx => <span className={`pf-pct-pill ${pctClass(tx.margin_pct)}`}>{tx.margin_pct}%</span> },
   ], [])
 
   const topItemsColumns = React.useMemo(() => [
     {
       key: 'rank', label: '#', width: '36px',
-      render: (item, idx) => <span className="pm-item-rank">#{idx + 1}</span>,
+      render: (item, idx) => <span className="pf-item-rank">#{idx + 1}</span>,
     },
     {
       key: 'item_name', label: 'Item',
       render: (item) => (
         <>
-          <div className="pm-item-name">{item.item_name}</div>
-          <div className="pm-item-meta">{item.brand} · {item.category}</div>
-          <div className="pm-bar-track">
-            <div className="pm-bar-fill" style={{width:`${Math.max(4,(item.net_profit/maxItemProfit)*100)}%`,background:'var(--th-emerald)'}} />
+          <div className="pf-item-name">{item.item_name}</div>
+          <div className="pf-item-meta">{item.brand} · {item.category}</div>
+          <div className="pf-bar-track">
+            <div className="pf-bar-fill" style={{width:`${Math.max(4,(item.net_profit/maxItemProfit)*100)}%`,background:'var(--th-emerald)'}} />
           </div>
         </>
       ),
     },
     { key: 'total_qty',   label: 'Qty',     align: 'right', render: i => i.total_qty },
-    { key: 'unit_cost',   label: 'Unit Cost',align: 'right', render: i => <div className="pm-money dim">{fmt(i.unit_cost)}</div> },
-    { key: 'net_profit',  label: 'Net Profit',align: 'right', render: i => <div className="pm-money emerald">{fmtK(i.net_profit)}</div> },
-    { key: 'margin_pct',  label: 'Margin %', align: 'right', render: i => <span className={`pm-pct-pill ${pctClass(i.margin_pct)}`}>{i.margin_pct}%</span> },
+    { key: 'unit_cost',   label: 'Unit Cost',align: 'right', render: i => <div className="pf-money dim">{fmt(i.unit_cost)}</div> },
+    { key: 'net_profit',  label: 'Net Profit',align: 'right', render: i => <div className="pf-money emerald">{fmtK(i.net_profit)}</div> },
+    { key: 'margin_pct',  label: 'Margin %', align: 'right', render: i => <span className={`pf-pct-pill ${pctClass(i.margin_pct)}`}>{i.margin_pct}%</span> },
   ], [maxItemProfit])
 
 
   return (
     <>
       <style>{`
-        .pm-root {
+        .pf-root {
             font-family: var(--font-body);
             color: var(--th-text-body);
             display: flex;
             flex-direction: column;
             gap: .5rem;
+            width: 100%;
         }
       `}</style>
-      <div className="pm-root">
+      <div className="pf-root">
       {/* Header */}
-      <div className="pm-header-row">
+      <div className="pf-header-row">
         <div className="th-title-format">Profit <span style={{ color: 'var(--th-emerald)' }}>&amp; Margins</span></div>
       </div>
 
-      <div className="pm-sub">
+      <div className="pf-sub">
         Revenue = total sales collected. Net Profit = Revenue − Cost of Goods − Commission − Material Costs − Operating Expenses.
       </div>
 
       {/* KPI cards */}
-      <div className="pm-section">Overview — {applied.start} to {applied.end}</div>
+      <div className="pf-section">Overview — {applied.start} to {applied.end}</div>
       <div className="th-kpi-row">
         <KpiCard label="Total Sales"        value={fmtK((sv.product_revenue||0)+(sv.service_revenue||0))} accent="sky"    loading={loading} sub={`Tires ${fmtK(sv.product_revenue)} · Labor ${fmtK(sv.service_revenue)}`} />
         <KpiCard label="Cost of Goods"      value={fmtK(sv.product_cogs)}      accent="amber"   loading={loading} sub="Unit cost × qty sold" />
@@ -311,55 +312,55 @@ function ProfitsPage({ shopId, setPageContext }) {
 
       {/* Profit Equation */}
       {!loading && (
-        <div className="pm-equation">
-          <div className="pm-eq-item">
-            <div className="pm-eq-label">Gross Tire Profit</div>
-            <div className="pm-eq-val" style={{color:'var(--th-violet)'}}>{fmtK(sv.product_gross)}</div>
+        <div className="pf-equation">
+          <div className="pf-eq-item">
+            <div className="pf-eq-label">Gross Tire Profit</div>
+            <div className="pf-eq-val" style={{color:'var(--th-violet)'}}>{fmtK(sv.product_gross)}</div>
           </div>
-          <div className="pm-eq-op">−</div>
-          <div className="pm-eq-item">
-            <div className="pm-eq-label">Commission</div>
-            <div className="pm-eq-val" style={{color:'var(--th-rose)'}}>{fmtK(sv.total_commission)}</div>
+          <div className="pf-eq-op">−</div>
+          <div className="pf-eq-item">
+            <div className="pf-eq-label">Commission</div>
+            <div className="pf-eq-val" style={{color:'var(--th-rose)'}}>{fmtK(sv.total_commission)}</div>
           </div>
-          <div className="pm-eq-op">+</div>
-          <div className="pm-eq-item">
-            <div className="pm-eq-label">Service Margin (÷2)</div>
-            <div className="pm-eq-val" style={{color:'var(--th-sky)'}}>{fmtK(sv.service_margin)}</div>
+          <div className="pf-eq-op">+</div>
+          <div className="pf-eq-item">
+            <div className="pf-eq-label">Service Margin (÷2)</div>
+            <div className="pf-eq-val" style={{color:'var(--th-sky)'}}>{fmtK(sv.service_margin)}</div>
           </div>
-          <div className="pm-eq-op">−</div>
-          <div className="pm-eq-item">
-            <div className="pm-eq-label">Material Costs</div>
-            <div className="pm-eq-val" style={{color:'var(--th-amber)'}}>{fmtK(sv.material_costs)}</div>
+          <div className="pf-eq-op">−</div>
+          <div className="pf-eq-item">
+            <div className="pf-eq-label">Material Costs</div>
+            <div className="pf-eq-val" style={{color:'var(--th-amber)'}}>{fmtK(sv.material_costs)}</div>
           </div>
-          <div className="pm-eq-op">−</div>
-          <div className="pm-eq-item">
-            <div className="pm-eq-label">Expenses</div>
-            <div className="pm-eq-val" style={{color:'var(--th-rose)'}}>{fmtK(sv.total_expenses)}</div>
+          <div className="pf-eq-op">−</div>
+          <div className="pf-eq-item">
+            <div className="pf-eq-label">Expenses</div>
+            <div className="pf-eq-val" style={{color:'var(--th-rose)'}}>{fmtK(sv.total_expenses)}</div>
           </div>
-          <div className="pm-eq-op">=</div>
-          <div className="pm-eq-item pm-eq-result" style={(sv.net_profit||0) < 0 ? {background:'var(--th-rose-bg)'} : {}}>
-            <div className="pm-eq-label" style={(sv.net_profit||0) < 0 ? {color:'var(--th-rose)'} : {}}>Net Profit</div>
-            <div className="pm-eq-val" style={(sv.net_profit||0) < 0 ? {color:'var(--th-rose)'} : {}}>{fmtK(sv.net_profit)}</div>
+          <div className="pf-eq-op">=</div>
+          <div className="pf-eq-item pf-eq-result" style={(sv.net_profit||0) < 0 ? {background:'var(--th-rose-bg)'} : {}}>
+            <div className="pf-eq-label" style={(sv.net_profit||0) < 0 ? {color:'var(--th-rose)'} : {}}>Net Profit</div>
+            <div className="pf-eq-val" style={(sv.net_profit||0) < 0 ? {color:'var(--th-rose)'} : {}}>{fmtK(sv.net_profit)}</div>
           </div>
         </div>
       )}
 
       {/* Inventory purchased reference */}
       {!loading && (sv.total_purchases || 0) > 0 && (
-        <div className="pm-purchases-ref">
-          <span className="pm-purchases-label">📦 Inventory Purchased</span>
+        <div className="pf-purchases-ref">
+          <span className="pf-purchases-label">📦 Inventory Purchased</span>
           <span style={{color:'var(--th-amber)',fontWeight:700}}>{fmtK(sv.total_purchases)}</span>
           <span>across {sv.purchase_orders} purchase order{sv.purchase_orders !== 1 ? 's' : ''} this period</span>
-          <span className="pm-purchases-note">Not deducted — only COGS (items sold) impacts profit</span>
+          <span className="pf-purchases-note">Not deducted — only COGS (items sold) impacts profit</span>
         </div>
       )}
 
       {/* Category Breakdown + Top Items */}
-      <div className="pm-section">Category &amp; Top Items</div>
-      <div className="pm-three-col">
+      <div className="pf-section">Category &amp; Top Items</div>
+      <div className="pf-three-col">
         {/* Category table */}
-        <div className="pm-card">
-          <div className="pm-card-head">
+        <div className="pf-card">
+          <div className="pf-card-head">
             <span>Profit by Category</span>
             <span style={{fontSize:'0.72rem',color:'var(--th-text-faint)'}}>{byCategory.length} categories</span>
           </div>
@@ -377,8 +378,8 @@ function ProfitsPage({ shopId, setPageContext }) {
         </div>
 
         {/* Top items */}
-        <div className="pm-card">
-          <div className="pm-card-head">
+        <div className="pf-card">
+          <div className="pf-card-head">
             <span>Top 10 Items by Net Profit</span>
           </div>
           <DataTable
@@ -396,9 +397,9 @@ function ProfitsPage({ shopId, setPageContext }) {
       </div>
 
       {/* Transaction drilldown */}
-      <div className="pm-section">Transaction Drilldown — {txTotal} {search.trim() ? 'matching' : ''} sales</div>
-      <div className="pm-card">
-        <div className="pm-card-head">
+      <div className="pf-section">Transaction Drilldown — {txTotal} {search.trim() ? 'matching' : ''} sales</div>
+      <div className="pf-card">
+        <div className="pf-card-head">
           <span>All Transactions</span>
           <span style={{fontSize:'0.78rem',color:'var(--th-text-faint)'}}>{txTotal} total</span>
         </div>
