@@ -511,7 +511,7 @@ router.put("/sales/:sale_id/void", async (req, res) => {
 
 router.get("/services-history/:shop_id", (req, res) => {
   const { shop_id } = req.params;
-  const { startDate, endDate, staff_id, q, page, perPage } = req.query;
+  const { startDate, endDate, staff_id, q, type, page, perPage } = req.query;
   const paginated = page !== undefined || perPage !== undefined || q !== undefined;
 
   let where = `WHERE sh.shop_id = ?`;
@@ -524,7 +524,20 @@ router.get("/services-history/:shop_id", (req, res) => {
     where += ` AND sh.staff_id = ?`;
     params.push(staff_id);
   }
-  where += ` AND EXISTS (SELECT 1 FROM sale_items si2 WHERE si2.sale_id = sh.sale_id AND si2.sale_type = 'SERVICE')`;
+
+  // Filter by type: all, service, commission
+  if (type === 'service') {
+    where += ` AND EXISTS (SELECT 1 FROM sale_items si2 WHERE si2.sale_id = sh.sale_id AND si2.sale_type = 'SERVICE')`;
+  } else if (type === 'commission') {
+    where += ` AND EXISTS (SELECT 1 FROM labor_log ll WHERE ll.sale_id = sh.sale_id AND ll.commission_amount > 0 AND ll.is_void = 0)`;
+  } else {
+    // Default: Show if it has either service items OR labor commissions
+    where += ` AND (
+      EXISTS (SELECT 1 FROM sale_items si2 WHERE si2.sale_id = sh.sale_id AND si2.sale_type = 'SERVICE')
+      OR EXISTS (SELECT 1 FROM labor_log ll WHERE ll.sale_id = sh.sale_id AND ll.commission_amount > 0 AND ll.is_void = 0)
+    )`;
+  }
+
   if (paginated && q && q.trim()) {
     where += ` AND (
       sh.invoice_number LIKE ? OR sh.sale_id LIKE ? OR sh.sale_notes LIKE ?
@@ -541,6 +554,7 @@ router.get("/services-history/:shop_id", (req, res) => {
       st.full_name as staff_name,
       cm.customer_name,
       COALESCE(SUM(si.line_total), 0) as total_amount,
+      (SELECT COALESCE(SUM(ll.commission_amount), 0) FROM labor_log ll WHERE ll.sale_id = sh.sale_id AND ll.is_void = 0) as total_commission,
       GROUP_CONCAT(DISTINCT si.item_name) as services
     FROM sale_header sh
     LEFT JOIN staff_master st ON sh.staff_id = st.staff_id

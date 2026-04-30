@@ -534,6 +534,7 @@ function StaffAccessTab({ callerPower }) {
             <button className="cp-modal-ok" onClick={() => setRevealed(null)}>Got it</button>
           </div>
         </div>
+      )}
       {pinResetConfirm && (
         <div className="cp-overlay" onClick={() => setPinResetConfirm(null)}>
           <div className="cp-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>

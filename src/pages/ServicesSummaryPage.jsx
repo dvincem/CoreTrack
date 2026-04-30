@@ -27,6 +27,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
   const historyWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const [histStartDate, setHistStartDate] = React.useState(historyWeekAgo)
   const [histEndDate, setHistEndDate] = React.useState(today())
+  const [histType, setHistType] = React.useState('all')
   const [staffMap, setStaffMap] = React.useState({})
   const PAGE_SIZE = 10
   const [saleModal, setSaleModal] = React.useState(null)
@@ -40,9 +41,9 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
   } = usePaginatedResource({
     url: `${API_URL}/services-history/${shopId}`,
     perPage: PAGE_SIZE,
-    extraParams: { startDate: histStartDate, endDate: histEndDate },
+    extraParams: { startDate: histStartDate, endDate: histEndDate, type: histType },
     enabled: !!shopId,
-    deps: [shopId, histStartDate, histEndDate],
+    deps: [shopId, histStartDate, histEndDate, histType],
   })
   const serverTotalRevenue = histStats?.totalRevenue || 0
   const [expandedRows, setExpandedRows] = React.useState(new Set())
@@ -59,8 +60,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
     if (key === 'today') { from = t }
     else if (key === '7d') { d.setDate(d.getDate() - 6); from = d.toISOString().split('T')[0] }
     else if (key === '30d') { d.setDate(d.getDate() - 29); from = d.toISOString().split('T')[0] }
-    else if (key === 'wk') { const day = d.getDay(); d.setDate(d.getDate() - day); from = d.toISOString().split('T')[0] }
-    else if (key === 'mo') { from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` }
+    else if (key === '3m') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
+    else if (key === '6m') { d.setMonth(d.getMonth() - 6); from = d.toISOString().split('T')[0] }
     else if (key === 'yr') { from = `${d.getFullYear()}-01-01` }
     setStartDate(from)
     setEndDate(t)
@@ -154,8 +155,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                 { value: 'today', label: 'Today', active: activeRange === 'today' },
                 { value: '7d', label: '7 Days', active: activeRange === '7d' },
                 { value: '30d', label: '30 Days', active: activeRange === '30d' },
-                { value: 'wk', label: 'This Wk', active: activeRange === 'wk' },
-                { value: 'mo', label: 'This Mo', active: activeRange === 'mo' },
+                { value: '3m', label: '3 Months', active: activeRange === '3m' },
+                { value: '6m', label: '6 Months', active: activeRange === '6m' },
                 { value: 'yr', label: 'This Yr', active: activeRange === 'yr' },
               ]}
               onFilterChange={applyRange}
@@ -480,6 +481,12 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                   <input className="fh-date" type="date" value={histEndDate} onChange={e => setHistEndDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
                 </div>
               }
+              filters={[
+                { value: 'all', label: 'All', active: histType === 'all' },
+                { value: 'service', label: 'Services', active: histType === 'service' },
+                { value: 'commission', label: 'Commissions', active: histType === 'commission' },
+              ]}
+              onFilterChange={setHistType}
               accentColor="var(--th-orange)"
             />
           </div>
@@ -532,7 +539,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                   return names.length > 0 ? names.map((n, i) => <span key={i} className="sh-tireman-pill">{n}</span>) : <span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem' }}>—</span>
                 }
               },
-              { key: 'amount', label: 'Amount', align: 'right', render: r => <div className="sh-amount">{fmt(r.total_amount)}</div> },
+              { key: 'amount', label: 'Service Amt', align: 'right', render: r => <div className="sh-amount">{fmt(r.total_amount)}</div> },
+              { key: 'commission', label: 'Commission', align: 'right', render: r => <div className="sh-amount" style={{ color: 'var(--th-emerald)' }}>{fmt(r.total_commission)}</div> },
               { key: 'notes', label: 'Notes', render: r => r.sale_notes ? <div className="sh-notes">{r.sale_notes}</div> : <span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem' }}>—</span> },
             ]}
           />
@@ -583,8 +591,12 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                       <div className="inv-hist-stat-val" style={{ fontSize: '0.9rem', color: 'var(--th-text-primary)' }}>{services.length || '—'}</div>
                     </div>
                     <div className="inv-hist-stat">
-                      <div className="inv-hist-stat-label">Total</div>
-                      <div className="inv-hist-stat-val" style={{ color: 'var(--th-emerald)' }}>{fmt(r.total_amount)}</div>
+                      <div className="inv-hist-stat-label">Service Total</div>
+                      <div className="inv-hist-stat-val" style={{ color: 'var(--th-sky)' }}>{fmt(r.total_amount)}</div>
+                    </div>
+                    <div className="inv-hist-stat">
+                      <div className="inv-hist-stat-label">Commission</div>
+                      <div className="inv-hist-stat-val" style={{ color: 'var(--th-emerald)' }}>{fmt(r.total_commission)}</div>
                     </div>
                   </div>
                 </div>
