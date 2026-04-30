@@ -427,7 +427,7 @@ function SuppliersPage({ shopId }) {
               </div>
               <div className="supp-modal-actions">
                 <button className="supp-modal-cancel" onClick={() => setRemoveTarget(null)}>Cancel</button>
-                <button className="supp-modal-ok danger" onClick={handleRemove} disabled={removeSaving}>{removeSaving ? 'Removing…' : 'Remove'}</button>
+                <button className="supp-modal-ok sp-danger" onClick={handleRemove} disabled={removeSaving}>{removeSaving ? 'Removing…' : 'Remove'}</button>
               </div>
             </div>
           </div>
@@ -624,7 +624,7 @@ function SuppliersPage({ shopId }) {
               </div>
               <div className="supp-modal-actions">
                 <button className="supp-modal-cancel" onClick={() => setDeleteBrand(null)}>Cancel</button>
-                <button className="supp-modal-ok danger" onClick={confirmDeleteBrand}>Remove</button>
+                <button className="supp-modal-ok sp-danger" onClick={confirmDeleteBrand}>Remove</button>
               </div>
             </div>
           </div>

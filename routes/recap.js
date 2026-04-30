@@ -187,7 +187,7 @@ router.post("/recap-jobs", async (req, res) => {
   db.run(
     `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, is_active, dot_number, parent_item_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [item_id, auto_sku, item_name, "RECAP", brand.trim(), design ? design.trim() : null, size.trim(), rim_size, totalCost, finalSellingPrice, item_active, dot_number || null, source_item_id || null],
+    [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, size.trim(), rim_size, totalCost, finalSellingPrice, item_active, dot_number || null, source_item_id || null],
     function (err) {
       if (err) return res.status(500).json({ error: "Failed to register recap tire in item master: " + err.message });
       db.run(

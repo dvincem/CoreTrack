@@ -14,14 +14,13 @@ const storage = multer.diskStorage({
     cb(null, LOGOS_DIR);
   },
   filename: (req, file, cb) => {
-    // Sanitize brand name for filesystem safety. 
+    // Sanitize brand name for filesystem safety.
     // Note: brand should be in req.body because we send it before 'logo' in FormData
-    const brand = (req.body.brand || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const brand = (req.body.brand || 'unknown').toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_');
     const ext = path.extname(file.originalname).toLowerCase() || '.png';
     const timestamp = Date.now();
     cb(null, `brand_${brand}_${timestamp}${ext}`);
-  },
-});
+  },});
 
 const upload = multer({
   storage,
@@ -89,7 +88,7 @@ router.get('/brand-assets', async (req, res) => {
 // Handles logo file upload and upserts brand_assets
 router.post('/brands/upload-logo', upload.single('logo'), async (req, res) => {
   try {
-    const { brand } = req.body;
+    const brand = req.body.brand ? req.body.brand.toUpperCase() : null;
     if (!brand) return res.status(400).json({ error: 'Brand name is required' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -123,7 +122,7 @@ router.post('/brands/upload-logo', upload.single('logo'), async (req, res) => {
 // Removes a brand logo
 router.delete('/brands/logo', async (req, res) => {
   try {
-    const { brand } = req.query;
+    const brand = req.query.brand ? req.query.brand.toUpperCase() : null;
     if (!brand) return res.status(400).json({ error: 'Brand name is required' });
 
     const existing = await dbGet(`SELECT logo_url FROM brand_assets WHERE brand_name = ?`, [brand]);

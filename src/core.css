@@ -1300,6 +1300,11 @@ textarea {
   border-color: var(--th-rose, #f43f5e) !important;
 }
 
+/* Fix "ghost css": Solid modal action buttons should not inherit the red text */
+button.danger {
+  color: #ffffff !important;
+}
+
 .dim {
   opacity: 0.55;
 }

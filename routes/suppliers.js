@@ -146,4 +146,13 @@ router.delete("/supplier-brands/:brand_id", (req, res) => {
   });
 });
 
+router.delete("/suppliers/:supplier_id", (req, res) => {
+  const { supplier_id } = req.params;
+  db.run(`UPDATE supplier_master SET active_status = 0 WHERE supplier_id = ?`, [supplier_id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: "Supplier not found" });
+    res.json({ message: "Supplier deleted successfully" });
+  });
+});
+
 module.exports = router;

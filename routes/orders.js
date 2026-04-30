@@ -28,11 +28,13 @@ router.post("/orders", (req, res) => {
     for (const ni of new_items) {
       const item_id = `ITEM-NEW-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
       const sku = buildSku(ni);
-      const item_name = [ni.brand, ni.design, ni.size].filter(Boolean).join(' ');
+      const upperBrand = ni.brand ? ni.brand.toUpperCase() : null;
+      const upperDesign = ni.design ? ni.design.toUpperCase() : null;
+      const item_name = [upperBrand, upperDesign, ni.size].filter(Boolean).join(' ');
       db.run(
         `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, unit_cost, selling_price, supplier_id, reorder_point, is_active, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
-        [item_id, sku, item_name, ni.category || 'MISC', ni.brand || null, ni.design || null, ni.size || null,
+        [item_id, sku, item_name, ni.category || 'MISC', upperBrand, upperDesign, ni.size || null,
          parseFloat(ni.unit_cost) || 0, parseFloat(ni.selling_price) || 0, ni.supplier_id || null,
          parseInt(ni.reorder_point) || 0],
         function(err) {

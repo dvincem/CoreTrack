@@ -418,8 +418,9 @@ table.supp-table {
   color: #fff;
 }
 
-.supp-modal-ok.danger {
-  background: var(--th-rose);
+.supp-modal-ok.sp-danger {
+  background: var(--th-rose) !important;
+  color: #ffffff !important;
 }
 
 .supp-modal-ok:disabled {

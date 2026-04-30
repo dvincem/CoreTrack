@@ -207,10 +207,12 @@ router.post("/purchases/:shop_id", async (req, res) => {
             } else {
               const item_id = `ITM-${uuidv4().split("-")[0].toUpperCase()}`;
               const sku = item.sku || `SKU-${uuidv4().split("-")[0].toUpperCase()}`;
+              const upperBrand = item.brand ? item.brand.toUpperCase() : null;
+              const upperDesign = item.design ? item.design.toUpperCase() : null;
               db.run(
                 `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, dot_number, is_active, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-                [item_id, sku, item.item_name, cat, item.brand || null, item.design || null, item.size || null, item.rim_size || null, cost, sellPrice, item.dot_number || null, now],
+                [item_id, sku, item.item_name, cat, upperBrand, upperDesign, item.size || null, item.rim_size || null, cost, sellPrice, item.dot_number || null, now],
                 (err2) => {
                   if (err2) doInsertItem(null);
                   else doInsertItem(item_id);
@@ -341,11 +343,13 @@ router.put("/purchase-items/:purchase_item_id", (req, res) => {
               const qtyDelta = newQty - oldItem.quantity;
               
               // Update item_master
+              const upperBrand = brand ? brand.toUpperCase() : null;
+              const upperDesign = design ? design.toUpperCase() : null;
               db.run(
                 `UPDATE item_master
                  SET item_name = ?, category = ?, brand = ?, design = ?, size = ?, unit_cost = ?, selling_price = ?, dot_number = ?
                  WHERE item_id = ?`,
-                [item_name, category, brand || null, design || null, size || null, newCost, newSelling, dot_number || null, oldItem.item_master_id]
+                [item_name, category, upperBrand, upperDesign, size || null, newCost, newSelling, dot_number || null, oldItem.item_master_id]
               );
 
               // Add adjustment to ledger if qty changed

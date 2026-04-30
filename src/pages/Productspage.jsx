@@ -129,6 +129,8 @@ function Productspage({ shopId }) {
 
   // Form state
   const [formOpen, setFormOpen] = React.useState(false);
+  const [assignSupplierId, setAssignSupplierId] = React.useState("");
+  const [assigningSupplier, setAssigningSupplier] = React.useState(false);
   const [itemsToAdd, setItemsToAdd] = React.useState([
     {
       id: Date.now() + Math.random(),
@@ -552,6 +554,37 @@ function Productspage({ shopId }) {
       setPriceHistory([]);
     }
     setPriceHistLoading(false);
+  }
+
+  async function handleAssignSupplier() {
+    if (!assignSupplierId) {
+      toast("Please select a supplier.", "error");
+      return;
+    }
+    setAssigningSupplier(true);
+    try {
+      const res = await apiFetch(`${API_URL}/items/${selected.item_id}/supplier`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supplier_id: assignSupplierId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to assign supplier");
+      
+      // Update local state
+      const updatedSupplier = suppliers.find(s => s.supplier_id === assignSupplierId);
+      const updatedItem = { ...selected, supplier_id: assignSupplierId, supplier_name: updatedSupplier ? updatedSupplier.supplier_name : "" };
+      setSelected(updatedItem);
+      
+      setItems(prev => prev.map(i => i.item_id === selected.item_id ? updatedItem : i));
+      
+      toast("Supplier assigned successfully", "success");
+      setAssignSupplierId(""); // reset
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setAssigningSupplier(false);
+    }
   }
 
   function handleAdjust() {
@@ -1669,6 +1702,48 @@ function Productspage({ shopId }) {
                 >
                   Archive this item (stock is 0)
                 </button>
+              </div>
+            )}
+            {!selected.supplier_id && (
+              <div className="prod-adj-wrap" style={{ borderBottom: "1px solid var(--th-border)" }}>
+                <div className="th-section-label" style={{ color: "var(--th-orange)" }}>Assign Supplier</div>
+                <div className="prod-adj-row">
+                  <select
+                    className="prod-adj-input"
+                    value={assignSupplierId}
+                    onChange={(e) => setAssignSupplierId(e.target.value)}
+                  >
+                    <option value="">— Select Supplier —</option>
+                    {(() => {
+                      const filtered = suppliers.filter(s => {
+                        if (!s.supplier_brands || s.supplier_brands.length === 0) return false;
+                        return s.supplier_brands.some(b => {
+                          const bName = b.brand_name.toUpperCase();
+                          const matchesBrandProp = selected.brand && selected.brand.toUpperCase() === bName;
+                          const matchesItemName = selected.item_name && selected.item_name.toUpperCase().includes(bName);
+                          return matchesBrandProp || matchesItemName;
+                        });
+                      });
+
+                      const brandDisplay = selected.brand || (selected.item_name ? selected.item_name.split(' ')[0] : 'this item');
+
+                      if (filtered.length === 0) {
+                        return <option value="" disabled>No supplier carries {brandDisplay}</option>;
+                      }
+                      return filtered.map(s => (
+                        <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>
+                      ));
+                    })()}
+                  </select>
+                  <button
+                    className="prod-btn-primary"
+                    style={{ fontSize: "0.82rem", padding: "0.45rem 0.85rem", whiteSpace: "nowrap" }}
+                    onClick={handleAssignSupplier}
+                    disabled={assigningSupplier || !assignSupplierId}
+                  >
+                    {assigningSupplier ? "…" : "Assign"}
+                  </button>
+                </div>
               </div>
             )}
             <div className="prod-adj-wrap">

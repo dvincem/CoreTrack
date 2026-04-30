@@ -361,7 +361,8 @@ table.cp-table {
 }
 
 .cp-modal-ok.danger {
-  background: var(--th-rose);
+  background: var(--th-rose) !important;
+  color: #fff !important;
 }
 
 .cp-modal-ok:disabled {

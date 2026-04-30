@@ -175,10 +175,12 @@ router.post("/items", (req, res) => {
   const cost = parseFloat(unit_cost);
   const price = parseFloat(selling_price);
   const dot = (dot_number || "").toString().trim() || null;
+  const upperBrand = brand ? brand.toUpperCase() : null;
+  const upperDesign = design ? design.toUpperCase() : null;
   db.run(
     `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-    [item_id, sku, item_name, category, brand || null, design || null, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
+    [item_id, sku, item_name, category, upperBrand, upperDesign, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
     function (err) {
       if (err) return res.status(400).json({ error: err.message });
       logPriceHistory(item_id, 'SELLING_PRICE', null, price, null, 'Item created');
@@ -228,11 +230,13 @@ router.post("/items-bulk", async (req, res) => {
       const cost = parseFloat(unit_cost);
       const price = parseFloat(selling_price);
       const dot = (dot_number || "").toString().trim() || null;
+      const upperBrand = brand ? brand.toUpperCase() : null;
+      const upperDesign = design ? design.toUpperCase() : null;
 
       db.run(
         `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [item_id, sku, item_name, category, brand || null, design || null, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
+        [item_id, sku, item_name, category, upperBrand, upperDesign, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
         function (err) {
           if (err) {
             errors.push({ index, error: err.message });
@@ -309,6 +313,26 @@ router.put("/items/:item_id/unit-cost", (req, res) => {
         logPriceHistory(item_id, 'SELLING_PRICE', row.selling_price, newPrice, changed_by || null, null, ts);
       }
       res.json({ item_id, unit_cost: newCost, selling_price: newPrice, message: "Unit cost updated successfully" });
+    });
+  });
+});
+
+router.put("/items/:item_id/supplier", (req, res) => {
+  const { item_id } = req.params;
+  const { supplier_id } = req.body;
+  if (!supplier_id) {
+    return res.status(400).json({ error: "Supplier ID is required" });
+  }
+  db.run(`UPDATE item_master SET supplier_id = ? WHERE item_id = ?`, [supplier_id, item_id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    // Join to get supplier name to return
+    db.get(`SELECT supplier_name FROM supplier_master WHERE supplier_id = ?`, [supplier_id], (err2, row) => {
+      res.json({ 
+        item_id, 
+        supplier_id, 
+        supplier_name: row ? row.supplier_name : null,
+        message: "Supplier updated successfully" 
+      });
     });
   });
 });
