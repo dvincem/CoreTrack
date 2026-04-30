@@ -131,7 +131,7 @@ function Productspage({ shopId }) {
   const [formOpen, setFormOpen] = React.useState(false);
   const [assignSupplierId, setAssignSupplierId] = React.useState("");
   const [assigningSupplier, setAssigningSupplier] = React.useState(false);
-  
+
   // Detail editing state
   const [detailForm, setDetailForm] = React.useState({
     category: "",
@@ -157,7 +157,7 @@ function Productspage({ shopId }) {
       unit_cost: "",
       selling_price: "",
       quantity: "",
-      reorder_point: "2",
+      reorder_point: "5",
       supplier_id: "",
     }
   ]);
@@ -206,9 +206,10 @@ function Productspage({ shopId }) {
         (() => {
           try {
             return localStorage.getItem("th-theme") || "light";
-            } catch {
+          } catch {
             return "light";
-            }        })(),
+          }
+        })(),
       );
     }
     const obs = new MutationObserver(() => forceUpdate());
@@ -224,9 +225,9 @@ function Productspage({ shopId }) {
 
   async function fetchDbSuggestions() {
     try {
-      apiFetch(`${API_URL}/item-brands/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbBrands(d)).catch(() => {});
-      apiFetch(`${API_URL}/item-designs/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbDesigns(d)).catch(() => {});
-      apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => {});
+      apiFetch(`${API_URL}/item-brands/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbBrands(d)).catch(() => { });
+      apiFetch(`${API_URL}/item-designs/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbDesigns(d)).catch(() => { });
+      apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => { });
     } catch { }
   }
 
@@ -329,7 +330,7 @@ function Productspage({ shopId }) {
       unit_cost: "",
       selling_price: "",
       quantity: "",
-      reorder_point: "2",
+      reorder_point: "5",
       supplier_id: "",
     }]);
   }
@@ -390,7 +391,7 @@ function Productspage({ shopId }) {
         unit_cost: "",
         selling_price: "",
         quantity: "",
-        reorder_point: "2",
+        reorder_point: "5",
         supplier_id: "",
       }
     ]);
@@ -447,7 +448,7 @@ function Productspage({ shopId }) {
         rim_size: isTire ? extractRimSize(item.size) : (item.rim_size ? parseFloat(item.rim_size) : null),
         unit_cost: parseFloat(item.unit_cost),
         selling_price: parseFloat(item.selling_price),
-        reorder_point: parseInt(item.reorder_point) || 2,
+        reorder_point: parseInt(item.reorder_point) || 5,
         dot_number: item.dot_number?.trim() || null,
       });
     }
@@ -489,7 +490,7 @@ function Productspage({ shopId }) {
             unit_cost: "",
             selling_price: "",
             quantity: "",
-            reorder_point: "2",
+            reorder_point: "5",
             supplier_id: "",
           }
         ]);
@@ -633,14 +634,14 @@ function Productspage({ shopId }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to assign supplier");
-      
+
       // Update local state
       const updatedSupplier = suppliers.find(s => s.supplier_id === assignSupplierId);
       const updatedItem = { ...selected, supplier_id: assignSupplierId, supplier_name: updatedSupplier ? updatedSupplier.supplier_name : "" };
       setSelected(updatedItem);
-      
+
       setItems(prev => prev.map(i => i.item_id === selected.item_id ? updatedItem : i));
-      
+
       toast("Supplier assigned successfully", "success");
       setAssignSupplierId(""); // reset
     } catch (err) {
@@ -1071,10 +1072,10 @@ function Productspage({ shopId }) {
         {/* Add Product Modal */}
         {formOpen && (
           <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setFormOpen(false)}>
-            <div className="confirm-box" style={{ maxWidth: "600px", width: "95vw", padding: "1rem" }}>
+            <div className="confirm-box" style={{ maxWidth: "1100px", width: "95vw", padding: "1.2rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: "1.5rem", color: "var(--th-text-heading)" }}>Add Product/s</h2>
+                <div class="pur-modal-title">
+                  <h2>Add Product/s</h2>
                 </div>
                 <button className="pos-modal-close" onClick={() => setFormOpen(false)}>✕</button>
               </div>
@@ -1164,16 +1165,20 @@ function Productspage({ shopId }) {
                           📦 Other
                         </button>
                       </div>
+
+                      <div style={{ marginLeft: "auto", fontSize: "0.7rem", opacity: 0.7, fontFamily: "'Barlow Condensed', sans-serif" }}>
+                        SKU: <span style={{ color: "var(--th-orange)", fontWeight: 700, letterSpacing: "0.03em" }}>{item.sku || "..."}</span>
+                      </div>
                     </div>
 
                     {/* Fields Grid */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: ".5rem" }}>
+                    <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-start", flexWrap: "wrap", overflowX: "auto", paddingBottom: "0.5rem" }}>
                       {item.itemType === "TIRE" ? (
                         <>
-                          <div style={{ position: 'relative' }}>
+                          <div style={{ position: 'relative', flex: "1.5", minWidth: "100px" }}>
                             <label className="prod-label">Brand *</label>
-                            <input className="prod-input" placeholder="Bridgestone" value={item.brand} 
-                              onChange={e => updateItemToAdd(idx, "brand", e.target.value)} 
+                            <input className="prod-input" placeholder="Bridgestone" value={item.brand}
+                              onChange={e => updateItemToAdd(idx, "brand", e.target.value)}
                               onFocus={() => setActiveSug({ idx, field: 'brand' })}
                               onBlur={() => setTimeout(() => setActiveSug(null), 200)}
                             />
@@ -1208,10 +1213,10 @@ function Productspage({ shopId }) {
                               </div>
                             )}
                           </div>
-                          <div style={{ position: 'relative' }}>
+                          <div style={{ position: 'relative', flex: "1.2", minWidth: "90px" }}>
                             <label className="prod-label">Design *</label>
-                            <input className="prod-input" placeholder="Turanza" value={item.design} 
-                              onChange={e => updateItemToAdd(idx, "design", e.target.value)} 
+                            <input className="prod-input" placeholder="Turanza" value={item.design}
+                              onChange={e => updateItemToAdd(idx, "design", e.target.value)}
                               onFocus={() => setActiveSug({ idx, field: 'design' })}
                               onBlur={() => setTimeout(() => setActiveSug(null), 200)}
                             />
@@ -1234,10 +1239,10 @@ function Productspage({ shopId }) {
                               </div>
                             )}
                           </div>
-                          <div style={{ position: 'relative' }}>
+                          <div style={{ position: 'relative', flex: "1.2", minWidth: "90px" }}>
                             <label className="prod-label">Size *</label>
-                            <input className="prod-input" placeholder="205/55R16" value={item.size} 
-                              onChange={e => updateItemToAdd(idx, "size", e.target.value)} 
+                            <input className="prod-input" placeholder="205/55R16" value={item.size}
+                              onChange={e => updateItemToAdd(idx, "size", e.target.value)}
                               onFocus={() => setActiveSug({ idx, field: 'size' })}
                               onBlur={() => setTimeout(() => setActiveSug(null), 200)}
                             />
@@ -1249,19 +1254,19 @@ function Productspage({ shopId }) {
                               </div>
                             )}
                           </div>
-                          <div>
+                          <div style={{ flex: "0.8", minWidth: "90px" }}>
                             <label className="prod-label" style={{ color: "var(--th-amber)" }}>DOT / Year *</label>
                             <input className="prod-input" placeholder="2025" value={item.dot_number} onChange={e => updateItemToAdd(idx, "dot_number", e.target.value)} />
                           </div>
                         </>
                       ) : (
-                        <div style={{ gridColumn: "span 2" }}>
+                        <div style={{ flex: "2", minWidth: "150px" }}>
                           <label className="prod-label">Item Name *</label>
                           <input className="prod-input" placeholder="Battery 12V 70Ah" value={item.item_name} onChange={e => updateItemToAdd(idx, "item_name", e.target.value)} />
                         </div>
                       )}
 
-                      <div>
+                      <div style={{ flex: "1", minWidth: "100px" }}>
                         <label className="prod-label">Category *</label>
                         <select
                           className="prod-input"
@@ -1293,24 +1298,24 @@ function Productspage({ shopId }) {
                         </select>
                       </div>
 
-                      <div>
+                      <div style={{ flex: "0.8", minWidth: "80px" }}>
                         <label className="prod-label">Cost *</label>
                         <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.unit_cost} onChange={e => updateItemToAdd(idx, "unit_cost", e.target.value)} />
                       </div>
-                      <div>
+                      <div style={{ flex: "0.8", minWidth: "80px" }}>
                         <label className="prod-label">Price *</label>
                         <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.selling_price} onChange={e => updateItemToAdd(idx, "selling_price", e.target.value)} />
                       </div>
 
-                      <div>
+                      <div style={{ flex: "0.6", minWidth: "60px" }}>
                         <label className="prod-label">Qty</label>
                         <input className="prod-input" type="number" min="1" placeholder="4" value={item.quantity} onChange={e => updateItemToAdd(idx, "quantity", e.target.value)} />
                       </div>
-                      <div>
+                      <div style={{ flex: "0.6", minWidth: "90px" }}>
                         <label className="prod-label">Reorder Pt.</label>
                         <input className="prod-input" type="number" min="0" value={item.reorder_point} onChange={e => updateItemToAdd(idx, "reorder_point", e.target.value)} />
                       </div>
-                      <div>
+                      <div style={{ flex: "1", minWidth: "110px" }}>
                         <label className="prod-label">Supplier</label>
                         <select className="prod-input" style={{ height: "38px" }} value={item.supplier_id} onChange={e => updateItemToAdd(idx, "supplier_id", e.target.value)}>
                           <option value="">— None —</option>
@@ -1318,9 +1323,7 @@ function Productspage({ shopId }) {
                         </select>
                       </div>
 
-                      <div style={{ gridColumn: "1 / -1" }}>
-                        <label className="prod-label" style={{ fontSize: "0.7rem", opacity: 0.7 }}>Auto-generated SKU: <span style={{ color: "var(--th-orange)", fontWeight: 700 }}>{item.sku || "..."}</span></label>
-                      </div>
+
                     </div>
                   </div>
                 ))}
@@ -1457,7 +1460,6 @@ function Productspage({ shopId }) {
 
         {/* Toolbar */}
         <FilterHeader
-          twoRow
           leftComponent={
             <div className="prod-view-tabs">
               <button
@@ -1834,25 +1836,25 @@ function Productspage({ shopId }) {
                 </button>
               </div>
             )}
-            
+
             {/* Edit Details Section */}
             <div className="prod-adj-wrap" style={{ borderBottom: "1px solid var(--th-border)" }}>
-              <div 
-                className="th-section-label" 
+              <div
+                className="th-section-label"
                 style={{ color: "var(--th-sky)", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
                 onClick={() => setDetailsVisible(!detailsVisible)}
               >
                 Edit Item Details
                 <span>{detailsVisible ? "▲" : "▼"}</span>
               </div>
-              
+
               {detailsVisible && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
                       <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Category</label>
-                      <select 
-                        className="prod-adj-input" 
+                      <select
+                        className="prod-adj-input"
                         value={detailForm.category}
                         onChange={e => setDetailForm({ ...detailForm, category: e.target.value })}
                         style={{ width: "100%" }}
@@ -1864,9 +1866,9 @@ function Productspage({ shopId }) {
                     </div>
                     <div style={{ position: 'relative' }}>
                       <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Size</label>
-                      <input 
-                        className="prod-adj-input" 
-                        type="text" 
+                      <input
+                        className="prod-adj-input"
+                        type="text"
                         placeholder="Size"
                         value={detailForm.size}
                         onChange={e => setDetailForm({ ...detailForm, size: e.target.value })}
@@ -1883,50 +1885,50 @@ function Productspage({ shopId }) {
                       )}
                     </div>
                   </div>
-                    <div style={{ position: 'relative' }}>
-                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Brand</label>
-                      <input 
-                        className="prod-adj-input" 
-                        type="text" 
-                        placeholder="Brand"
-                        value={detailForm.brand}
-                        onChange={e => setDetailForm({ ...detailForm, brand: e.target.value.toUpperCase() })}
-                        style={{ width: "100%" }}
-                        onFocus={() => setActiveSug({ idx: -1, field: 'brand' })}
-                        onBlur={() => setTimeout(() => setActiveSug(null), 200)}
-                      />
-                      {activeSug?.idx === -1 && activeSug?.field === 'brand' && detailForm.brand && (
-                        <div className="prod-sug-drop" style={{ width: '100%' }}>
-                          {dbBrands.filter(b => b.toLowerCase().includes(detailForm.brand.toLowerCase())).slice(0, 8).map(b => (
-                            <div key={b} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, brand: b })}>{b}</div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ position: 'relative' }}>
-                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Design</label>
-                      <input 
-                        className="prod-adj-input" 
-                        type="text" 
-                        placeholder="Design"
-                        value={detailForm.design}
-                        onChange={e => setDetailForm({ ...detailForm, design: e.target.value.toUpperCase() })}
-                        style={{ width: "100%" }}
-                        onFocus={() => setActiveSug({ idx: -1, field: 'design' })}
-                        onBlur={() => setTimeout(() => setActiveSug(null), 200)}
-                      />
-                      {activeSug?.idx === -1 && activeSug?.field === 'design' && detailForm.design && (
-                        <div className="prod-sug-drop" style={{ width: '100%' }}>
-                          {dbDesigns.filter(d => {
-                            const m = d.design.toLowerCase().includes(detailForm.design.toLowerCase());
-                            const b = detailForm.brand ? d.brand?.toLowerCase() === detailForm.brand.toLowerCase() : true;
-                            return m && b;
-                          }).slice(0, 8).map(d => (
-                            <div key={d.design} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, design: d.design })}>{d.design}</div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  <div style={{ position: 'relative' }}>
+                    <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Brand</label>
+                    <input
+                      className="prod-adj-input"
+                      type="text"
+                      placeholder="Brand"
+                      value={detailForm.brand}
+                      onChange={e => setDetailForm({ ...detailForm, brand: e.target.value.toUpperCase() })}
+                      style={{ width: "100%" }}
+                      onFocus={() => setActiveSug({ idx: -1, field: 'brand' })}
+                      onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                    />
+                    {activeSug?.idx === -1 && activeSug?.field === 'brand' && detailForm.brand && (
+                      <div className="prod-sug-drop" style={{ width: '100%' }}>
+                        {dbBrands.filter(b => b.toLowerCase().includes(detailForm.brand.toLowerCase())).slice(0, 8).map(b => (
+                          <div key={b} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, brand: b })}>{b}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Design</label>
+                    <input
+                      className="prod-adj-input"
+                      type="text"
+                      placeholder="Design"
+                      value={detailForm.design}
+                      onChange={e => setDetailForm({ ...detailForm, design: e.target.value.toUpperCase() })}
+                      style={{ width: "100%" }}
+                      onFocus={() => setActiveSug({ idx: -1, field: 'design' })}
+                      onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                    />
+                    {activeSug?.idx === -1 && activeSug?.field === 'design' && detailForm.design && (
+                      <div className="prod-sug-drop" style={{ width: '100%' }}>
+                        {dbDesigns.filter(d => {
+                          const m = d.design.toLowerCase().includes(detailForm.design.toLowerCase());
+                          const b = detailForm.brand ? d.brand?.toLowerCase() === detailForm.brand.toLowerCase() : true;
+                          return m && b;
+                        }).slice(0, 8).map(d => (
+                          <div key={d.design} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, design: d.design })}>{d.design}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     className="prod-btn-primary"
                     style={{ fontSize: "0.82rem", padding: "0.5rem", background: "var(--th-sky)" }}

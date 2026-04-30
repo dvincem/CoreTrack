@@ -1180,7 +1180,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
 
           {/* Search + filters consolidated via FilterHeader */}
           <FilterHeader
-            twoRow
             searchProps={{
               value: searchQuery,
               onChange: setSearchQuery,
@@ -1353,13 +1352,13 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                         <button type="button" onClick={() => setCasings(p => p.filter((_, idx) => idx !== i))}
                           style={{ position: 'absolute', top: '0.45rem', right: '0.5rem', background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', lineHeight: 1 }}>✕</button>
                       )}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                        <div>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'nowrap', alignItems: 'flex-end', overflowX: 'auto', paddingBottom: '0.4rem' }}>
+                        <div style={{ flex: '1.2 1 120px', minWidth: '100px' }}>
                           <label className="rc-form-label">Brand *</label>
                           <input className="rc-input" placeholder="e.g., Goodyear" value={c.brand}
                             onChange={e => updateCasing(i, { brand: e.target.value })} />
                         </div>
-                        <div>
+                        <div style={{ flex: '1 1 110px', minWidth: '90px' }}>
                           <label className="rc-form-label">Recap Type</label>
                           <select className="rc-input" value={c.design} onChange={e => updateCasing(i, { design: e.target.value })}>
                             <option value="">— Type —</option>
@@ -1368,7 +1367,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                             <option value="Cold Process">Cold Process</option>
                           </select>
                         </div>
-                        <div>
+                        <div style={{ flex: '1 1 110px', minWidth: '90px' }}>
                           <label className="rc-form-label">Size *</label>
                           <input 
                             list={`recap-sizes-${i}`}
@@ -1381,20 +1380,20 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                             {RECAP_SIZES.map(s => <option key={s} value={s} />)}
                           </datalist>
                         </div>
-                        <div>
-                          <label className="rc-form-label" style={{ color: 'var(--th-amber)' }}>DOT * <span style={{ textTransform: 'none', color: 'var(--th-text-faint)', fontWeight: 400, fontSize: '0.72rem' }}>(4 digits)</span></label>
-                          <input className="rc-input" inputMode="numeric" maxLength={4} placeholder="e.g., 2425"
+                        <div style={{ flex: '0.8 1 80px', minWidth: '70px' }}>
+                          <label className="rc-form-label" style={{ color: 'var(--th-amber)' }}>DOT *</label>
+                          <input className="rc-input" inputMode="numeric" maxLength={4} placeholder="2425"
                             value={c.dot_number} onChange={e => updateCasing(i, { dot_number: e.target.value.replace(/\D/g, '').slice(0, 4) })}
                             style={c.dot_number.length === 4 ? {} : { borderColor: 'var(--th-rose)' }} />
                         </div>
-                        <div>
-                          <label className="rc-form-label">Recap Cost (₱)</label>
-                          <input className="rc-input" type="number" step="0.01" placeholder="e.g., 1500.00"
+                        <div style={{ flex: '1 1 100px', minWidth: '80px' }}>
+                          <label className="rc-form-label">Cost (₱)</label>
+                          <input className="rc-input" type="number" step="0.01" placeholder="0.00"
                             value={c.recap_cost} onChange={e => updateCasing(i, { recap_cost: e.target.value })} />
                         </div>
-                        <div>
-                          <label className="rc-form-label">Selling Price (₱)</label>
-                          <input className="rc-input" type="number" step="0.01" placeholder="e.g., 4500.00"
+                        <div style={{ flex: '1 1 100px', minWidth: '80px' }}>
+                          <label className="rc-form-label">Price (₱)</label>
+                          <input className="rc-input" type="number" step="0.01" placeholder="0.00"
                             value={c.expected_selling_price} onChange={e => updateCasing(i, { expected_selling_price: e.target.value })} />
                         </div>
                       </div>

@@ -800,8 +800,6 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                               <label className="pur-label">Category *</label>
                               <CategorySelect value={item.category} onChange={v => updateItemToAdd(idx, 'category', v)} options={otherCats} setOptions={setOtherCats} storageKey={LS_KEYS.other} />
                             </div>
-                          </div>
-                          <div className="pur-row">
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Cost *</label>
                               <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />

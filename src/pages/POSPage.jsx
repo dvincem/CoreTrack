@@ -915,15 +915,15 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
           {showMiscModal && (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}
               onClick={e => { if (e.target === e.currentTarget) setShowMiscModal(false); }}>
-              <div style={{ background: "var(--th-bg-card)", border: "1px solid var(--th-border-strong)", borderRadius: 14, width: 360, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+              <div style={{ background: "var(--th-bg-card)", border: "1px solid var(--th-border-strong)", borderRadius: 14, width: 800, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                 <div style={{ padding: "0.9rem 1.1rem 0.7rem", borderBottom: "1px solid var(--th-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: "1.1rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-heading)" }}>
                     Custom / Misc Item
                   </span>
                   <button onClick={() => setShowMiscModal(false)} style={{ background: "none", border: "none", color: "var(--th-text-faint)", fontSize: "1.3rem", cursor: "pointer", lineHeight: 1 }}>×</button>
                 </div>
-                <div style={{ padding: "0.9rem 1.1rem", display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                  <div>
+                <div style={{ padding: "0.9rem 1.1rem", display: "flex", flexWrap: "nowrap", gap: "0.5rem", overflowX: "auto", alignItems: "flex-end" }}>
+                  <div style={{ flex: "2 1 180px", minWidth: "150px" }}>
                     <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Item Name <span style={{ color: "var(--th-rose)" }}>*</span></div>
                     <input
                       autoFocus
@@ -933,66 +933,63 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
                     />
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                    <div>
-                      <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Selling Price <span style={{ color: "var(--th-rose)" }}>*</span></div>
-                      <input
-                        type="number" min="0" step="0.01" placeholder="0.00"
-                        value={miscForm.price}
-                        onChange={e => setMiscForm(f => ({ ...f, price: e.target.value }))}
-                        style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
-                      />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Cost / COGS <span style={{ color: "var(--th-rose)" }}>*</span></div>
-                      <input
-                        type="number" min="0" step="0.01" placeholder="0.00"
-                        value={miscForm.cost}
-                        onChange={e => setMiscForm(f => ({ ...f, cost: e.target.value }))}
-                        style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
-                      />
-                    </div>
+                  <div style={{ flex: "1 1 100px", minWidth: "80px" }}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Price <span style={{ color: "var(--th-rose)" }}>*</span></div>
+                    <input
+                      type="number" min="0" step="0.01" placeholder="0.00"
+                      value={miscForm.price}
+                      onChange={e => setMiscForm(f => ({ ...f, price: e.target.value }))}
+                      style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
+                    />
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                    <div>
-                      <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Quantity</div>
-                      <input
-                        type="number" min="1" step="1"
-                        value={miscForm.qty}
-                        onChange={e => setMiscForm(f => ({ ...f, qty: e.target.value }))}
-                        style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
-                      />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Category <span style={{ color: "var(--th-rose)" }}>*</span></div>
-                      <select
-                        value={miscForm.category}
-                        onChange={e => setMiscForm(f => ({ ...f, category: e.target.value, newCategory: "" }))}
-                        style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: miscForm.category ? "var(--th-text-primary)" : "var(--th-text-faint)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
-                      >
-                        <option value="">MISC</option>
-                        <option value="PCR">PCR</option>
-                        <option value="MOTORCYCLE">MOTORCYCLE</option>
-                        <option value="SUV">SUV</option>
-                        <option value="LT">LT</option>
-                        <option value="TBR">TBR</option>
-                        <option value="RECAP">RECAP</option>
-                        <option value="SEALANT">SEALANT</option>
-                        <option value="TUBE">TUBE</option>
-                        <option value="__new__">+ Add new category…</option>
-                      </select>
-                      {miscForm.category === "__new__" && (
-                        <input
-                          autoFocus
-                          type="text" placeholder="Type category name…"
-                          value={miscForm.newCategory}
-                          onChange={e => setMiscForm(f => ({ ...f, newCategory: e.target.value }))}
-                          style={{ marginTop: "0.35rem", width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-orange)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
-                        />
-                      )}
-                    </div>
+                  <div style={{ flex: "1 1 100px", minWidth: "80px" }}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Cost <span style={{ color: "var(--th-rose)" }}>*</span></div>
+                    <input
+                      type="number" min="0" step="0.01" placeholder="0.00"
+                      value={miscForm.cost}
+                      onChange={e => setMiscForm(f => ({ ...f, cost: e.target.value }))}
+                      style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
+                    />
                   </div>
-                  {miscForm.price && miscForm.cost && parseFloat(miscForm.price) > 0 && (
+                  <div style={{ flex: "0.6 1 70px", minWidth: "60px" }}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Qty</div>
+                    <input
+                      type="number" min="1" step="1"
+                      value={miscForm.qty}
+                      onChange={e => setMiscForm(f => ({ ...f, qty: e.target.value }))}
+                      style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div style={{ flex: "1.2 1 120px", minWidth: "100px" }}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Category <span style={{ color: "var(--th-rose)" }}>*</span></div>
+                    <select
+                      value={miscForm.category}
+                      onChange={e => setMiscForm(f => ({ ...f, category: e.target.value, newCategory: "" }))}
+                      style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: miscForm.category ? "var(--th-text-primary)" : "var(--th-text-faint)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
+                    >
+                      <option value="">MISC</option>
+                      <option value="PCR">PCR</option>
+                      <option value="MOTORCYCLE">MOTORCYCLE</option>
+                      <option value="SUV">SUV</option>
+                      <option value="LT">LT</option>
+                      <option value="TBR">TBR</option>
+                      <option value="RECAP">RECAP</option>
+                      <option value="SEALANT">SEALANT</option>
+                      <option value="TUBE">TUBE</option>
+                      <option value="__new__">+ Add new category…</option>
+                    </select>
+                    {miscForm.category === "__new__" && (
+                      <input
+                        autoFocus
+                        type="text" placeholder="Type category name…"
+                        value={miscForm.newCategory}
+                        onChange={e => setMiscForm(f => ({ ...f, newCategory: e.target.value }))}
+                        style={{ marginTop: "0.35rem", width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-orange)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
+                      />
+                    )}
+                  </div>
+                </div>
+                {miscForm.price && miscForm.cost && parseFloat(miscForm.price) > 0 && (
                     <div style={{ background: "var(--th-emerald-bg)", border: "1px solid var(--th-emerald)", borderRadius: 7, padding: "0.4rem 0.65rem", fontSize: "0.82rem", color: "var(--th-text-muted)" }}>
                       Margin: <strong style={{ color: "var(--th-emerald)", fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.95rem" }}>
                         ₱{((parseFloat(miscForm.price) - parseFloat(miscForm.cost || 0)) * (parseInt(miscForm.qty) || 1)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
@@ -1002,8 +999,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                       </span>
                     </div>
                   )}
-                </div>
-                <div style={{ padding: "0.75rem 1.1rem", borderTop: "1px solid var(--th-border)", display: "flex", gap: "0.6rem" }}>
+                  <div style={{ padding: "0.75rem 1.1rem", borderTop: "1px solid var(--th-border)", display: "flex", gap: "0.6rem" }}>
                   <button onClick={() => setShowMiscModal(false)}
                     style={{ padding: "0.55rem 1rem", borderRadius: 8, background: "var(--th-bg-input)", color: "var(--th-text-muted)", border: "1px solid var(--th-border-strong)", cursor: "pointer", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.88rem", textTransform: "uppercase" }}>
                     Cancel
@@ -1028,7 +1024,6 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
           <div className="pos-search-row">
             <div style={{ flex: 1, minWidth: 0 }}>
               <FilterHeader
-                stacked
                 accentColor="var(--th-orange)"
                 searchProps={{
                   value: search,
