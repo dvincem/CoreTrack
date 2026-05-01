@@ -1,22 +1,11 @@
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const fs = require("fs");
-const XLSX = require("xlsx");
-const { v4: uuidv4 } = require("uuid");
 
 // ─── Connection ───────────────────────────────────────────────────────────────
 const dbPath = path.join(__dirname, "tire_shop.db");
 
-// Only wipe DB if RESET_DB=1 env var is set (e.g. `RESET_DB=1 node server.js`)
-if (process.env.RESET_DB === '1') {
-  try {
-    require("fs").unlinkSync(dbPath);
-    console.log("🗑️  Cleared old database — rebuilding from Excel...");
-  } catch (_) { }
-} else {
-  console.log("♻️  Reusing existing database — data will be preserved.");
-}
-
+// Database connection
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error("Database connection error:", err);
   else console.log("Connected to SQLite database");
@@ -949,78 +938,8 @@ function initializeDatabase() {
   });
 }
 
-// ─── Seed / Data Loading ──────────────────────────────────────────────────────
-async function loadExcelData() {
-  try {
-    const excelPath = path.join(__dirname, "backup.xlsx");
-    if (!fs.existsSync(excelPath)) {
-      console.log("Excel file not found. Database initialized empty.");
-      return;
-    }
-
-    const workbook = XLSX.readFile(excelPath);
-
-    const sheets = [
-      ["SHOP_MASTER", "shop_master"],
-      ["STAFF_MASTER", "staff_master"],
-      ["ITEM_MASTER", "item_master"],
-      ["SERVICES_MASTER", "services_master"],
-      ["CUSTOMER_MASTER", "customer_master"],
-      ["SUPPLIER_MASTER", "supplier_master"],
-      ["COMMISSION_RULES", "commission_rules"],
-      ["STAFF_ATTENDANCE", "staff_attendance"],
-      ["INVENTORY_LEDGER", "inventory_ledger"],
-      ["SALE_HEADER", "sale_header"],
-      ["SALE_ITEMS", "sale_items"],
-      ["SALES_LEDGER", "sales_ledger"],
-      ["RECAP_JOB_MASTER", "recap_job_master"],
-      ["RECAP_JOB_LEDGER", "recap_job_ledger"],
-      ["ACCOUNTS_RECEIVABLE", "accounts_receivable"],
-      ["ACCOUNTS_PAYABLE", "accounts_payable"],
-      ["PAYMENT_LEDGER", "payment_ledger"],
-      ["RECAP_PRICE_DEFAULTS", "recap_price_defaults"],
-    ];
-
-    for (const [sheetName, tableName] of sheets) {
-      if (workbook.SheetNames.includes(sheetName)) {
-        console.log(`Loading ${sheetName}...`);
-        const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-        if (data.length > 0) {
-          console.log(`  Found ${data.length} records`);
-          if (tableName === "item_master") {
-            data.forEach((row) => {
-              if (!row.selling_price) row.selling_price = 6000;
-            });
-          }
-          try {
-            await insertDataToTable(tableName, data);
-          } catch (err) {
-            console.log(`  ⚠️  Warning loading ${sheetName}: ${err.message}`);
-            console.log(`  Continuing with next sheet...`);
-          }
-        } else {
-          console.log(`  No data found in ${sheetName}`);
-        }
-      } else {
-        console.log(`⚠️  Sheet '${sheetName}' not found in Excel`);
-      }
-    }
-
-    await initializeOpeningInventory();
-    await recalculateCurrentStock();
-    await backfillDotNumbers();
-    console.log("Data loaded successfully from Excel");
-  } catch (error) {
-    console.error("Error loading Excel data:", error);
-  }
-}
-
+// ─── Dot Number Backfill Utility ──────────────────────────────────────────────
 async function backfillDotNumbers() {
-  // For any item where dot_number is NULL but the item_name contains a DOT pattern,
-  // extract and save it. Handles:
-  //   "Goodyear Cold Process 825-16 DOT:2419"  → "2419"
-  //   "Bridgestone Turanza 185/70R14 [DOT 2024]" → "2024"
-  //   SKU ending in -DOT2024 with no dot_number → "2024"
   return new Promise((resolve) => {
     db.all(
       `SELECT item_id, item_name, sku FROM item_master WHERE dot_number IS NULL AND is_active IN (0,1)`,
@@ -1032,15 +951,12 @@ async function backfillDotNumbers() {
           const name = row.item_name || "";
           const sku = row.sku || "";
           let dot = null;
-          // "[DOT 2024]" or "[DOT 4521]"
           const bracketMatch = name.match(/\[DOT\s+([^\]]+)\]/i);
           if (bracketMatch) dot = bracketMatch[1].trim();
-          // "DOT:2419" or "DOT:4521"
           if (!dot) {
             const colonMatch = name.match(/DOT[:\s]+([A-Z0-9]{4,})/i);
             if (colonMatch) dot = colonMatch[1].trim();
           }
-          // SKU ends with -DOT2024 etc.
           if (!dot) {
             const skuMatch = sku.match(/-DOT([A-Z0-9]+)$/i);
             if (skuMatch) dot = skuMatch[1].trim();
@@ -1062,162 +978,5 @@ async function backfillDotNumbers() {
   });
 }
 
-async function initializeOpeningInventory() {
-  // Use shared promisified helpers (defined inline here to avoid circular
-  // require since lib/db.js imports Database.js)
-  const dbAll = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || [])))
-    );
-  const dbGet = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)))
-    );
-  const dbRun = (sql, params = []) =>
-    new Promise((resolve, reject) =>
-      db.run(sql, params, (err) => (err ? reject(err) : resolve()))
-    );
-
-  try {
-    const shops = await dbAll(
-      "SELECT shop_id FROM shop_master WHERE is_active = 1",
-    );
-    if (!shops.length) return;
-
-    const items = await dbAll(
-      "SELECT item_id FROM item_master WHERE is_active = 1",
-    );
-    if (!items.length) return;
-
-    const pairs = [];
-    for (const shop of shops)
-      for (const item of items)
-        pairs.push({ shop_id: shop.shop_id, item_id: item.item_id });
-
-    await Promise.all(
-      pairs.map(async ({ shop_id, item_id }) => {
-        const result = await dbGet(
-          "SELECT COUNT(*) as cnt FROM inventory_ledger WHERE shop_id = ? AND item_id = ?",
-          [shop_id, item_id],
-        );
-        if (result && result.cnt === 0) {
-          const inventory_ledger_id = `INIT-${uuidv4()}`;
-          await dbRun(
-            `INSERT INTO inventory_ledger
-              (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, reference_id, created_by, created_at)
-              VALUES (?, ?, ?, 'OPENING', ?, 'INITIAL', 'SYSTEM', CURRENT_TIMESTAMP)`,
-            [inventory_ledger_id, shop_id, item_id, 100],
-          );
-        }
-      }),
-    );
-  } catch (err) {
-    console.error("initializeOpeningInventory error:", err);
-  }
-}
-
-function insertDataToTable(tableName, data) {
-  return new Promise((resolve, reject) => {
-    // First get the actual columns that exist in the table to avoid "no column" errors
-    db.all(`PRAGMA table_info(${tableName})`, [], (pragmaErr, tableInfo) => {
-      const knownColumns = pragmaErr || !tableInfo ? null : new Set(tableInfo.map(c => c.name));
-      if (knownColumns) {
-        data = data.map(row => {
-          const filtered = {};
-          for (const key of Object.keys(row)) {
-            if (knownColumns.has(key)) filtered[key] = row[key];
-          }
-          return filtered;
-        }).filter(row => Object.keys(row).length > 0);
-      }
-      db.serialize(() => {
-        // ── customer_master normalization ───────────────────────────────────────
-        // Inject shop_id when missing and remap legacy column names so that rows
-        // from older Excel exports (which lack shop_id / use different keys) still
-        // load cleanly into the current schema.
-        if (tableName === "customer_master") {
-          const DEFAULT_SHOP_ID = "SHOP-001";
-          data = data.map((row) => {
-            const r = { ...row };
-            // Remap legacy columns → canonical names
-            if (r.is_active !== undefined && r.active_status === undefined) {
-              // no-op: is_active not a column in customer_master schema; drop it
-              delete r.is_active;
-            }
-            if (r.created_by !== undefined) delete r.created_by; // not in schema
-            // Ensure shop_id is present
-            if (!r.shop_id) r.shop_id = DEFAULT_SHOP_ID;
-            // Ensure customer_code mirrors customer_id when absent
-            if (!r.customer_code && r.customer_id)
-              r.customer_code = r.customer_id;
-            return r;
-          });
-        }
-        // ───────────────────────────────────────────────────────────────────────
-
-        // Collect ALL unique keys across ALL rows (not just first row),
-        // so sparse columns like dot_number aren't dropped when the first row lacks them.
-        const allKeys = new Set();
-        for (const row of data) for (const k of Object.keys(row)) allKeys.add(k);
-        const colKeys = Array.from(allKeys);
-        const columns = colKeys.join(", ");
-        const placeholders = colKeys.map(() => "?").join(", ");
-        const query = `INSERT OR REPLACE INTO ${tableName} (${columns}) VALUES (${placeholders})`;
-
-        const stmt = db.prepare(query);
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const row of data) {
-          // Always use colKeys order — missing keys default to null, empty strings → null
-          const vals = colKeys.map(k => {
-            const v = row[k];
-            return (v === undefined || v === null || v === '') ? null : v;
-          });
-          stmt.run(vals, function (err) {
-            if (err) {
-              errorCount++;
-              console.log(`    ⚠️  Row error (skipped): ${err.message}`);
-            } else {
-              successCount++;
-            }
-          });
-        }
-
-        stmt.finalize((err) => {
-          if (errorCount > 0)
-            console.log(
-              `    ℹ️  Inserted ${successCount} rows, skipped ${errorCount} rows with errors`,
-            );
-          resolve();
-        });
-      }); // end db.serialize
-    }); // end db.all PRAGMA
-  });
-}
-
-function recalculateCurrentStock() {
-  return new Promise((resolve, reject) => {
-    db.run("DELETE FROM current_stock");
-    db.all(
-      `SELECT shop_id, item_id, SUM(quantity) as stock
-       FROM inventory_ledger
-       GROUP BY shop_id, item_id`,
-      (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        const stmt = db.prepare(
-          "INSERT INTO current_stock (shop_id, item_id, current_quantity, last_updated) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-        );
-        for (const row of rows || [])
-          stmt.run([row.shop_id, row.item_id, row.stock]);
-        stmt.finalize(resolve);
-      },
-    );
-  });
-}
-
 // ─── Exports ──────────────────────────────────────────────────────────────────
-module.exports = { db, initializeDatabase, loadExcelData };
+module.exports = { db, initializeDatabase, backfillDotNumbers };

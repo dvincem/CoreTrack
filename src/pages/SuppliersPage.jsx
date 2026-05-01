@@ -5,6 +5,7 @@ import Pagination from '../components/Pagination'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
+import DataTable from '../components/DataTable'
 
 
 
@@ -42,6 +43,8 @@ function SuppliersPage({ shopId }) {
   const [detailTab, setDetailTab] = React.useState('brands')
   const [supplierInventory, setSupplierInventory] = React.useState([])
   const [invLoading, setInvLoading] = React.useState(false)
+  const [invSearch, setInvSearch] = React.useState('')
+  const [invPage, setInvPage] = React.useState(1)
   const [showBrandForm, setShowBrandForm] = React.useState(false)
   const [brandInputs, setBrandInputs] = React.useState([BLANK_BRAND()])
   const [brandSaving, setBrandSaving] = React.useState(false)
@@ -89,6 +92,8 @@ function SuppliersPage({ shopId }) {
     setBrandInputs([BLANK_BRAND()])
     setDetailError('')
     setSupplierInventory([])
+    setInvSearch('')
+    setInvPage(1)
   }
 
   function switchTab(tab) {
@@ -151,11 +156,11 @@ function SuppliersPage({ shopId }) {
           allReqs.push(
             apiFetch(`${API_URL}/supplier-brands`, {
               method: 'POST',
-              body: JSON.stringify({ 
-                supplier_id: detail.supplier_id, 
-                brand_name: b.brand_name.trim(), 
-                item_type: type, 
-                brand_origins: b.brand_origins.trim() 
+              body: JSON.stringify({
+                supplier_id: detail.supplier_id,
+                brand_name: b.brand_name.trim(),
+                item_type: type,
+                brand_origins: b.brand_origins.trim()
               }),
             }).then(r => r.json())
           )
@@ -184,13 +189,13 @@ function SuppliersPage({ shopId }) {
     try {
       // If it's a grouped brand, we might have multiple IDs to delete
       const idsToDelete = brandData.ids || [brandData.brand_id]
-      await Promise.all(idsToDelete.map(id => 
+      await Promise.all(idsToDelete.map(id =>
         apiFetch(`${API_URL}/supplier-brands/${id}`, { method: 'DELETE' })
       ))
-      
-      const updated = { 
-        ...detail, 
-        supplier_brands: detail.supplier_brands.filter(b => !idsToDelete.includes(b.brand_id)) 
+
+      const updated = {
+        ...detail,
+        supplier_brands: detail.supplier_brands.filter(b => !idsToDelete.includes(b.brand_id))
       }
       setDetail(updated)
       setSuppliers(prev => prev.map(s => s.supplier_id === updated.supplier_id ? updated : s))
@@ -239,6 +244,30 @@ function SuppliersPage({ shopId }) {
   })
 
   const paged = filtered.slice((suppPage - 1) * SUPP_PAGE_SIZE, suppPage * SUPP_PAGE_SIZE)
+
+  // Supplier Inventory Logic
+  const INV_PAGE_SIZE = 10
+  const invFiltered = React.useMemo(() => {
+    if (!invSearch.trim()) return supplierInventory
+    const q = invSearch.toLowerCase()
+    return supplierInventory.filter(item =>
+      (item.item_name && item.item_name.toLowerCase().includes(q)) ||
+      (item.brand && item.brand.toLowerCase().includes(q)) ||
+      (item.size && item.size.toLowerCase().includes(q))
+    )
+  }, [supplierInventory, invSearch])
+
+  const invPaged = invFiltered.slice((invPage - 1) * INV_PAGE_SIZE, invPage * INV_PAGE_SIZE)
+  const invTotalPages = Math.ceil(invFiltered.length / INV_PAGE_SIZE) || 1
+
+  const invColumns = [
+    { key: 'item_name', label: 'ITEM', render: r => <span style={{ color: 'var(--th-text-heading)', fontWeight: 600, fontSize: '0.85rem' }}>{r.item_name}</span> },
+    { key: 'brand', label: 'BRAND', render: r => <span style={{ color: 'var(--th-amber,#fbbf24)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{r.brand || '—'}</span> },
+    { key: 'size', label: 'SIZE', render: r => <span style={{ color: 'var(--th-text-dim)' }}>{r.size || '—'}</span> },
+    { key: 'total_received', label: 'RECEIVED', align: 'right', render: r => <span style={{ color: 'var(--th-sky)' }}>{r.total_received}</span> },
+    { key: 'current_quantity', label: 'STOCK', align: 'right', render: r => <span style={{ color: r.current_quantity > 0 ? 'var(--th-emerald)' : 'var(--th-rose)' }}>{r.current_quantity}</span> },
+    { key: 'unit_cost', label: 'LAST COST', align: 'right', render: r => <span style={{ color: 'var(--th-text-body)' }}>₱{Number(r.unit_cost || 0).toLocaleString('en-PH')}</span> },
+  ]
 
   function openAdd() { setShowAdd(true); setAddForm(BLANK_FORM); setAddError('') }
 
@@ -506,11 +535,11 @@ function SuppliersPage({ shopId }) {
               </div>
 
               {/* Scrollable body */}
-              <div className="inv-hist-body" style={{ padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-                {detailError && <div className="supp-modal-error">{detailError}</div>}
+              <div className="inv-hist-body" style={{ padding: '0.85rem', display: 'block' }}>
+                {detailError && <div className="supp-modal-error" style={{ marginBottom: '0.55rem' }}>{detailError}</div>}
 
                 {/* KPI stats card */}
-                <div className="inv-hist-item-card">
+                <div className="inv-hist-item-card" style={{ marginBottom: '0.55rem', borderRadius: '8px' }}>
                   <div className="inv-hist-stats">
                     {detail.contact_person && (
                       <div className="inv-hist-stat">
@@ -539,7 +568,7 @@ function SuppliersPage({ shopId }) {
 
                 {/* Address */}
                 {detail.address && (
-                  <div className="inv-hist-entry other" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.2rem' }}>
+                  <div className="inv-hist-entry other" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.2rem', marginBottom: '0.55rem' }}>
                     <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--th-text-faint)', fontWeight: 700 }}>Address</span>
                     <span style={{ color: 'var(--th-text-body)', fontSize: '0.88rem' }}>{detail.address}</span>
                   </div>
@@ -572,61 +601,61 @@ function SuppliersPage({ shopId }) {
                             </div>
                             <div style={{ position: 'relative' }}>
                               {i === 0 && <div className="supp-modal-label">Item Types</div>}
-                              <button 
-                                className="supp-modal-input" 
+                              <button
+                                className="supp-modal-input"
                                 style={{ textAlign: 'left', background: 'var(--th-bg-input)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                                 onClick={(e) => { e.stopPropagation(); setOpenTypeIdx(openTypeIdx === i ? null : i); }}
                               >
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
-                                  {b.item_types.length === 0 ? '— Select —' : 
-                                   b.item_types.length <= 2 ? b.item_types.join(', ') : 
-                                   `${b.item_types.length} types selected`}
+                                  {b.item_types.length === 0 ? '— Select —' :
+                                    b.item_types.length <= 2 ? b.item_types.join(', ') :
+                                      `${b.item_types.length} types selected`}
                                 </span>
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.6, flexShrink: 0, marginLeft: 4 }}><path d="M6 9l6 6 6-6"/></svg>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ opacity: 0.6, flexShrink: 0, marginLeft: 4 }}><path d="M6 9l6 6 6-6" /></svg>
                               </button>
                               {openTypeIdx === i && (
                                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--th-bg-card)', border: '1px solid var(--th-border-strong)', borderRadius: 8, zIndex: 10, padding: '0.5rem', marginTop: 4, display: 'flex', flexDirection: 'column', gap: '0.2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '250px', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                                   {ITEM_TYPES.map(t => (
                                     <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', padding: '0.3rem 0.5rem', borderRadius: 4 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--th-bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                      <input 
-                                        type="checkbox" 
+                                      <input
+                                        type="checkbox"
                                         style={{ accentColor: 'var(--th-amber)' }}
-                                        checked={b.item_types.includes(t)} 
+                                        checked={b.item_types.includes(t)}
                                         onChange={e => {
                                           const checked = e.target.checked
-                                          setBrandInputs(prev => prev.map((x, j) => j === i ? { 
-                                            ...x, 
-                                            item_types: checked ? [...x.item_types, t] : x.item_types.filter(y => y !== t) 
+                                          setBrandInputs(prev => prev.map((x, j) => j === i ? {
+                                            ...x,
+                                            item_types: checked ? [...x.item_types, t] : x.item_types.filter(y => y !== t)
                                           } : x))
-                                        }} 
+                                        }}
                                       />
                                       {t}
                                     </label>
                                   ))}
-                                  
+
                                   {/* Custom types already added */}
                                   {b.item_types.filter(t => !ITEM_TYPES.includes(t)).map(t => (
                                     <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', cursor: 'pointer', padding: '0.3rem 0.5rem', borderRadius: 4 }} onMouseEnter={e => e.currentTarget.style.background = 'var(--th-bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                      <input 
-                                        type="checkbox" 
+                                      <input
+                                        type="checkbox"
                                         style={{ accentColor: 'var(--th-amber)' }}
-                                        checked={true} 
+                                        checked={true}
                                         onChange={() => {
-                                          setBrandInputs(prev => prev.map((x, j) => j === i ? { 
-                                            ...x, 
-                                            item_types: x.item_types.filter(y => y !== t) 
+                                          setBrandInputs(prev => prev.map((x, j) => j === i ? {
+                                            ...x,
+                                            item_types: x.item_types.filter(y => y !== t)
                                           } : x))
-                                        }} 
+                                        }}
                                       />
                                       <span style={{ color: 'var(--th-amber)' }}>{t}</span>
                                     </label>
                                   ))}
 
                                   <div style={{ borderTop: '1px solid var(--th-border)', marginTop: '0.3rem', paddingTop: '0.5rem' }}>
-                                    <input 
-                                      className="supp-modal-input" 
-                                      style={{ fontSize: '0.72rem', padding: '0.3rem 0.5rem', height: 'auto' }} 
-                                      placeholder="+ Add Custom Type..." 
+                                    <input
+                                      className="supp-modal-input"
+                                      style={{ fontSize: '0.72rem', padding: '0.3rem 0.5rem', height: 'auto' }}
+                                      placeholder="+ Add Custom Type..."
                                       onKeyDown={e => {
                                         if (e.key === 'Enter') {
                                           e.preventDefault();
@@ -689,40 +718,30 @@ function SuppliersPage({ shopId }) {
 
                 {detailTab === 'inventory' && (
                   <>
-                    <div className="supp-section-head">
-                      <span>Items Received from Supplier</span>
+                    <div className="supp-section-head" style={{ marginBottom: '0.75rem', gap: '1rem' }}>
+                      <span style={{ whiteSpace: 'nowrap' }}>Items Received from Supplier</span>
+                      <SearchInput
+                        value={invSearch}
+                        onChange={v => { setInvSearch(v); setInvPage(1); }}
+                        placeholder="Search items..."
+                        style={{ height: '32px', marginBottom: 0, minWidth: '100px', flex: 1 }}
+                      />
                     </div>
                     {invLoading ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--th-text-faint)', fontSize: '0.82rem', padding: '0.75rem 0' }}><div className="th-spinner th-spinner-sm" />Loading…</div>
-                    ) : supplierInventory.length === 0 ? (
-                      <div style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem', textAlign: 'center', padding: '1rem' }}>No inventory records for this supplier.</div>
                     ) : (
-                      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                        <table className="supp-inv-table">
-                          <thead>
-                            <tr>
-                              <th>Item</th>
-                              <th>Brand</th>
-                              <th>Size</th>
-                              <th style={{ textAlign: 'right' }}>Received</th>
-                              <th style={{ textAlign: 'right' }}>Stock</th>
-                              <th style={{ textAlign: 'right' }}>Last Cost</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {supplierInventory.map(item => (
-                              <tr key={item.item_id}>
-                                <td style={{ color: 'var(--th-text-heading)', fontWeight: 600, fontSize: '0.85rem' }}>{item.item_name}</td>
-                                <td style={{ color: 'var(--th-amber,#fbbf24)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{item.brand || '—'}</td>
-                                <td style={{ color: 'var(--th-text-dim)' }}>{item.size || '—'}</td>
-                                <td style={{ textAlign: 'right', color: 'var(--th-sky)' }}>{item.total_received}</td>
-                                <td style={{ textAlign: 'right', color: item.current_quantity > 0 ? 'var(--th-emerald)' : 'var(--th-rose)' }}>{item.current_quantity}</td>
-                                <td style={{ textAlign: 'right', color: 'var(--th-text-body)' }}>₱{Number(item.unit_cost || 0).toLocaleString('en-PH')}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <DataTable
+                        columns={invColumns}
+                        rows={invPaged}
+                        rowKey="item_id"
+                        currentPage={invPage}
+                        totalPages={invTotalPages}
+                        onPageChange={setInvPage}
+                        emptyTitle={invSearch ? "No items found" : "No inventory"}
+                        emptyMessage={invSearch ? "No items match your search." : "No inventory records for this supplier."}
+                        minWidth={600}
+                        style={{ border: '1px solid var(--th-border)', borderRadius: '8px' }}
+                      />
                     )}
                   </>
                 )}

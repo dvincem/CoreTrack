@@ -460,4 +460,131 @@ router.post("/recap-price-defaults/:shop_id", (req, res) => {
   });
 });
 
+router.post("/recap-jobs-bulk", async (req, res) => {
+  const { shop_id, jobs } = req.body;
+  if (!shop_id || !Array.isArray(jobs) || jobs.length === 0) {
+    return res.status(400).json({ error: "Shop ID and a non-empty array of jobs are required" });
+  }
+
+  const results = [];
+  const errors = [];
+
+  const runAsync = (sql, params) => new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+
+  const getAsync = (sql, params) => new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+
+  try {
+    await runAsync("BEGIN TRANSACTION");
+    const created_at = await getEffectiveISO(shop_id);
+
+    // Create a dummy bulk supplier if supplier mapping is not provided strictly
+    const dummySupplierId = `SUPPLIER-BULK-${shop_id}`;
+    const dummyExists = await getAsync(`SELECT supplier_id FROM supplier_master WHERE supplier_id = ?`, [dummySupplierId]);
+    if (!dummyExists) {
+      await runAsync(`INSERT INTO supplier_master (supplier_id, shop_id, supplier_name) VALUES (?, ?, ?)`, [dummySupplierId, shop_id, "Bulk Imported Supplier"]);
+    }
+
+    const customers = {};
+
+    for (let index = 0; index < jobs.length; index++) {
+      const job = jobs[index];
+      const { brand, design, size, description, ownership, status, customer, supplier, recap_cost, selling_price, intake_date, dot_number } = job;
+      
+      if (!brand || !size) {
+        errors.push({ index, error: "Missing required fields: Brand, Size" });
+        continue;
+      }
+
+      const isShopOwned = normalizeOwnership(ownership) === "SHOP_OWNED";
+      const finalOwnership = isShopOwned ? "SHOP_OWNED" : "CUSTOMER_OWNED";
+      let customerId = null;
+
+      if (!isShopOwned) {
+        if (!customer) {
+          errors.push({ index, error: "Customer name required for Customer Owned jobs" });
+          continue;
+        }
+        const cName = String(customer).trim();
+        if (customers[cName]) {
+          customerId = customers[cName];
+        } else {
+          const cRow = await getAsync(`SELECT customer_id FROM customer_master WHERE shop_id = ? AND customer_name = ? COLLATE NOCASE`, [shop_id, cName]);
+          if (cRow) {
+            customerId = cRow.customer_id;
+          } else {
+            customerId = `CUST-${Date.now()}-${index}`;
+            await runAsync(`INSERT INTO customer_master (customer_id, shop_id, customer_name) VALUES (?, ?, ?)`, [customerId, shop_id, cName]);
+          }
+          customers[cName] = customerId;
+        }
+      }
+
+      const cost = parseFloat(recap_cost) || 0;
+      const price = parseFloat(selling_price) || 0;
+      const item_id = `ITEM-RECAP-${Date.now()}-${index}`;
+      const job_id = `JOB-${Date.now()}-${index}`;
+      
+      const b = brand.trim().substring(0, 5).toUpperCase();
+      const d = design ? design.trim().substring(0, 4).toUpperCase() : "RCAP";
+      const sz = size.trim().replace(/[\/\-]/g, "");
+      const auto_sku = `RECAP-${b}-${d}-${sz}-${Date.now()}-${index}`;
+      const item_name = [brand.trim(), design ? design.trim() : null, size.trim()].filter(Boolean).join(" ");
+      const item_active = isShopOwned ? 1 : 0;
+      const parsedStatus = status || "READY_FOR_CLAIM";
+      const intakeStr = intake_date ? (intake_date.length === 10 ? intake_date + 'T00:00:00' : intake_date) : created_at;
+
+      try {
+        await runAsync(
+          `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, unit_cost, selling_price, is_active, dot_number)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, size.trim(), cost, price, item_active, dot_number || null]
+        );
+
+        await runAsync(
+          `INSERT INTO recap_job_master (recap_job_id, shop_id, ownership_type, customer_id, supplier_id, casing_description, current_status, intake_date, recap_cost, expected_selling_price, finished_item_id, dot_number, forfeited_flag, created_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+          [job_id, shop_id, finalOwnership, customerId, dummySupplierId, description || item_name, parsedStatus, intakeStr, cost, price, item_id, dot_number || null, created_at, "BULK_IMPORT"]
+        );
+
+        const ledger_id = `RECAPL-${Date.now()}-${index}`;
+        await runAsync(
+          `INSERT INTO recap_job_ledger (recap_job_ledger_id, recap_job_id, shop_id, event_type, previous_status, new_status, system_note, event_timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [ledger_id, job_id, shop_id, "JOB_IMPORTED", null, parsedStatus, "Job bulk imported", created_at]
+        );
+
+        // Shop-owned mitigation: Make it available in POS inventory if the status means it is ready
+        if (isShopOwned && (parsedStatus === "IN_INVENTORY" || parsedStatus === "READY_FOR_CLAIM" || parsedStatus === "INTAKE")) {
+          const inv_id = `INVTXN-${Date.now()}-${index}`;
+          await runAsync(
+            `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, dot_number, created_by, created_at)
+             VALUES (?, ?, ?, 'BULK_IMPORT', 1, ?, ?, ?, ?, ?)`,
+            [inv_id, shop_id, item_id, cost, job_id, dot_number || null, "SYSTEM", created_at]
+          );
+        }
+
+        results.push({ index, job_id, sku: auto_sku });
+      } catch (err) {
+        errors.push({ index, error: err.message });
+      }
+    }
+
+    await runAsync("COMMIT");
+    res.json({ results, errors });
+  } catch (err) {
+    await runAsync("ROLLBACK").catch(() => {});
+    res.status(500).json({ error: "Transaction failed: " + err.message });
+  }
+});
+
 module.exports = router;

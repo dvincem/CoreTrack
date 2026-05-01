@@ -700,21 +700,38 @@ function ImportExportTab() {
 
 /* ── Bulk Import Tab ── */
 function BulkImportTab({ shopId }) {
+  // ─── Standard inventory import state ───
   const [file, setFile] = React.useState(null)
   const [status, setStatus] = React.useState('idle') // idle | preview | processing | success | partial | error
   const [msg, setMsg] = React.useState('')
   const [dragOver, setDragOver] = React.useState(false)
   const [results, setResults] = React.useState(null)
-  const [previewRows, setPreviewRows] = React.useState([]) // parsed + normalized rows waiting for confirm
+  const [previewRows, setPreviewRows] = React.useState([])
   const fileInputRef = React.useRef()
 
-  const REQUIRED_HEADERS = ['category', 'brand', 'design', 'size', 'dot_number', 'quantity', 'unit_cost', 'selling_price']
+  // ─── Recap jobs import state ───
+  const [recapFile, setRecapFile] = React.useState(null)
+  const [recapStatus, setRecapStatus] = React.useState('idle')
+  const [recapMsg, setRecapMsg] = React.useState('')
+  const [recapDragOver, setRecapDragOver] = React.useState(false)
+  const [recapResults, setRecapResults] = React.useState(null)
+  const [recapPreviewRows, setRecapPreviewRows] = React.useState([])
+  const recapFileInputRef = React.useRef()
 
-  function generateSKU(brand, design, size) {
-    const b = (brand || '').toString().trim().substring(0, 5).toUpperCase()
-    const d = (design || '').toString().trim().substring(0, 4).toUpperCase()
-    const s = (size || '').toString().trim().replace(/[\/\- ]/g, '')
-    return [b, d, s].filter(Boolean).join('-')
+  const REQUIRED_HEADERS = ['category', 'brand', 'design', 'size', 'dot_number', 'quantity', 'unit_cost', 'selling_price']
+  const RECAP_REQUIRED_HEADERS = ['brand', 'size', 'ownership']
+
+  function generateSKU(category, brand, design, size, dot) {
+    const isTire = ['PCR','SUV','TBR','LT','MOTORCYCLE','TUBE','RECAP','TIRE'].includes((category || '').toUpperCase())
+    const prefix = isTire ? 'TIRE' : 'ITEM'
+    const b = (brand || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    const d = (design || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    const s = (size || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    let sku = prefix + '-' + [b, d, s].filter(Boolean).join('-')
+    if (dot && dot.toString().trim()) {
+      sku += '-DOT' + dot.toString().trim().toUpperCase()
+    }
+    return sku
   }
 
   function extractRimSize(size) {
@@ -736,6 +753,19 @@ function BulkImportTab({ shopId }) {
     })
   }
 
+  function downloadRecapJobsTemplate() {
+    const data = [
+      { Brand: 'Goodyear', Design: 'Topcap', Size: '700-15', Description: 'Goodyear Topcap 700-15', Ownership: 'SHOP_OWNED', Status: 'READY_FOR_CLAIM', Customer: '', Supplier: '', 'Recap Cost (₱)': 1600, 'Selling Price (₱)': 2100, 'Intake Date': '2026-01-15', DOT: '' },
+      { Brand: 'Bridgestone', Design: 'Topcap', Size: '295/80R22.5', Description: 'Bridgestone Topcap 295/80R22.5', Ownership: 'CUSTOMER_OWNED', Status: 'READY_FOR_CLAIM', Customer: 'Juan dela Cruz', Supplier: '', 'Recap Cost (₱)': 3200, 'Selling Price (₱)': 4500, 'Intake Date': '2026-02-10', DOT: '1224' },
+    ]
+    import('xlsx').then(XLSX => {
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'RecapJobs')
+      XLSX.writeFile(wb, 'CoreTrack_Recap_Jobs_Import.xlsx')
+    })
+  }
+
   async function handleBulkImport(rows) {
     if (!shopId) {
       setStatus('error')
@@ -747,22 +777,27 @@ function BulkImportTab({ shopId }) {
 
     const token = localStorage.getItem('th-token')
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-    const succeeded = []
-    const errors = []
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      setMsg(`Importing ${i + 1} / ${rows.length}\u2026`)
+    setMsg(`Preparing ${rows.length} items for bulk import...`)
 
+    const payloadItems = rows.map((row, i) => {
       const isTire = ['PCR','SUV','TBR','LT','MOTORCYCLE','TUBE','RECAP','TIRE'].includes((row.category || '').toUpperCase())
-      const brand   = (row.brand  || '').toString().trim()
-      const design  = (row.design || '').toString().trim()
-      const size    = (row.size   || '').toString().trim()
-      const sku       = row.sku       || generateSKU(brand, design, size) || `ITEM-${Date.now()}-${i}`
+      const cat       = (row.category || '').toUpperCase()
+      const brand     = (row.brand    || '').toString().trim()
+      const design    = (row.design   || '').toString().trim()
+      const size      = (row.size     || '').toString().trim()
+      const dot       = (row.dot_number || '').toString().trim()
+      
+      // Force DOT into SKU for tires if it's missing to prevent unique constraint failures
+      let sku = row.sku || generateSKU(cat, brand, design, size, dot) || `ITEM-${Date.now()}-${i}`
+      if (isTire && dot && !sku.includes(dot)) {
+        sku = sku.split('-DOT')[0] + '-DOT' + dot.toUpperCase()
+      }
+
       const item_name = row.item_name || [brand, design, size].filter(Boolean).join(' ') || sku
       const rim_size  = isTire ? (row.rim_size != null ? parseFloat(row.rim_size) : extractRimSize(size)) : null
 
-      const itemPayload = {
+      return {
         sku,
         item_name,
         category:      (row.category || '').toUpperCase(),
@@ -775,40 +810,110 @@ function BulkImportTab({ shopId }) {
         selling_price: parseFloat(row.selling_price) || 0,
         reorder_point: parseInt(row.reorder_point) || 5,
         supplier_id:   row.supplier_id || null,
+        quantity:      parseInt(row.quantity) || 0,
       }
+    })
 
-      try {
-        const itemRes  = await fetch(`${API_URL}/items`, { method: 'POST', headers, body: JSON.stringify(itemPayload) })
-        const itemData = await itemRes.json()
-        if (itemData.error) { errors.push({ sku, error: itemData.error }); continue }
+    setMsg(`Sending bulk request to server...`)
 
-        const qty = parseInt(row.quantity) || 0
-        if (qty > 0) {
-          await fetch(`${API_URL}/inventory/purchase`, {
-            method: 'POST', headers,
-            body: JSON.stringify({
-              shop_id:     shopId,
-              item_id:     itemData.item_id,
-              quantity:    qty,
-              unit_cost:   itemPayload.unit_cost,
-              supplier_id: itemPayload.supplier_id || null,
-              dot_number:  itemPayload.dot_number  || null,
-              created_by:  'BULK_IMPORT',
-            }),
-          })
-        }
-        succeeded.push(sku)
-      } catch (err) {
-        errors.push({ sku, error: err.message || 'Network error' })
-      }
+    try {
+      const res = await fetch(`${API_URL}/items-bulk`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ shop_id: shopId, items: payloadItems })
+      })
+      const data = await res.json()
+
+      if (data.error) throw new Error(data.error)
+
+      const successCount = data.results ? data.results.length : 0;
+      const errorCount = data.errors ? data.errors.length : 0;
+
+      setResults({ success: successCount, failed: errorCount, errors: data.errors || [] })
+      setStatus(errorCount === 0 ? 'success' : successCount > 0 ? 'partial' : 'error')
+      setMsg(errorCount === 0
+        ? `All ${successCount} items imported successfully.`
+        : `${successCount} imported, ${errorCount} failed. Check errors.`)
+      
+      if (errorCount === 0) setFile(null)
+    } catch (err) {
+      setResults({ success: 0, failed: rows.length, errors: [{ sku: 'ALL', error: err.message }] })
+      setStatus('error')
+      setMsg(err.message || 'Network error during bulk import')
     }
+  }
 
-    setResults({ success: succeeded.length, failed: errors.length, errors })
-    setStatus(errors.length === 0 ? 'success' : succeeded.length > 0 ? 'partial' : 'error')
-    setMsg(errors.length === 0
-      ? `All ${succeeded.length} items imported successfully.`
-      : `${succeeded.length} imported, ${errors.length} failed.`)
-    setFile(null)
+  function processRecapFile(f) {
+    if (!f) return
+    if (!f.name.match(/\.(xlsx|xls|csv)$/i)) {
+      setRecapStatus('error'); setRecapMsg('Invalid file type. Please upload .xlsx, .xls, or .csv'); return
+    }
+    setRecapFile(f); setRecapStatus('processing'); setRecapMsg('Reading file…'); setRecapResults(null); setRecapPreviewRows([])
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      import('xlsx').then(XLSX => {
+        try {
+          const wb   = XLSX.read(e.target.result, { type: 'binary' })
+          const ws   = wb.Sheets[wb.SheetNames[0]]
+          const data = XLSX.utils.sheet_to_json(ws)
+          if (data.length === 0) throw new Error('File is empty.')
+          const fileHeaders = Object.keys(data[0]).map(h => h.toLowerCase().trim())
+          const missing = RECAP_REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h))
+          if (missing.length > 0) throw new Error(`Missing required columns: ${missing.join(', ')}`)
+          setRecapPreviewRows(data)
+          setRecapStatus('preview')
+          setRecapMsg('')
+        } catch (err) { setRecapStatus('error'); setRecapMsg(err.message) }
+      })
+    }
+    reader.readAsBinaryString(f)
+  }
+
+  async function handleRecapJobsImport(rows) {
+    if (!shopId) { setRecapStatus('error'); setRecapMsg('No shop selected.'); return }
+    setRecapStatus('processing'); setRecapResults(null)
+    setRecapMsg(`Preparing ${rows.length} recap jobs…`)
+    const token = localStorage.getItem('th-token')
+    const mappedJobs = rows.map(r => ({
+      brand: r['Brand'] || r['brand'],
+      design: r['Design'] || r['design'] || 'TOPCAP',
+      size: String(r['Size'] || r['size'] || ''),
+      description: r['Description'] || r['description'],
+      ownership: r['Ownership'] || r['ownership'] || 'SHOP_OWNED',
+      status: r['Status'] || r['status'] || 'READY_FOR_CLAIM',
+      customer: r['Customer'] || r['customer'],
+      supplier: r['Supplier'] || r['supplier'],
+      recap_cost: r['Recap Cost (₱)'] ?? r['recap_cost'],
+      selling_price: r['Selling Price (₱)'] ?? r['selling_price'],
+      intake_date: r['Intake Date'] || r['intake_date'],
+      dot_number: r['DOT'] || r['dot_number'],
+    }))
+    try {
+      const res = await fetch(`${API_URL}/recap-jobs-bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ shop_id: shopId, jobs: mappedJobs })
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      const successCount = data.results?.length || 0
+      const errorCount = data.errors?.length || 0
+      setRecapResults({ success: successCount, failed: errorCount, errors: data.errors || [] })
+      setRecapStatus(errorCount === 0 ? 'success' : successCount > 0 ? 'partial' : 'error')
+      setRecapMsg(errorCount === 0
+        ? `All ${successCount} recap jobs imported successfully.`
+        : `${successCount} imported, ${errorCount} failed.`)
+      if (errorCount === 0) setRecapFile(null)
+    } catch (err) {
+      setRecapResults({ success: 0, failed: rows.length, errors: [{ index: 0, error: err.message }] })
+      setRecapStatus('error')
+      setRecapMsg(err.message || 'Network error during recap import')
+    }
+  }
+
+  function cancelRecapPreview() {
+    setRecapStatus('idle'); setRecapPreviewRows([]); setRecapFile(null); setRecapResults(null); setRecapMsg('')
+    if (recapFileInputRef.current) recapFileInputRef.current.value = ''
   }
 
   function processFile(f) {
@@ -850,9 +955,11 @@ function BulkImportTab({ shopId }) {
 
   const statusColor = { success: 'var(--th-emerald)', partial: 'var(--th-amber)', error: 'var(--th-rose)' }
   const statusBg    = { success: 'var(--th-emerald-bg)', partial: 'var(--th-amber-bg)', error: 'var(--th-rose-bg)' }
+  const rcStatusColor = statusColor
+  const rcStatusBg    = statusBg
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ maxWidth: 700, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div className="cp-io-card">
         <div className="cp-io-card-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -865,12 +972,13 @@ function BulkImportTab({ shopId }) {
           {!shopId && <div style={{ color: 'var(--th-rose)', fontWeight: 700, marginTop: '0.5rem' }}>&#x26A0; No shop selected — select a shop from the sidebar first.</div>}
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <button onClick={downloadTemplate} style={{ background: 'var(--th-sky-bg)', color: 'var(--th-sky)', border: '1px solid var(--th-sky)', padding: '0.5rem 1rem', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download Template
+            Download Standard Template
           </button>
         </div>
+
 
         <div style={{ background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.75rem' }}>
           <div style={{ fontWeight: 700, marginBottom: '0.4rem', color: 'var(--th-text-body)' }}>Required columns</div>
@@ -981,7 +1089,133 @@ function BulkImportTab({ shopId }) {
             {results?.errors?.length > 0 && (
               <ul style={{ marginTop: '0.5rem', paddingLeft: '1.2rem', fontWeight: 400 }}>
                 {results.errors.slice(0, 10).map((e, i) => <li key={i}><code>{e.sku}</code>: {e.error}</li>)}
-                {results.errors.length > 10 && <li>\u2026and {results.errors.length - 10} more</li>}
+                {results.errors.length > 10 && <li>&#x2026;and {results.errors.length - 10} more</li>}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Recap Jobs Import Card ── */}
+      <div className="cp-io-card">
+        <div className="cp-io-card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+          </svg>
+          Bulk Import Recap Jobs
+        </div>
+        <div className="cp-io-card-sub">
+          Import existing recap jobs &mdash; both Customer Owned and Shop Owned. Shop-owned tires marked as IN_INVENTORY or READY_FOR_CLAIM will be automatically pushed to your POS catalog.
+          {!shopId && <div style={{ color: 'var(--th-rose)', fontWeight: 700, marginTop: '0.5rem' }}>&#x26A0; No shop selected &mdash; select a shop from the sidebar first.</div>}
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <button onClick={downloadRecapJobsTemplate} style={{ background: 'var(--th-orange-bg)', color: 'var(--th-orange)', border: '1px solid var(--th-orange)', padding: '0.5rem 1rem', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Recap Jobs Template
+          </button>
+        </div>
+
+        <div style={{ background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.75rem' }}>
+          <div style={{ fontWeight: 700, marginBottom: '0.4rem', color: 'var(--th-text-body)' }}>Required columns</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+            {['Brand', 'Size', 'Ownership'].map(h => <span key={h} style={{ background: 'var(--th-rose-bg)', color: 'var(--th-rose)', padding: '2px 7px', borderRadius: 4, fontFamily: 'monospace' }}>{h}</span>)}
+          </div>
+          <div style={{ fontWeight: 700, marginBottom: '0.4rem', marginTop: '0.6rem', color: 'var(--th-text-body)' }}>Optional columns</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+            {['Design', 'Description', 'Status', 'Customer', 'Supplier', 'Recap Cost (₱)', 'Selling Price (₱)', 'Intake Date', 'DOT'].map(h => <span key={h} style={{ background: 'var(--th-sky-bg)', color: 'var(--th-sky)', padding: '2px 7px', borderRadius: 4, fontFamily: 'monospace' }}>{h}</span>)}
+          </div>
+          <div style={{ color: 'var(--th-text-faint)', marginTop: '0.5rem', fontSize: '0.7rem' }}>
+            <b>Ownership</b> must be <code>SHOP_OWNED</code> or <code>CUSTOMER_OWNED</code>. <b>Customer</b> required for Customer Owned &mdash; auto-created if not found. <b>Status</b> defaults to <code>READY_FOR_CLAIM</code> if omitted.
+          </div>
+        </div>
+
+        {recapStatus === 'preview' && (
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--th-text-body)' }}>
+                Preview &mdash; <span style={{ color: 'var(--th-orange)' }}>{recapPreviewRows.length} recap jobs</span> from <span style={{ color: 'var(--th-text-muted)' }}>{recapFile?.name}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={cancelRecapPreview} style={{ background: 'var(--th-bg-card)', color: 'var(--th-text-muted)', border: '1px solid var(--th-border)', padding: '0.4rem 0.9rem', borderRadius: 7, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => handleRecapJobsImport(recapPreviewRows)} disabled={!shopId} style={{ background: shopId ? 'var(--th-orange)' : 'var(--th-bg-card)', color: shopId ? '#fff' : 'var(--th-text-faint)', border: 'none', padding: '0.4rem 1.1rem', borderRadius: 7, fontSize: '0.78rem', fontWeight: 700, cursor: shopId ? 'pointer' : 'not-allowed' }}>
+                  Confirm &amp; Import
+                </button>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto', border: '1px solid var(--th-border)', borderRadius: 8 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.73rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--th-bg-subtle)', borderBottom: '1px solid var(--th-border)' }}>
+                    {['#', 'Brand', 'Design', 'Size', 'Ownership', 'Status', 'Customer', 'Recap Cost', 'Selling Price'].map(h => (
+                      <th key={h} style={{ padding: '0.45rem 0.6rem', textAlign: 'left', color: 'var(--th-text-muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {recapPreviewRows.map((row, i) => {
+                    const own = (row['Ownership'] || row['ownership'] || '').toString().toUpperCase()
+                    const isShop = own === 'SHOP_OWNED'
+                    return (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--th-border)', background: i % 2 === 0 ? 'transparent' : 'var(--th-bg-subtle)' }}>
+                        <td style={{ padding: '0.35rem 0.6rem', color: 'var(--th-text-faint)' }}>{i + 1}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', fontWeight: 700 }}>{row['Brand'] || row['brand'] || '—'}</td>
+                        <td style={{ padding: '0.35rem 0.6rem' }}>{row['Design'] || row['design'] || '—'}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', fontFamily: 'monospace' }}>{row['Size'] || row['size'] || '—'}</td>
+                        <td style={{ padding: '0.35rem 0.6rem' }}>
+                          <span style={{ background: isShop ? 'var(--th-emerald-bg)' : 'var(--th-sky-bg)', color: isShop ? 'var(--th-emerald)' : 'var(--th-sky)', padding: '1px 6px', borderRadius: 4, fontWeight: 700, fontSize: '0.7rem' }}>
+                            {isShop ? '🏬 Shop' : '👤 Customer'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.35rem 0.6rem', color: 'var(--th-text-muted)' }}>{row['Status'] || row['status'] || 'READY_FOR_CLAIM'}</td>
+                        <td style={{ padding: '0.35rem 0.6rem' }}>{row['Customer'] || row['customer'] || '—'}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: 'var(--th-amber)' }}>{row['Recap Cost (₱)'] != null ? `₱${Number(row['Recap Cost (₱)']).toLocaleString()}` : '—'}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: 'var(--th-emerald)' }}>{row['Selling Price (₱)'] != null ? `₱${Number(row['Selling Price (₱)']).toLocaleString()}` : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {recapStatus !== 'preview' && (
+          <div
+            className={`cp-file-drop${recapDragOver ? ' over' : ''}${recapStatus === 'processing' ? ' disabled' : ''}`}
+            onClick={() => recapStatus !== 'processing' && recapFileInputRef.current.click()}
+            onDragOver={e => { e.preventDefault(); setRecapDragOver(true) }}
+            onDragLeave={() => setRecapDragOver(false)}
+            onDrop={e => { e.preventDefault(); setRecapDragOver(false); if (recapStatus !== 'processing') processRecapFile(e.dataTransfer.files[0]) }}
+          >
+            {recapStatus === 'processing' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="th-spinner th-spinner-sm" />
+                <div>{recapMsg}</div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                {recapFile ? <div>Selected: <strong className="cp-file-name">{recapFile.name}</strong></div> : (
+                  <>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>&#x267B;&#xFE0F;</div>
+                    <div>Drop Recap Jobs file here or click to browse</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--th-text-faint)', marginTop: '0.4rem' }}>Supports .XLSX, .XLS, .CSV</div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        <input ref={recapFileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => processRecapFile(e.target.files[0])} />
+
+        {recapStatus !== 'idle' && recapStatus !== 'processing' && recapStatus !== 'preview' && (
+          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: 8, background: rcStatusBg[recapStatus] || rcStatusBg.error, color: rcStatusColor[recapStatus] || rcStatusColor.error, fontSize: '0.82rem', fontWeight: 600 }}>
+            {recapMsg}
+            {recapResults?.errors?.length > 0 && (
+              <ul style={{ marginTop: '0.5rem', paddingLeft: '1.2rem', fontWeight: 400 }}>
+                {recapResults.errors.slice(0, 10).map((e, i) => <li key={i}><code>Row {e.index + 1}</code>: {e.error}</li>)}
+                {recapResults.errors.length > 10 && <li>&#x2026;and {recapResults.errors.length - 10} more</li>}
               </ul>
             )}
           </div>

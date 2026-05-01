@@ -110,7 +110,7 @@
 /* Detail modal */
 .supp-detail-modal {
   width: 100%;
-  max-width: 580px;
+  max-width: 900px;
 }
 
 .supp-detail-modal .inv-hist-stat-val {
@@ -468,6 +468,7 @@ table.supp-table {
 }
 
 .supp-section-head {
+  margin-top: .5rem;
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   font-size: 0.78rem;

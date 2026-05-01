@@ -16,12 +16,9 @@ const makeStyles = (accentColor) => `
     min-height: min-content;
     width: 100%;
     box-sizing: border-box;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overflow: visible;
     font-size: clamp(0.8rem, 2vw, 0.92rem);
   }
-  .fh-card::-webkit-scrollbar { display: none; }
   .fh-left span, .fh-left label { font-size: inherit !important; }
   .fh-left {
     display: flex;

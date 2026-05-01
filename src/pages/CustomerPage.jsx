@@ -53,6 +53,7 @@ function CustomerPage({ shopId }) {
   // Detail modal
   const [detailCustomer, setDetailCustomer] = React.useState(null)
   const [customerSales, setCustomerSales] = React.useState([])
+  const [salesPage, setSalesPage] = React.useState(1)
   const [loadingSales, setLoadingSales] = React.useState(false)
   const [showPlateForm, setShowPlateForm] = React.useState(false)
   const [plateInput, setPlateInput] = React.useState('')
@@ -68,6 +69,7 @@ function CustomerPage({ shopId }) {
   function openDetail(c) {
     setDetailCustomer(c)
     setCustomerSales([])
+    setSalesPage(1)
     setLoadingSales(true)
     setShowPlateForm(false)
     setDetailError('')
@@ -527,19 +529,32 @@ function CustomerPage({ shopId }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--th-text-faint)', fontSize: '0.82rem', padding: '0.5rem 0' }}><div className="th-spinner th-spinner-sm" />Loading…</div>
                   ) : customerSales.length === 0 ? (
                     <div style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem', textAlign: 'center', padding: '0.75rem' }}>No transactions recorded yet.</div>
-                  ) : customerSales.map(s => (
-                    <div key={s.sale_id} className="cp-sale-card">
-                      <div className="cp-sale-row">
-                        <span className="cp-sale-id">{s.sale_id}</span>
-                        <span className="cp-sale-amount">₱{Number(s.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="cp-sale-meta">
-                        {new Date(s.sale_datetime).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
-                        {s.staff_name && <span style={{ marginLeft: '0.45rem', color: 'var(--th-text-faint)' }}>· {s.staff_name}</span>}
-                      </div>
-                      {s.items_summary && <div className="cp-sale-items">{s.items_summary}</div>}
-                    </div>
-                  ))}
+                  ) : (
+                    <>
+                      {customerSales.slice((salesPage - 1) * 5, salesPage * 5).map(s => (
+                        <div key={s.sale_id} className="cp-sale-card">
+                          <div className="cp-sale-row">
+                            <span className="cp-sale-id">{s.sale_id}</span>
+                            <span className="cp-sale-amount">₱{Number(s.total_amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="cp-sale-meta">
+                            {new Date(s.sale_datetime).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}
+                            {s.staff_name && <span style={{ marginLeft: '0.45rem', color: 'var(--th-text-faint)' }}>· {s.staff_name}</span>}
+                          </div>
+                          {s.items_summary && <div className="cp-sale-items">{s.items_summary}</div>}
+                        </div>
+                      ))}
+                      {Math.ceil(customerSales.length / 5) > 1 && (
+                        <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'center' }}>
+                          <Pagination 
+                            currentPage={salesPage} 
+                            totalPages={Math.ceil(customerSales.length / 5)} 
+                            onPageChange={setSalesPage} 
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Remove link */}

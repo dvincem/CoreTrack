@@ -7,7 +7,7 @@ import KpiCard from '../components/KpiCard'
 import FilterHeader from '../components/FilterHeader'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAP']
+const DEFAULT_TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAPPING']
 const DEFAULT_INV_OTHER_CATS = ['VALVE', 'WHEEL WEIGHT', 'WHEEL BALANCING', 'MAG WHEEL', 'ACCESSORIES', 'OTHER']
 const DEFAULT_SUPPLY_CATS = ['Consumable', 'Maintenance', 'Repair Material', 'Other Supply']
 
@@ -166,9 +166,9 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
 
   async function fetchDbSuggestions() {
     try {
-      apiFetch(`${API_URL}/item-brands/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbBrands(d)).catch(() => {})
-      apiFetch(`${API_URL}/item-designs/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbDesigns(d)).catch(() => {})
-      apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => {})
+      apiFetch(`${API_URL}/item-brands/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbBrands(d)).catch(() => { })
+      apiFetch(`${API_URL}/item-designs/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbDesigns(d)).catch(() => { })
+      apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => { })
     } catch { }
   }
 
@@ -689,46 +689,46 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                           <div className="pur-row">
                             <div style={{ flex: 1, position: 'relative' }}>
                               <label className="pur-label">Brand *</label>
-                              <input className="pur-input" placeholder="Bridgestone" value={item.brand} 
-                                onChange={e => updateItemToAdd(idx, 'brand', e.target.value)} 
+                              <input className="pur-input" placeholder="Bridgestone" value={item.brand}
+                                onChange={e => updateItemToAdd(idx, 'brand', e.target.value)}
                                 onFocus={() => setActiveSug({ idx, field: 'brand' })}
                                 onBlur={() => setTimeout(() => setActiveSug(null), 200)}
                               />
                               {activeSug?.idx === idx && activeSug?.field === 'brand' && item.brand && (
                                 <div className="pur-sug-drop">
                                   {(() => {
-                                  const q = item.brand.toLowerCase();
-                                  const matches = [];
-                                  const seen = new Set();
-                                  dbBrands.forEach(b => {
-                                    if (b.toLowerCase().includes(q)) {
-                                      matches.push({ brand: b });
-                                      seen.add(b.toUpperCase());
-                                    }
-                                  });
-                                  dbDesigns.forEach(d => {
-                                    if (d.design.toLowerCase().includes(q) && !seen.has(d.brand?.toUpperCase())) {
-                                      matches.push({ brand: d.brand, fromDesign: d.design });
-                                      seen.add(d.brand?.toUpperCase());
-                                    }
-                                  });
-                                  return matches.slice(0, 8).map((s, si) => (
-                                    <div key={si} className="pur-sug-item" onMouseDown={() => {
-                                      updateItemToAdd(idx, 'brand', s.brand);
-                                      if (s.fromDesign) updateItemToAdd(idx, 'design', s.fromDesign);
-                                    }}>
-                                      {s.brand}
-                                      {s.fromDesign && <span style={{ fontSize: '0.7rem', color: 'var(--th-orange)', marginLeft: '0.5rem' }}>({s.fromDesign})</span>}
-                                    </div>
-                                  ));
-                                })()}
+                                    const q = item.brand.toLowerCase();
+                                    const matches = [];
+                                    const seen = new Set();
+                                    dbBrands.forEach(b => {
+                                      if (b.toLowerCase().includes(q)) {
+                                        matches.push({ brand: b });
+                                        seen.add(b.toUpperCase());
+                                      }
+                                    });
+                                    dbDesigns.forEach(d => {
+                                      if (d.design.toLowerCase().includes(q) && !seen.has(d.brand?.toUpperCase())) {
+                                        matches.push({ brand: d.brand, fromDesign: d.design });
+                                        seen.add(d.brand?.toUpperCase());
+                                      }
+                                    });
+                                    return matches.slice(0, 8).map((s, si) => (
+                                      <div key={si} className="pur-sug-item" onMouseDown={() => {
+                                        updateItemToAdd(idx, 'brand', s.brand);
+                                        if (s.fromDesign) updateItemToAdd(idx, 'design', s.fromDesign);
+                                      }}>
+                                        {s.brand}
+                                        {s.fromDesign && <span style={{ fontSize: '0.7rem', color: 'var(--th-orange)', marginLeft: '0.5rem' }}>({s.fromDesign})</span>}
+                                      </div>
+                                    ));
+                                  })()}
                                 </div>
                               )}
                             </div>
                             <div style={{ flex: 1, position: 'relative' }}>
                               <label className="pur-label">Design *</label>
-                              <input className="pur-input" placeholder="Turanza" value={item.design} 
-                                onChange={e => updateItemToAdd(idx, 'design', e.target.value)} 
+                              <input className="pur-input" placeholder="Turanza" value={item.design}
+                                onChange={e => updateItemToAdd(idx, 'design', e.target.value)}
                                 onFocus={() => setActiveSug({ idx, field: 'design' })}
                                 onBlur={() => setTimeout(() => setActiveSug(null), 200)}
                               />
@@ -753,8 +753,8 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                             </div>
                             <div style={{ flex: 1, position: 'relative' }}>
                               <label className="pur-label">Size *</label>
-                              <input className="pur-input" placeholder="205/55R16" value={item.size} 
-                                onChange={e => updateItemToAdd(idx, 'size', e.target.value)} 
+                              <input className="pur-input" placeholder="205/55R16" value={item.size}
+                                onChange={e => updateItemToAdd(idx, 'size', e.target.value)}
                                 onFocus={() => setActiveSug({ idx, field: 'size' })}
                                 onBlur={() => setTimeout(() => setActiveSug(null), 200)}
                               />

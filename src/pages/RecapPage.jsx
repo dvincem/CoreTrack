@@ -269,7 +269,18 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const [casings, setCasings] = React.useState([blankCasing()]);
 
   const updateCasing = (idx, patch) => {
-    setCasings(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+    setCasings(prev => prev.map((c, i) => {
+      if (i !== idx) return c;
+      const updated = { ...c, ...patch };
+      if (patch.size !== undefined || patch.design !== undefined) {
+        const def = priceDefaults[`${updated.size}|${updated.design}`];
+        if (def) {
+          updated.recap_cost = def.recap_cost ? String(def.recap_cost) : '';
+          updated.expected_selling_price = def.selling_price ? String(def.selling_price) : '';
+        }
+      }
+      return updated;
+    }));
   };
 
   // Theme re-render
@@ -679,6 +690,28 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const hasFilters = searchQuery || statusFilter || ownershipFilter || dateFilter;
 
   function exportExcel() {
+    if (statusFilter === 'RECAPPING') {
+      if (!recappingItems || recappingItems.length === 0) return;
+      import('xlsx').then(XLSX => {
+        const rows = recappingItems.map(j => ({
+          'SKU': j.sku,
+          'Casing Name': j.item_name || '',
+          'Size': j.size || '',
+          'Brand': j.brand || '',
+          'Design': j.design || '',
+          'DOT': j.dot_number || '',
+          'Stock Quantity': j.current_quantity || 0,
+          'Supplier': j.supplier_name || '',
+          'Unit Cost (₱)': j.unit_cost || 0,
+          'Selling Price (₱)': j.selling_price || 0,
+        }))
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'For Recapping')
+        XLSX.writeFile(wb, `for-recapping-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      })
+      return;
+    }
+
     if (!recapTotal) return
     import('xlsx').then(XLSX => {
       const rows = jobs.map(j => ({
@@ -1125,7 +1158,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
             </h1>
             <div className="rc-header-btns">
               {[
-                { label: '⬇ Export', cls: 'rc-btn-slate', onClick: exportExcel, disabled: !recapTotal },
+                { label: '⬇ Export', cls: 'rc-btn-slate', onClick: exportExcel, disabled: statusFilter === 'RECAPPING' ? recappingItems.length === 0 : !recapTotal },
                 { label: '⚙ Pricing', cls: 'rc-btn-sky', onClick: openPricingModal, disabled: false },
                 { label: '+ New Job', cls: 'rc-btn-orange', onClick: () => { setShowNewJobForm(true); setError(""); if (defaultSupplierId) setNewJob(j => ({ ...j, supplier_id: defaultSupplierId })); }, disabled: false },
               ].map(({ label, cls, onClick, disabled }) => (
@@ -1238,25 +1271,13 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                 <div className="rc-ownership-toggle">
                   <button
                     className={`rc-own-btn${newJob.ownership_type === "SHOP_OWNED" ? " active" : ""}`}
-                    onClick={() => {
-                      const def = newJob.size && newJob.design ? priceDefaults[`${newJob.size}|${newJob.design}`] : null;
-                      setNewJob({
-                        ...newJob, ownership_type: 'SHOP_OWNED', customer_id: "",
-                        ...(def ? { recap_cost: String(def.recap_cost), expected_selling_price: String(def.selling_price) } : {})
-                      });
-                    }}
+                    onClick={() => setNewJob({ ...newJob, ownership_type: 'SHOP_OWNED', customer_id: "" })}
                   >
                     🏬 Shop Owned
                   </button>
                   <button
                     className={`rc-own-btn${newJob.ownership_type === "CUSTOMER_OWNED" ? " active" : ""}`}
-                    onClick={() => {
-                      const def = newJob.size && newJob.design ? priceDefaults[`${newJob.size}|${newJob.design}`] : null;
-                      setNewJob({
-                        ...newJob, ownership_type: 'CUSTOMER_OWNED',
-                        ...(def ? { recap_cost: String(def.recap_cost), expected_selling_price: String(def.selling_price) } : {})
-                      });
-                    }}
+                    onClick={() => setNewJob({ ...newJob, ownership_type: 'CUSTOMER_OWNED' })}
                   >
                     👤 Customer Owned
                   </button>

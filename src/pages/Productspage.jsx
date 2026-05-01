@@ -76,13 +76,17 @@ function extractRimSize(s) {
   if (d) return parseInt(d[1]);
   return null;
 }
-function generateSKU(type, brand, design, size) {
+function generateSKU(type, brand, design, size, dot) {
   if (!brand && !design && !size) return "";
   const prefix = type === "TIRE" ? "TIRE" : "ITEM";
   const b = (brand || "").trim().substring(0, 5).toUpperCase();
   const d = (design || "").trim().substring(0, 4).toUpperCase();
   const s = (size || "").trim().replace(/[\/\-]/g, "");
-  return prefix + "-" + [b, d, s].filter(Boolean).join("-");
+  let sku = prefix + "-" + [b, d, s].filter(Boolean).join("-");
+  if (dot && dot.trim()) {
+    sku += "-DOT" + dot.trim().toUpperCase();
+  }
+  return sku;
 }
 
 /* ══════════════════════════════════════════
@@ -347,13 +351,13 @@ function Productspage({ shopId }) {
 
       // Auto-SKU for tires
       if (item.itemType === "TIRE") {
-        if (!item.sku || item.sku === generateSKU("TIRE", next[index].brand, next[index].design, next[index].size)) {
-          item.sku = generateSKU("TIRE", item.brand, item.design, item.size);
+        if (!item.sku || item.sku === generateSKU("TIRE", next[index].brand, next[index].design, next[index].size, next[index].dot_number)) {
+          item.sku = generateSKU("TIRE", item.brand, item.design, item.size, item.dot_number);
         }
       } else {
         // Auto-SKU for items
-        const autoNameSku = generateSKU("ITEM", item.item_name, item.category, "");
-        if (!item.sku || item.sku === generateSKU("ITEM", next[index].item_name, next[index].category, "")) {
+        const autoNameSku = generateSKU("ITEM", item.item_name, item.category, "", "");
+        if (!item.sku || item.sku === generateSKU("ITEM", next[index].item_name, next[index].category, "", "")) {
           item.sku = autoNameSku;
         }
       }
@@ -432,8 +436,8 @@ function Productspage({ shopId }) {
       }
 
       const autoSku = isTire
-        ? generateSKU("TIRE", item.brand, item.design, item.size)
-        : generateSKU("ITEM", item.item_name, item.category, "");
+        ? generateSKU("TIRE", item.brand, item.design, item.size, item.dot_number)
+        : generateSKU("ITEM", item.item_name, item.category, "", "");
 
       const dup = items.find((x) => x.sku === (item.sku || autoSku));
       if (dup) {

@@ -299,7 +299,9 @@ app.listen(PORT, "0.0.0.0", async () => {
 });
 
 initializeDatabase()
-  .then(() => process.env.RESET_DB === '1' ? loadExcelData() : Promise.resolve())
+  .then(() => {
+    console.log("✅ Database structure ready.");
+  })
   .catch((err) => {
     console.error("Initialization error:", err);
   });

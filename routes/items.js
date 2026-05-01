@@ -168,8 +168,8 @@ router.get("/items/:shop_id", (req, res) => {
 
 router.post("/items", (req, res) => {
   const { sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number } = req.body;
-  if (!sku || !item_name || !category || !unit_cost || !selling_price) {
-    return res.status(400).json({ error: "SKU, Item Name, Category, Unit Cost, and Selling Price are required" });
+  if (!sku || !item_name || !category || unit_cost === undefined || selling_price === undefined) {
+    return res.status(400).json({ error: "SKU, Item Name, Category, and Prices are required (use 0 if free)" });
   }
   const item_id = `ITEM-${Date.now()}`;
   const cost = parseFloat(unit_cost);
@@ -199,82 +199,90 @@ router.post("/items-bulk", async (req, res) => {
   const results = [];
   const errors = [];
 
-  db.serialize(() => {
-    db.run("BEGIN TRANSACTION");
+  const runAsync = (sql, params) => new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
 
-    let completed = 0;
-    let failed = false;
+  const getAsync = (sql, params) => new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
 
-    const finalize = () => {
-      if (failed) {
-        db.run("ROLLBACK");
-        return; // Already responded or will respond with error
-      }
-      db.run("COMMIT", (err) => {
-        if (err) return res.status(500).json({ error: "Transaction commit failed" });
-        res.json({ results, errors });
-      });
-    };
+  try {
+    await runAsync("BEGIN TRANSACTION");
 
-    items.forEach((item, index) => {
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
       const { sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, quantity } = item;
       
       if (!sku || !item_name || !category || unit_cost == null || selling_price == null) {
         errors.push({ index, error: "Missing required fields" });
-        completed++;
-        if (completed === items.length) finalize();
-        return;
+        continue;
       }
 
-      const item_id = `ITEM-${Date.now()}-${index}`;
       const cost = parseFloat(unit_cost);
       const price = parseFloat(selling_price);
       const dot = (dot_number || "").toString().trim() || null;
       const upperBrand = brand ? brand.toUpperCase() : null;
       const upperDesign = design ? design.toUpperCase() : null;
 
-      db.run(
-        `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [item_id, sku, item_name, category, upperBrand, upperDesign, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
-        function (err) {
-          if (err) {
-            errors.push({ index, error: err.message });
-            completed++;
-            if (completed === items.length) finalize();
-            return;
-          }
-
-          logPriceHistory(item_id, 'SELLING_PRICE', null, price, null, 'Item created (Bulk)');
-          logPriceHistory(item_id, 'UNIT_COST', null, cost, null, 'Item created (Bulk)');
-
-          // Initial stock
-          if (quantity && parseInt(quantity) > 0) {
-            const inventory_ledger_id = `INVTXN-${Date.now()}-${index}`;
-            db.run(
-              `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, supplier_id, dot_number, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [inventory_ledger_id, shop_id, item_id, "PURCHASE", parseInt(quantity), cost, supplier_id || null, dot, "BULK_CREATE"],
-              (invErr) => {
-                if (invErr) {
-                  errors.push({ index, error: `Item created but stock failed: ${invErr.message}` });
-                } else {
-                  results.push({ index, item_id, sku });
-                }
-                completed++;
-                if (completed === items.length) finalize();
-              }
+      try {
+        let finalId;
+        const existing = await getAsync(`SELECT item_id FROM item_master WHERE sku = ?`, [sku]);
+        
+        if (existing) {
+          finalId = existing.item_id;
+        } else {
+          finalId = `ITEM-${Date.now()}-${index}`;
+          try {
+            await runAsync(
+              `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+              [finalId, sku, item_name, category, upperBrand, upperDesign, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot]
             );
-          } else {
-            results.push({ index, item_id, sku });
-            completed++;
-            if (completed === items.length) finalize();
+            logPriceHistory(finalId, 'SELLING_PRICE', null, price, null, 'Item created (Bulk)');
+            logPriceHistory(finalId, 'UNIT_COST', null, cost, null, 'Item created (Bulk)');
+          } catch (insErr) {
+            // If another constraint hit, just record error and skip
+            errors.push({ index, error: insErr.message });
+            continue;
           }
         }
-      );
-    });
-  });
+
+        const qty = parseInt(quantity) || 0;
+        if (qty > 0) {
+          const inventory_ledger_id = `INVTXN-${Date.now()}-${index}`;
+          try {
+            await runAsync(
+              `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, supplier_id, dot_number, created_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [inventory_ledger_id, shop_id, finalId, "PURCHASE", qty, cost, supplier_id || null, dot, "BULK_IMPORT"]
+            );
+            results.push({ index, item_id: finalId, sku });
+          } catch (invErr) {
+            errors.push({ index, error: `Stock update failed: ${invErr.message}` });
+          }
+        } else {
+          results.push({ index, item_id: finalId, sku });
+        }
+      } catch (err) {
+        errors.push({ index, error: err.message });
+      }
+    }
+
+    await runAsync("COMMIT");
+    res.json({ results, errors });
+  } catch (err) {
+    await runAsync("ROLLBACK").catch(() => {});
+    res.status(500).json({ error: "Transaction failed: " + err.message });
+  }
 });
+
 
 
 router.put("/items/:item_id/selling-price", (req, res) => {
