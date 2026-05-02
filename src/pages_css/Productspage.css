@@ -944,7 +944,8 @@
   border: none;
   cursor: pointer;
   background: none;
-  color: var(--th-text-dim);
+  color: var(--th-text-faint);
+  opacity: 0.5;
   transition: all 0.15s;
   border-right: 1px solid var(--th-border);
 }
@@ -956,15 +957,21 @@
 .prod-view-tab:hover {
   background: var(--th-bg-hover);
   color: var(--th-text-primary);
+  opacity: 0.75;
 }
 
 .prod-view-tab.active {
-  background: var(--th-bg-card-alt);
-  color: var(--th-text-heading);
+  background: var(--th-orange-bg);
+  color: var(--th-orange);
+  opacity: 1;
+  border: 1.5px solid var(--th-orange);
 }
 
 .prod-view-tab.archive-tab.active {
+  background: var(--th-amber-bg);
   color: var(--th-amber);
+  opacity: 1;
+  border: 1.5px solid var(--th-amber);
 }
 
 .prod-btn-archive {

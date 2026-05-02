@@ -1,9 +1,9 @@
-import '../pages_css/OrdersPage.css';
-import React from 'react'
-import Pagination from '../components/Pagination'
-import SearchInput from '../components/SearchInput'
-import { API_URL, currency, apiFetch } from '../lib/config'
-import usePaginatedResource from '../hooks/usePaginatedResource'
+import "../pages_css/OrdersPage.css";
+import React from "react";
+import Pagination from "../components/Pagination";
+import SearchInput from "../components/SearchInput";
+import { API_URL, currency, apiFetch } from "../lib/config";
+import usePaginatedResource from "../hooks/usePaginatedResource";
 
 /* ============================================================
    TIREHUB — ENHANCED ORDERS PAGE
@@ -14,11 +14,11 @@ const ordCurrency =
   typeof currency === "function"
     ? currency
     : (n) =>
-      "₱" +
-      Number(n || 0).toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+        "₱" +
+        Number(n || 0).toLocaleString("en-PH", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
 
 /* ── Status helpers ── */
 const STATUS_META = {
@@ -151,17 +151,53 @@ function DetailItem({ item, orderStatus }) {
     >
       <div className="ord-detail-item-top">
         <div style={{ flex: 1 }}>
-          <div className="ord-detail-item-name" style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+          <div
+            className="ord-detail-item-name"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              flexWrap: "wrap",
+            }}
+          >
             {item.item_name}
-            {item.is_new_item ? <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", background: "rgba(52,211,153,0.15)", border: "1px solid #34d399", color: "#34d399", borderRadius: 4, padding: "0.05rem 0.35rem", lineHeight: 1.4 }}>NEW</span> : null}
+            {item.is_new_item ? (
+              <span
+                style={{
+                  fontSize: "0.62rem",
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  background: "rgba(52,211,153,0.15)",
+                  border: "1px solid #34d399",
+                  color: "#34d399",
+                  borderRadius: 4,
+                  padding: "0.05rem 0.35rem",
+                  lineHeight: 1.4,
+                }}
+              >
+                NEW
+              </span>
+            ) : null}
           </div>
-          {item.supplier_name && <div className="ord-detail-item-sku" style={{ color: "#38bdf8" }}>📦 {item.supplier_name}</div>}
-          {item.sku && !item.is_new_item && <div className="ord-detail-item-sku">{item.sku}</div>}
-          {item.dot_number && <div className="ord-detail-item-sku" style={{ color: "var(--th-amber, #fbbf24)", fontWeight: 700 }}>DOT {item.dot_number}</div>}
+          {item.supplier_name && (
+            <div className="ord-detail-item-sku" style={{ color: "#38bdf8" }}>
+              📦 {item.supplier_name}
+            </div>
+          )}
+          {item.sku && !item.is_new_item && (
+            <div className="ord-detail-item-sku">{item.sku}</div>
+          )}
+          {item.dot_number && (
+            <div
+              className="ord-detail-item-sku"
+              style={{ color: "var(--th-amber, #fbbf24)", fontWeight: 700 }}
+            >
+              DOT {item.dot_number}
+            </div>
+          )}
         </div>
-        <span className={`ord-badge ${badgeClass}`}>
-          {badgeLabel}
-        </span>
+        <span className={`ord-badge ${badgeClass}`}>{badgeLabel}</span>
       </div>
       <div className="ord-detail-item-stats">
         <div className="ord-detail-stat">
@@ -193,16 +229,40 @@ function DetailItem({ item, orderStatus }) {
 
 /* ── Create Order Modal ── */
 function CreateOrderModal({
-  items, suppliers, orderItems, orderNotes, orderSearchQuery,
-  orderModalCurrentPage, orderModalTotalPages, orderModalCurrentItems,
-  filteredOrderItems, totalOrderAmount, loading, error,
-  onClose, onAddItem, onUpdateQty, onUpdateSupplier, onRemoveItem,
-  onSearchChange, onPageChange, onNotesChange, onSubmit, ORDER_MODAL_ITEMS_PER_PAGE,
+  items,
+  suppliers,
+  orderItems,
+  orderNotes,
+  orderSearchQuery,
+  orderModalCurrentPage,
+  orderModalTotalPages,
+  orderModalCurrentItems,
+  filteredOrderItems,
+  totalOrderAmount,
+  loading,
+  error,
+  onClose,
+  onAddItem,
+  onUpdateQty,
+  onUpdateSupplier,
+  onRemoveItem,
+  onSearchChange,
+  onPageChange,
+  onNotesChange,
+  onSubmit,
+  ORDER_MODAL_ITEMS_PER_PAGE,
 }) {
   const [leftTab, setLeftTab] = React.useState("existing");
   const [newItemForm, setNewItemForm] = React.useState({
-    brand: "", supplier_id: "", design: "", size: "", category: "",
-    unit_cost: "", selling_price: "", quantity: "1", reorder_point: "0",
+    brand: "",
+    supplier_id: "",
+    design: "",
+    size: "",
+    category: "",
+    unit_cost: "",
+    selling_price: "",
+    quantity: "1",
+    reorder_point: "0",
   });
   const [newItemError, setNewItemError] = React.useState("");
 
@@ -218,33 +278,33 @@ function CreateOrderModal({
   React.useEffect(() => {
     // Sizes
     apiFetch(`${API_URL}/item-sizes/any`)
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         if (Array.isArray(d)) setDbSizes(d);
       })
-      .catch(() => { });
+      .catch(() => {});
 
     // Brands
     apiFetch(`${API_URL}/item-brands/any`)
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         if (Array.isArray(d)) setDbBrands(d);
       })
-      .catch(() => { });
+      .catch(() => {});
 
     // Designs
     apiFetch(`${API_URL}/item-designs/any`)
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         if (Array.isArray(d)) setDbDesigns(d);
       })
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   const sizeSuggestions = React.useMemo(() => {
     if (!newItemForm.size) return [];
     const q = newItemForm.size.toLowerCase();
-    return dbSizes.filter(s => s.toLowerCase().includes(q)).slice(0, 8);
+    return dbSizes.filter((s) => s.toLowerCase().includes(q)).slice(0, 8);
   }, [newItemForm.size, dbSizes]);
 
   const brandSuggestions = React.useMemo(() => {
@@ -254,7 +314,7 @@ function CreateOrderModal({
     const seen = new Set();
 
     // 1. Exact/partial brand matches
-    dbBrands.forEach(b => {
+    dbBrands.forEach((b) => {
       if (b.toLowerCase().includes(q)) {
         matches.push({ brand: b });
         seen.add(b.toUpperCase());
@@ -262,8 +322,11 @@ function CreateOrderModal({
     });
 
     // 2. Matching designs -> suggest their brands
-    dbDesigns.forEach(d => {
-      if (d.design.toLowerCase().includes(q) && !seen.has(d.brand?.toUpperCase())) {
+    dbDesigns.forEach((d) => {
+      if (
+        d.design.toLowerCase().includes(q) &&
+        !seen.has(d.brand?.toUpperCase())
+      ) {
         matches.push({ brand: d.brand, fromDesign: d.design });
         seen.add(d.brand.toUpperCase());
       }
@@ -278,7 +341,7 @@ function CreateOrderModal({
     const brand = newItemForm.brand.toLowerCase();
 
     // Filter by query and optionally by brand
-    const filtered = dbDesigns.filter(d => {
+    const filtered = dbDesigns.filter((d) => {
       const matchQuery = d.design.toLowerCase().includes(q);
       const matchBrand = brand ? (d.brand || "").toLowerCase() === brand : true;
       return matchQuery && matchBrand;
@@ -288,16 +351,19 @@ function CreateOrderModal({
 
     // Fallback to any design matching the query
     return dbDesigns
-      .filter(d => d.design.toLowerCase().includes(q))
+      .filter((d) => d.design.toLowerCase().includes(q))
       .slice(0, 8);
   }, [newItemForm.design, newItemForm.brand, dbDesigns]);
 
   const availableBrands = React.useMemo(() => {
     const seen = new Set();
     const brands = [];
-    for (const s of (suppliers || [])) {
-      for (const b of (s.supplier_brands || [])) {
-        if (!seen.has(b.brand_name)) { seen.add(b.brand_name); brands.push(b.brand_name); }
+    for (const s of suppliers || []) {
+      for (const b of s.supplier_brands || []) {
+        if (!seen.has(b.brand_name)) {
+          seen.add(b.brand_name);
+          brands.push(b.brand_name);
+        }
       }
     }
     return brands.sort();
@@ -305,25 +371,34 @@ function CreateOrderModal({
 
   const suppliersForBrand = React.useMemo(() => {
     if (!newItemForm.brand) return [];
-    const filtered = (suppliers || []).filter(s =>
-      (s.supplier_brands || []).some(b => b.brand_name.toUpperCase() === newItemForm.brand.toUpperCase())
+    const filtered = (suppliers || []).filter((s) =>
+      (s.supplier_brands || []).some(
+        (b) => b.brand_name.toUpperCase() === newItemForm.brand.toUpperCase(),
+      ),
     );
-    return filtered.length > 0 ? filtered : (suppliers || []);
+    return filtered.length > 0 ? filtered : suppliers || [];
   }, [suppliers, newItemForm.brand]);
 
   function handleNewBrandChange(brand) {
-    setNewItemForm(f => ({ ...f, brand, supplier_id: "" }));
+    setNewItemForm((f) => ({ ...f, brand, supplier_id: "" }));
   }
 
   function addNewItemToOrder() {
     setNewItemError("");
     if (!newItemForm.brand) return setNewItemError("Select a brand");
     if (!newItemForm.supplier_id) return setNewItemError("Select a supplier");
-    if (!newItemForm.design.trim()) return setNewItemError("Design is required");
+    if (!newItemForm.design.trim())
+      return setNewItemError("Design is required");
     if (!newItemForm.size.trim()) return setNewItemError("Size is required");
-    if (!newItemForm.category.trim()) return setNewItemError("Category is required");
-    if (!newItemForm.unit_cost || parseFloat(newItemForm.unit_cost) <= 0) return setNewItemError("Unit cost is required");
-    if (!newItemForm.selling_price || parseFloat(newItemForm.selling_price) <= 0) return setNewItemError("Selling price is required");
+    if (!newItemForm.category.trim())
+      return setNewItemError("Category is required");
+    if (!newItemForm.unit_cost || parseFloat(newItemForm.unit_cost) <= 0)
+      return setNewItemError("Unit cost is required");
+    if (
+      !newItemForm.selling_price ||
+      parseFloat(newItemForm.selling_price) <= 0
+    )
+      return setNewItemError("Selling price is required");
     const qty = parseInt(newItemForm.quantity) || 1;
     const cost = parseFloat(newItemForm.unit_cost);
     onAddItem({
@@ -343,65 +418,185 @@ function CreateOrderModal({
       current_quantity: 0,
       line_total: cost * qty,
     });
-    setNewItemForm({ brand: "", supplier_id: "", design: "", size: "", category: "", unit_cost: "", selling_price: "", quantity: "1", reorder_point: "0" });
+    setNewItemForm({
+      brand: "",
+      supplier_id: "",
+      design: "",
+      size: "",
+      category: "",
+      unit_cost: "",
+      selling_price: "",
+      quantity: "1",
+      reorder_point: "0",
+    });
     setNewItemError("");
   }
 
   const tabBtn = (tab, label) => (
-    <button onClick={() => setLeftTab(tab)} style={{
-      flex: 1, padding: "0.5rem 0.75rem", cursor: "pointer",
-      fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "clamp(0.72rem, 2.7vw, 0.82rem)",
-      textTransform: "uppercase", letterSpacing: "0.06em",
-      border: "none", borderBottom: leftTab === tab ? "2px solid var(--th-orange,#f97316)" : "2px solid transparent",
-      background: "transparent",
-      color: leftTab === tab ? "var(--th-orange,#f97316)" : "var(--th-text-dim,#94a3b8)",
-      transition: "color 0.15s, border-color 0.15s",
-    }}>{label}</button>
+    <button
+      onClick={() => setLeftTab(tab)}
+      style={{
+        flex: 1,
+        padding: "0.5rem 0.75rem",
+        cursor: "pointer",
+        fontFamily: "'Barlow Condensed',sans-serif",
+        fontWeight: 700,
+        fontSize: "clamp(0.72rem, 2.7vw, 0.82rem)",
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        border: "none",
+        borderBottom:
+          leftTab === tab
+            ? "2px solid var(--th-orange,#f97316)"
+            : "2px solid transparent",
+        background: "transparent",
+        color:
+          leftTab === tab
+            ? "var(--th-orange,#f97316)"
+            : "var(--th-text-dim,#94a3b8)",
+        transition: "color 0.15s, border-color 0.15s",
+      }}
+    >
+      {label}
+    </button>
   );
 
   return (
-    <div className="inv-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="inv-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="inv-modal">
         <div className="inv-modal-header">
           <div className="inv-modal-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{
+                display: "inline",
+                marginRight: 6,
+                verticalAlign: "middle",
+              }}
+            >
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
               <line x1="3" y1="6" x2="21" y2="6" />
               <path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
             Create Purchase Order
           </div>
-          <button className="inv-modal-close" onClick={onClose}>✕</button>
+          <button className="inv-modal-close" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
         <div className="inv-modal-body">
           <div className="inv-modal-2col">
             {/* LEFT: item picker */}
             <div>
-              <div style={{ display: "flex", borderBottom: "1px solid var(--th-border,#283245)", marginBottom: "0.6rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  borderBottom: "1px solid var(--th-border,#283245)",
+                  marginBottom: "0.6rem",
+                }}
+              >
                 {tabBtn("existing", "Existing Items")}
                 {tabBtn("new", "+ New Item")}
               </div>
 
               {leftTab === "new" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.55rem",
+                  }}
+                >
                   <div style={{ position: "relative" }}>
-                    <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Brand <span style={{ color: "#38bdf8" }}>*</span></label>
-                    <input className="inv-input" placeholder="e.g. PRINX" value={newItemForm.brand} onChange={e => handleNewBrandChange(e.target.value)} onFocus={() => setShowBrandSug(true)} onBlur={() => setTimeout(() => setShowBrandSug(false), 200)} />
+                    <label
+                      style={{
+                        fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "#64748b",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      Brand <span style={{ color: "#38bdf8" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      placeholder="e.g. PRINX"
+                      value={newItemForm.brand}
+                      onChange={(e) => handleNewBrandChange(e.target.value)}
+                      onFocus={() => setShowBrandSug(true)}
+                      onBlur={() =>
+                        setTimeout(() => setShowBrandSug(false), 200)
+                      }
+                    />
                     {showBrandSug && brandSuggestions.length > 0 && (
-                      <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "var(--th-bg-input,#1a2132)",
+                          border: "1px solid var(--th-border-strong,#3d5068)",
+                          borderRadius: "8px",
+                          overflowY: "auto",
+                          maxHeight: "150px",
+                          zIndex: 50,
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                        }}
+                      >
                         {brandSuggestions.map((s, si) => (
-                          <div key={si} onMouseDown={() => {
-                            setNewItemForm(f => ({
-                              ...f,
-                              brand: s.brand,
-                              design: s.fromDesign || f.design,
-                              supplier_id: ""
-                            }));
-                            setShowBrandSug(false);
-                          }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <div
+                            key={si}
+                            onMouseDown={() => {
+                              setNewItemForm((f) => ({
+                                ...f,
+                                brand: s.brand,
+                                design: s.fromDesign || f.design,
+                                supplier_id: "",
+                              }));
+                              setShowBrandSug(false);
+                            }}
+                            style={{
+                              padding: "0.5rem 0.75rem",
+                              cursor: "pointer",
+                              borderBottom:
+                                "1px solid var(--th-border-mid,#283245)",
+                              fontSize: "0.85rem",
+                              color: "var(--th-text-primary,#f8fafc)",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background =
+                                "var(--th-border-mid,#283245)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                          >
                             {s.brand}
-                            {s.fromDesign && <span style={{ fontSize: "0.7rem", color: "var(--th-orange)", marginLeft: "0.5rem", opacity: 0.8 }}>({s.fromDesign})</span>}
+                            {s.fromDesign && (
+                              <span
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--th-orange)",
+                                  marginLeft: "0.5rem",
+                                  opacity: 0.8,
+                                }}
+                              >
+                                ({s.fromDesign})
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -409,99 +604,468 @@ function CreateOrderModal({
                   </div>
                   {newItemForm.brand && (
                     <div>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Supplier <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <select className="inv-input" value={newItemForm.supplier_id} onChange={e => setNewItemForm(f => ({ ...f, supplier_id: e.target.value }))}>
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Supplier <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <select
+                        className="inv-input"
+                        value={newItemForm.supplier_id}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            supplier_id: e.target.value,
+                          }))
+                        }
+                      >
                         <option value="">— Select supplier —</option>
-                        {suppliersForBrand.map(s => <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_name}</option>)}
+                        {suppliersForBrand.map((s) => (
+                          <option key={s.supplier_id} value={s.supplier_id}>
+                            {s.supplier_name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   )}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "0.5rem",
+                    }}
+                  >
                     <div style={{ position: "relative" }}>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Design <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <input className="inv-input" placeholder="e.g. Turanza" value={newItemForm.design} onChange={e => setNewItemForm(f => ({ ...f, design: e.target.value }))} onFocus={() => setShowDesignSug(true)} onBlur={() => setTimeout(() => setShowDesignSug(false), 200)} />
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Design <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <input
+                        className="inv-input"
+                        placeholder="e.g. Turanza"
+                        value={newItemForm.design}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            design: e.target.value,
+                          }))
+                        }
+                        onFocus={() => setShowDesignSug(true)}
+                        onBlur={() =>
+                          setTimeout(() => setShowDesignSug(false), 200)
+                        }
+                      />
                       {showDesignSug && designSuggestions.length > 0 && (
-                        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            left: 0,
+                            right: 0,
+                            background: "var(--th-bg-input,#1a2132)",
+                            border: "1px solid var(--th-border-strong,#3d5068)",
+                            borderRadius: "8px",
+                            overflowY: "auto",
+                            maxHeight: "150px",
+                            zIndex: 50,
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                          }}
+                        >
                           {designSuggestions.map((d, di) => (
-                            <div key={di} onMouseDown={() => {
-                              setNewItemForm(f => ({
-                                ...f,
-                                design: d.design,
-                                brand: d.brand || f.brand,
-                                category: d.category || f.category
-                              }));
-                              setShowDesignSug(false);
-                            }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <div
+                              key={di}
+                              onMouseDown={() => {
+                                setNewItemForm((f) => ({
+                                  ...f,
+                                  design: d.design,
+                                  brand: d.brand || f.brand,
+                                  category: d.category || f.category,
+                                }));
+                                setShowDesignSug(false);
+                              }}
+                              style={{
+                                padding: "0.5rem 0.75rem",
+                                cursor: "pointer",
+                                borderBottom:
+                                  "1px solid var(--th-border-mid,#283245)",
+                                fontSize: "0.85rem",
+                                color: "var(--th-text-primary,#f8fafc)",
+                              }}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.background =
+                                  "var(--th-border-mid,#283245)")
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.background =
+                                  "transparent")
+                              }
+                            >
                               {d.design}
-                              {!newItemForm.brand && d.brand && <span style={{ fontSize: "0.7rem", color: "var(--th-text-muted)", marginLeft: "0.5rem" }}>({d.brand})</span>}
+                              {!newItemForm.brand && d.brand && (
+                                <span
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: "var(--th-text-muted)",
+                                    marginLeft: "0.5rem",
+                                  }}
+                                >
+                                  ({d.brand})
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
                     <div style={{ position: "relative" }}>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Size <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <input className="inv-input" placeholder="e.g. 205/65R16" value={newItemForm.size} onChange={e => setNewItemForm(f => ({ ...f, size: e.target.value }))} onFocus={() => setShowSizeSug(true)} onBlur={() => setTimeout(() => setShowSizeSug(false), 200)} />
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Size <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <input
+                        className="inv-input"
+                        placeholder="e.g. 205/65R16"
+                        value={newItemForm.size}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            size: e.target.value,
+                          }))
+                        }
+                        onFocus={() => setShowSizeSug(true)}
+                        onBlur={() =>
+                          setTimeout(() => setShowSizeSug(false), 200)
+                        }
+                      />
                       {showSizeSug && sizeSuggestions.length > 0 && (
-                        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--th-bg-input,#1a2132)", border: "1px solid var(--th-border-strong,#3d5068)", borderRadius: "8px", overflowY: "auto", maxHeight: "150px", zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-                          {sizeSuggestions.map(s => (
-                            <div key={s} onMouseDown={() => { setNewItemForm(f => ({ ...f, size: s })); setShowSizeSug(false); }} style={{ padding: "0.5rem 0.75rem", cursor: "pointer", borderBottom: "1px solid var(--th-border-mid,#283245)", fontSize: "0.85rem", color: "var(--th-text-primary,#f8fafc)" }} onMouseEnter={e => e.currentTarget.style.background = "var(--th-border-mid,#283245)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{s}</div>
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            left: 0,
+                            right: 0,
+                            background: "var(--th-bg-input,#1a2132)",
+                            border: "1px solid var(--th-border-strong,#3d5068)",
+                            borderRadius: "8px",
+                            overflowY: "auto",
+                            maxHeight: "150px",
+                            zIndex: 50,
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                          }}
+                        >
+                          {sizeSuggestions.map((s) => (
+                            <div
+                              key={s}
+                              onMouseDown={() => {
+                                setNewItemForm((f) => ({ ...f, size: s }));
+                                setShowSizeSug(false);
+                              }}
+                              style={{
+                                padding: "0.5rem 0.75rem",
+                                cursor: "pointer",
+                                borderBottom:
+                                  "1px solid var(--th-border-mid,#283245)",
+                                fontSize: "0.85rem",
+                                color: "var(--th-text-primary,#f8fafc)",
+                              }}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.background =
+                                  "var(--th-border-mid,#283245)")
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.background =
+                                  "transparent")
+                              }
+                            >
+                              {s}
+                            </div>
                           ))}
                         </div>
                       )}
                     </div>
                     <div>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Category <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <select className="inv-input" value={newItemForm.category} onChange={e => setNewItemForm(f => ({ ...f, category: e.target.value }))}>
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Category <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <select
+                        className="inv-input"
+                        value={newItemForm.category}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            category: e.target.value,
+                          }))
+                        }
+                      >
                         <option value="">— Select —</option>
-                        {["PCR", "SUV", "TRUCK", "MOTORCYCLE", "VALVE", "WEIGHT", "SEALANT", "MISC"].map(c => <option key={c} value={c}>{c}</option>)}
+                        {[
+                          "PCR",
+                          "SUV",
+                          "TRUCK",
+                          "MOTORCYCLE",
+                          "VALVE",
+                          "WEIGHT",
+                          "SEALANT",
+                          "MISC",
+                        ].map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Qty to Order <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <input className="inv-input" type="number" min="1" placeholder="1" value={newItemForm.quantity} onChange={e => setNewItemForm(f => ({ ...f, quantity: e.target.value }))} />
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Qty to Order <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <input
+                        className="inv-input"
+                        type="number"
+                        min="1"
+                        placeholder="1"
+                        value={newItemForm.quantity}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            quantity: e.target.value,
+                          }))
+                        }
+                      />
                     </div>
                     <div>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Unit Cost <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.unit_cost} onChange={e => setNewItemForm(f => ({ ...f, unit_cost: e.target.value }))} />
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Unit Cost <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <input
+                        className="inv-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={newItemForm.unit_cost}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            unit_cost: e.target.value,
+                          }))
+                        }
+                      />
                     </div>
                     <div>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Selling Price <span style={{ color: "#38bdf8" }}>*</span></label>
-                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.selling_price} onChange={e => setNewItemForm(f => ({ ...f, selling_price: e.target.value }))} />
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Selling Price{" "}
+                        <span style={{ color: "#38bdf8" }}>*</span>
+                      </label>
+                      <input
+                        className="inv-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={newItemForm.selling_price}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            selling_price: e.target.value,
+                          }))
+                        }
+                      />
                     </div>
                     <div>
-                      <label style={{ fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Reorder Point</label>
-                      <input className="inv-input" type="number" min="0" placeholder="0" value={newItemForm.reorder_point} onChange={e => setNewItemForm(f => ({ ...f, reorder_point: e.target.value }))} />
+                      <label
+                        style={{
+                          fontSize: "clamp(0.62rem, 2.2vw, 0.72rem)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.07em",
+                          color: "#64748b",
+                          fontWeight: 600,
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Reorder Point
+                      </label>
+                      <input
+                        className="inv-input"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={newItemForm.reorder_point}
+                        onChange={(e) =>
+                          setNewItemForm((f) => ({
+                            ...f,
+                            reorder_point: e.target.value,
+                          }))
+                        }
+                      />
                     </div>
                   </div>
-                  {newItemError && <div style={{ fontSize: "0.8rem", color: "#fb7185", background: "rgba(251,113,133,0.1)", border: "1px solid #fb7185", borderRadius: 6, padding: "0.4rem 0.65rem" }}>{newItemError}</div>}
-                  <button className="inv-btn inv-btn-emerald" onClick={addNewItemToOrder} style={{ marginTop: "0.25rem" }}>+ Add to Order</button>
+                  {newItemError && (
+                    <div
+                      style={{
+                        fontSize: "0.8rem",
+                        color: "#fb7185",
+                        background: "rgba(251,113,133,0.1)",
+                        border: "1px solid #fb7185",
+                        borderRadius: 6,
+                        padding: "0.4rem 0.65rem",
+                      }}
+                    >
+                      {newItemError}
+                    </div>
+                  )}
+                  <button
+                    className="inv-btn inv-btn-emerald"
+                    onClick={addNewItemToOrder}
+                    style={{ marginTop: "0.25rem" }}
+                  >
+                    + Add to Order
+                  </button>
                 </div>
               ) : (
                 <>
                   <div className="inv-modal-section-title">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
                     Select Items
                   </div>
                   <div style={{ position: "relative", marginBottom: "0.4rem" }}>
-                    <input className="inv-input" style={{ paddingLeft: "2rem" }} placeholder="Search by name, SKU, brand, size…" value={orderSearchQuery} onChange={(e) => onSearchChange(e.target.value)} />
-                    <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    <input
+                      className="inv-input"
+                      style={{ paddingLeft: "2rem" }}
+                      placeholder="Search by name, SKU, brand, size…"
+                      value={orderSearchQuery}
+                      onChange={(e) => onSearchChange(e.target.value)}
+                    />
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#475569",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
                     </span>
                   </div>
                   <div style={{ maxHeight: "380px", overflowY: "auto" }}>
                     {orderModalCurrentItems.map((item) => {
                       const qty = item.current_quantity || 0;
-                      const inOrder = orderItems.some(o => o.item_id === item.item_id);
+                      const inOrder = orderItems.some(
+                        (o) => o.item_id === item.item_id,
+                      );
                       const stockCls = qty > 5 ? "ok" : qty > 0 ? "low" : "out";
                       return (
-                        <div key={item.item_id} className={`inv-order-item-row${inOrder ? " in-order" : ""}`}>
+                        <div
+                          key={item.item_id}
+                          className={`inv-order-item-row${inOrder ? " in-order" : ""}`}
+                        >
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="inv-order-item-name">{item.item_name}</div>
-                            <div className="inv-order-item-meta">{item.sku}</div>
-                            <div className={`inv-order-item-stock inv-stock-badge ${stockCls}`} style={{ display: "inline-block", marginTop: 3 }}>Stock: {qty}</div>
+                            <div className="inv-order-item-name">
+                              {item.item_name}
+                            </div>
+                            <div className="inv-order-item-meta">
+                              {item.sku}
+                            </div>
+                            <div
+                              className={`inv-order-item-stock inv-stock-badge ${stockCls}`}
+                              style={{ display: "inline-block", marginTop: 3 }}
+                            >
+                              Stock: {qty}
+                            </div>
                           </div>
-                          <button className="inv-btn inv-btn-sky inv-btn-sm" onClick={() => onAddItem(item)} style={{ marginLeft: "0.5rem" }}>
+                          <button
+                            className="inv-btn inv-btn-sky inv-btn-sm"
+                            onClick={() => onAddItem(item)}
+                            style={{ marginLeft: "0.5rem" }}
+                          >
                             {inOrder ? "+" : "+ Add"}
                           </button>
                         </div>
@@ -509,14 +1073,51 @@ function CreateOrderModal({
                     })}
                   </div>
                   {filteredOrderItems.length > ORDER_MODAL_ITEMS_PER_PAGE && (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.6rem", paddingTop: "0.5rem", borderTop: "1px solid #283245" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: "0.6rem",
+                        paddingTop: "0.5rem",
+                        borderTop: "1px solid #283245",
+                      }}
+                    >
                       <span style={{ fontSize: "0.7rem", color: "#475569" }}>
-                        {orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE - ORDER_MODAL_ITEMS_PER_PAGE + 1}–{Math.min(orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE, filteredOrderItems.length)} of {filteredOrderItems.length}
+                        {orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE -
+                          ORDER_MODAL_ITEMS_PER_PAGE +
+                          1}
+                        –
+                        {Math.min(
+                          orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE,
+                          filteredOrderItems.length,
+                        )}{" "}
+                        of {filteredOrderItems.length}
                       </span>
                       <div style={{ display: "flex", gap: "0.35rem" }}>
-                        <button className="inv-page-btn" disabled={orderModalCurrentPage === 1} onClick={() => onPageChange(orderModalCurrentPage - 1)}>← Prev</button>
-                        <span className="inv-page-current">{orderModalCurrentPage}/{orderModalTotalPages}</span>
-                        <button className="inv-page-btn" disabled={orderModalCurrentPage === orderModalTotalPages} onClick={() => onPageChange(orderModalCurrentPage + 1)}>Next →</button>
+                        <button
+                          className="inv-page-btn"
+                          disabled={orderModalCurrentPage === 1}
+                          onClick={() =>
+                            onPageChange(orderModalCurrentPage - 1)
+                          }
+                        >
+                          ← Prev
+                        </button>
+                        <span className="inv-page-current">
+                          {orderModalCurrentPage}/{orderModalTotalPages}
+                        </span>
+                        <button
+                          className="inv-page-btn"
+                          disabled={
+                            orderModalCurrentPage === orderModalTotalPages
+                          }
+                          onClick={() =>
+                            onPageChange(orderModalCurrentPage + 1)
+                          }
+                        >
+                          Next →
+                        </button>
                       </div>
                     </div>
                   )}
@@ -525,66 +1126,266 @@ function CreateOrderModal({
             </div>
 
             {/* RIGHT: order cart */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "0.5rem", borderBottom: "1px solid var(--th-border,#283245)" }}>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "clamp(0.72rem, 2.6vw, 0.82rem)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim,#94a3b8)" }}>Order Items</span>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.78rem", background: orderItems.length > 0 ? "rgba(249,115,22,0.15)" : "rgba(100,116,139,0.12)", color: orderItems.length > 0 ? "var(--th-orange,#f97316)" : "#475569", border: `1px solid ${orderItems.length > 0 ? "rgba(249,115,22,0.3)" : "#283245"}`, borderRadius: 20, padding: "0.1rem 0.6rem" }}>
-                  {orderItems.length} {orderItems.length === 1 ? "item" : "items"}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingBottom: "0.5rem",
+                  borderBottom: "1px solid var(--th-border,#283245)",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontWeight: 700,
+                    fontSize: "clamp(0.72rem, 2.6vw, 0.82rem)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: "var(--th-text-dim,#94a3b8)",
+                  }}
+                >
+                  Order Items
+                </span>
+                <span
+                  style={{
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontWeight: 700,
+                    fontSize: "0.78rem",
+                    background:
+                      orderItems.length > 0
+                        ? "rgba(249,115,22,0.15)"
+                        : "rgba(100,116,139,0.12)",
+                    color:
+                      orderItems.length > 0
+                        ? "var(--th-orange,#f97316)"
+                        : "#475569",
+                    border: `1px solid ${orderItems.length > 0 ? "rgba(249,115,22,0.3)" : "#283245"}`,
+                    borderRadius: 20,
+                    padding: "0.1rem 0.6rem",
+                  }}
+                >
+                  {orderItems.length}{" "}
+                  {orderItems.length === 1 ? "item" : "items"}
                 </span>
               </div>
-              <div style={{ flex: 1, minHeight: 0, maxHeight: "300px", overflowY: "auto" }}>
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  maxHeight: "300px",
+                  overflowY: "auto",
+                }}
+              >
                 {orderItems.length === 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "120px", gap: "0.5rem", color: "#3d5068" }}>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.3 }}>
-                      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "120px",
+                      gap: "0.5rem",
+                      color: "#3d5068",
+                    }}
+                  >
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      style={{ opacity: 0.3 }}
+                    >
+                      <circle cx="9" cy="21" r="1" />
+                      <circle cx="20" cy="21" r="1" />
                       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                     </svg>
-                    <span style={{ fontSize: "0.78rem" }}>No items added yet</span>
+                    <span style={{ fontSize: "0.78rem" }}>
+                      No items added yet
+                    </span>
                   </div>
                 ) : (
                   orderItems.map((oi) => (
-                    <div key={oi.order_item_id} style={{ borderBottom: "1px solid var(--th-border,#283245)", padding: "0.4rem 0" }}>
-                      <div className="inv-order-cart-row" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        <div className="inv-order-cart-info" style={{ flex: 1, minWidth: 0 }}>
-                          <div className="inv-order-cart-name" style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+                    <div
+                      key={oi.order_item_id}
+                      style={{
+                        borderBottom: "1px solid var(--th-border,#283245)",
+                        padding: "0.4rem 0",
+                      }}
+                    >
+                      <div
+                        className="inv-order-cart-row"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                        }}
+                      >
+                        <div
+                          className="inv-order-cart-info"
+                          style={{ flex: 1, minWidth: 0 }}
+                        >
+                          <div
+                            className="inv-order-cart-name"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.35rem",
+                              flexWrap: "wrap",
+                            }}
+                          >
                             {oi.item_name}
-                            {oi.is_new_item && <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", background: "rgba(52,211,153,0.15)", border: "1px solid #34d399", color: "#34d399", borderRadius: 4, padding: "0.05rem 0.35rem", lineHeight: 1.4 }}>NEW</span>}
+                            {oi.is_new_item && (
+                              <span
+                                style={{
+                                  fontSize: "0.62rem",
+                                  fontFamily: "'Barlow Condensed',sans-serif",
+                                  fontWeight: 700,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                  background: "rgba(52,211,153,0.15)",
+                                  border: "1px solid #34d399",
+                                  color: "#34d399",
+                                  borderRadius: 4,
+                                  padding: "0.05rem 0.35rem",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                NEW
+                              </span>
+                            )}
                           </div>
-                          <div className="inv-order-cart-sku">{oi.is_new_item ? oi.category : oi.sku}</div>
+                          <div className="inv-order-cart-sku">
+                            {oi.is_new_item ? oi.category : oi.sku}
+                          </div>
                         </div>
-                        <button className="inv-qty-btn" onClick={() => onUpdateQty(oi.order_item_id, oi.quantity - 1)}>−</button>
-                        <input className="inv-qty-display" type="number" min="1" value={oi.quantity} onChange={(e) => onUpdateQty(oi.order_item_id, Math.max(1, parseInt(e.target.value) || 1))} />
-                        <button className="inv-qty-btn" onClick={() => onUpdateQty(oi.order_item_id, oi.quantity + 1)}>+</button>
-                        <div className="inv-order-line-total">{ordCurrency(oi.line_total)}</div>
-                        <button className="inv-cancel-btn" onClick={() => onRemoveItem(oi.order_item_id)}>✕</button>
+                        <button
+                          className="inv-qty-btn"
+                          onClick={() =>
+                            onUpdateQty(oi.order_item_id, oi.quantity - 1)
+                          }
+                        >
+                          −
+                        </button>
+                        <input
+                          className="inv-qty-display"
+                          type="number"
+                          min="1"
+                          value={oi.quantity}
+                          onChange={(e) =>
+                            onUpdateQty(
+                              oi.order_item_id,
+                              Math.max(1, parseInt(e.target.value) || 1),
+                            )
+                          }
+                        />
+                        <button
+                          className="inv-qty-btn"
+                          onClick={() =>
+                            onUpdateQty(oi.order_item_id, oi.quantity + 1)
+                          }
+                        >
+                          +
+                        </button>
+                        <div className="inv-order-line-total">
+                          {ordCurrency(oi.line_total)}
+                        </div>
+                        <button
+                          className="inv-cancel-btn"
+                          onClick={() => onRemoveItem(oi.order_item_id)}
+                        >
+                          ✕
+                        </button>
                       </div>
                       {(() => {
                         const allSuppliers = suppliers || [];
                         const itemBrand = (oi.brand || "").trim().toUpperCase();
-                        const brandSuppliers = allSuppliers.filter(s =>
-                          (s.supplier_brands || []).some(b => b.brand_name.trim().toUpperCase() === itemBrand)
+                        const brandSuppliers = allSuppliers.filter((s) =>
+                          (s.supplier_brands || []).some(
+                            (b) =>
+                              b.brand_name.trim().toUpperCase() === itemBrand,
+                          ),
                         );
-                        const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
+                        const listToShow =
+                          brandSuppliers.length > 0
+                            ? brandSuppliers
+                            : allSuppliers;
                         const isFallback = brandSuppliers.length === 0;
                         return (
-                          <div className="inv-order-supplier-wrap" style={{ marginTop: "0.4rem", display: "flex", flexWrap: "wrap", gap: "0.3rem", alignItems: "center" }}>
-                            {isFallback && <span style={{ fontSize: "clamp(0.6rem, 2.1vw, 0.68rem)", color: "#64748b", width: "100%", marginBottom: "0.1rem" }}>No brand match — select supplier:</span>}
-                            {listToShow.map(s => {
+                          <div
+                            className="inv-order-supplier-wrap"
+                            style={{
+                              marginTop: "0.4rem",
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "0.3rem",
+                              alignItems: "center",
+                            }}
+                          >
+                            {isFallback && (
+                              <span
+                                style={{
+                                  fontSize: "clamp(0.6rem, 2.1vw, 0.68rem)",
+                                  color: "#64748b",
+                                  width: "100%",
+                                  marginBottom: "0.1rem",
+                                }}
+                              >
+                                No brand match — select supplier:
+                              </span>
+                            )}
+                            {listToShow.map((s) => {
                               const selected = oi.supplier_id === s.supplier_id;
                               return (
-                                <button key={s.supplier_id} className="inv-order-supplier-chip" onClick={() => onUpdateSupplier(oi.order_item_id, selected ? "" : s.supplier_id)} style={{
-                                  padding: "0.2rem 0.6rem", borderRadius: 20, fontSize: "0.75rem", cursor: "pointer",
-                                  fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
-                                  border: selected ? "1.5px solid #38bdf8" : "1px solid #3d5068",
-                                  background: selected ? "rgba(56,189,248,0.15)" : "var(--th-bg-input,#283245)",
-                                  color: selected ? "#38bdf8" : "#64748b",
-                                  transition: "all 0.12s",
-                                }}>
-                                  {selected ? "✓ " : ""}{s.supplier_name}
+                                <button
+                                  key={s.supplier_id}
+                                  className="inv-order-supplier-chip"
+                                  onClick={() =>
+                                    onUpdateSupplier(
+                                      oi.order_item_id,
+                                      selected ? "" : s.supplier_id,
+                                    )
+                                  }
+                                  style={{
+                                    padding: "0.2rem 0.6rem",
+                                    borderRadius: 20,
+                                    fontSize: "0.75rem",
+                                    cursor: "pointer",
+                                    fontFamily: "'Barlow Condensed',sans-serif",
+                                    fontWeight: 700,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.04em",
+                                    border: selected
+                                      ? "1.5px solid #38bdf8"
+                                      : "1px solid #3d5068",
+                                    background: selected
+                                      ? "rgba(56,189,248,0.15)"
+                                      : "var(--th-bg-input,#283245)",
+                                    color: selected ? "#38bdf8" : "#64748b",
+                                    transition: "all 0.12s",
+                                  }}
+                                >
+                                  {selected ? "✓ " : ""}
+                                  {s.supplier_name}
                                 </button>
                               );
                             })}
-                            {!oi.supplier_id && <span style={{ fontSize: "0.7rem", color: "#f97316" }}>⚠ required</span>}
+                            {!oi.supplier_id && (
+                              <span
+                                style={{ fontSize: "0.7rem", color: "#f97316" }}
+                              >
+                                ⚠ required
+                              </span>
+                            )}
                           </div>
                         );
                       })()}
@@ -594,15 +1395,34 @@ function CreateOrderModal({
               </div>
               <div>
                 <label className="inv-form-label">Order Notes (optional)</label>
-                <textarea className="inv-textarea" rows="2" value={orderNotes} onChange={(e) => onNotesChange(e.target.value)} placeholder="e.g., Rush delivery, special request…" />
+                <textarea
+                  className="inv-textarea"
+                  rows="2"
+                  value={orderNotes}
+                  onChange={(e) => onNotesChange(e.target.value)}
+                  placeholder="e.g., Rush delivery, special request…"
+                />
               </div>
               <div className="inv-order-total-bar">
                 <span className="inv-order-total-label">Order Total</span>
-                <span className="inv-order-total-amount">{ordCurrency(totalOrderAmount)}</span>
+                <span className="inv-order-total-amount">
+                  {ordCurrency(totalOrderAmount)}
+                </span>
               </div>
               {error && (
                 <div className="inv-error">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
                   {error}
                 </div>
               )}
@@ -611,9 +1431,22 @@ function CreateOrderModal({
         </div>
 
         <div className="inv-modal-footer">
-          <button className="inv-btn inv-btn-slate" style={{ flex: "0 0 auto", minWidth: 110 }} onClick={onClose}>Cancel</button>
-          <button className="inv-btn inv-btn-orange" style={{ flex: 1 }} disabled={loading || orderItems.length === 0} onClick={onSubmit}>
-            {loading ? "Creating…" : `✓ Create Order${orderItems.length > 0 ? ` (${orderItems.length})` : ""}`}
+          <button
+            className="inv-btn inv-btn-slate"
+            style={{ flex: "0 0 auto", minWidth: 110 }}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            className="inv-btn inv-btn-orange"
+            style={{ flex: 1 }}
+            disabled={loading || orderItems.length === 0}
+            onClick={onSubmit}
+          >
+            {loading
+              ? "Creating…"
+              : `✓ Create Order${orderItems.length > 0 ? ` (${orderItems.length})` : ""}`}
           </button>
         </div>
       </div>
@@ -626,7 +1459,10 @@ function ConfirmModal({ pending, onConfirm, onCancel, loading }) {
   if (!pending) return null;
   const isDanger = pending.danger === true;
   return (
-    <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
+    <div
+      className="confirm-overlay"
+      onClick={(e) => e.target === e.currentTarget && onCancel()}
+    >
       <div className="confirm-box">
         <div className="confirm-title">{pending.title}</div>
         <div className="confirm-details">
@@ -638,9 +1474,1531 @@ function ConfirmModal({ pending, onConfirm, onCancel, loading }) {
           ))}
         </div>
         <div className="confirm-actions">
-          <button className="confirm-btn-cancel" onClick={onCancel} disabled={loading}>Back</button>
-          <button className={`confirm-btn-ok${isDanger ? " danger" : ""}`} onClick={onConfirm} disabled={loading}>
-            {loading ? "Processing…" : (pending.okLabel || "Confirm")}
+          <button
+            className="confirm-btn-cancel"
+            onClick={onCancel}
+            disabled={loading}
+          >
+            Back
+          </button>
+          <button
+            className={`confirm-btn-ok${isDanger ? " danger" : ""}`}
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? "Processing…" : pending.okLabel || "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════
+   ⚡ QUICK RECEIVE MODAL
+   Walk-in / Pickup bypass — skips Pending & Confirmed
+════════════════════════════════════════ */
+const TIRE_CATS_QR = [
+  "PCR",
+  "SUV",
+  "TBR",
+  "LT",
+  "MOTORCYCLE",
+  "TIRE",
+  "RECAP",
+  "TUBE",
+];
+
+function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
+  const [dr, setDr] = React.useState("");
+  const [paymentMode, setPaymentMode] = React.useState("TERMS");
+  const [checkInfo, setCheckInfo] = React.useState({
+    check_number: "",
+    bank: "",
+    check_date: "",
+  });
+  const [notes, setNotes] = React.useState("");
+  const [lines, setLines] = React.useState([]);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [err, setErr] = React.useState("");
+
+  // Item search state
+  const [itemSearch, setItemSearch] = React.useState("");
+  const [showSug, setShowSug] = React.useState(false);
+  const itemSearchRef = React.useRef(null);
+
+  const suggestions = React.useMemo(() => {
+    const q = itemSearch.trim().toLowerCase();
+    if (!q) return [];
+    return (items || [])
+      .filter((i) =>
+        [i.item_name, i.sku, i.brand, i.design, i.size].some(
+          (f) => f && f.toLowerCase().includes(q),
+        ),
+      )
+      .slice(0, 10);
+  }, [itemSearch, items]);
+
+  function addLine(item) {
+    setLines((prev) => [
+      ...prev,
+      {
+        _key: `${Date.now()}-${Math.random()}`,
+        item_id: item.item_id,
+        item_name:
+          item.item_name || `${item.brand} ${item.design} ${item.size}`,
+        category: item.category || "",
+        brand: item.brand || "",
+        design: item.design || "",
+        size: item.size || "",
+        current_qty: item.current_quantity || 0,
+        supplier_id: item.supplier_id || "",
+        quantity: 1,
+        unit_cost: item.unit_cost || 0,
+        dot_number: "",
+        is_new_item: false,
+      },
+    ]);
+    setItemSearch("");
+    setShowSug(false);
+  }
+
+  function updateLine(key, field, value) {
+    setLines((prev) =>
+      prev.map((l) => (l._key === key ? { ...l, [field]: value } : l)),
+    );
+  }
+
+  function removeLine(key) {
+    setLines((prev) => prev.filter((l) => l._key !== key));
+  }
+
+  const totalAmount = lines.reduce(
+    (s, l) =>
+      s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unit_cost) || 0),
+    0,
+  );
+
+  // ── Tab + New Item Form state ──
+  const [qrTab, setQrTab] = React.useState("search"); // 'search' | 'new'
+  const [newItemForm, setNewItemForm] = React.useState({
+    brand: "",
+    supplier_id: "",
+    design: "",
+    size: "",
+    category: "",
+    unit_cost: "",
+    selling_price: "",
+    quantity: "1",
+    reorder_point: "0",
+    dot_number: "",
+  });
+  const [newItemErr, setNewItemErr] = React.useState("");
+
+  // Autocomplete data (fetched once)
+  const [dbSizes, setDbSizes] = React.useState([]);
+  const [dbBrands, setDbBrands] = React.useState([]);
+  const [dbDesigns, setDbDesigns] = React.useState([]);
+  const [showNiSize, setShowNiSize] = React.useState(false);
+  const [showNiBrand, setShowNiBrand] = React.useState(false);
+  const [showNiDesign, setShowNiDesign] = React.useState(false);
+
+  React.useEffect(() => {
+    apiFetch(`${API_URL}/item-sizes/any`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) setDbSizes(d);
+      })
+      .catch(() => {});
+    apiFetch(`${API_URL}/item-brands/any`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) setDbBrands(d);
+      })
+      .catch(() => {});
+    apiFetch(`${API_URL}/item-designs/any`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) setDbDesigns(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  const niSizeSuggestions = React.useMemo(() => {
+    if (!newItemForm.size) return [];
+    const q = newItemForm.size.toLowerCase();
+    return dbSizes.filter((s) => s.toLowerCase().includes(q)).slice(0, 8);
+  }, [newItemForm.size, dbSizes]);
+
+  const niBrandSuggestions = React.useMemo(() => {
+    if (!newItemForm.brand) return [];
+    const q = newItemForm.brand.toLowerCase();
+    const seen = new Set();
+    const out = [];
+    dbBrands.forEach((b) => {
+      if (b.toLowerCase().includes(q) && !seen.has(b)) {
+        seen.add(b);
+        out.push({ brand: b });
+      }
+    });
+    dbDesigns.forEach((d) => {
+      if (
+        d.design.toLowerCase().includes(q) &&
+        d.brand &&
+        !seen.has(d.brand.toUpperCase())
+      ) {
+        seen.add(d.brand.toUpperCase());
+        out.push({ brand: d.brand, fromDesign: d.design });
+      }
+    });
+    return out.slice(0, 8);
+  }, [newItemForm.brand, dbBrands, dbDesigns]);
+
+  const niDesignSuggestions = React.useMemo(() => {
+    if (!newItemForm.design) return [];
+    const q = newItemForm.design.toLowerCase();
+    const brand = newItemForm.brand.toLowerCase();
+    const filtered = dbDesigns.filter(
+      (d) =>
+        d.design.toLowerCase().includes(q) &&
+        (brand ? (d.brand || "").toLowerCase() === brand : true),
+    );
+    return (
+      filtered.length > 0
+        ? filtered
+        : dbDesigns.filter((d) => d.design.toLowerCase().includes(q))
+    ).slice(0, 8);
+  }, [newItemForm.design, newItemForm.brand, dbDesigns]);
+
+  const suppliersForNiBrand = React.useMemo(() => {
+    if (!newItemForm.brand) return suppliers || [];
+    const filtered = (suppliers || []).filter((s) =>
+      (s.supplier_brands || []).some(
+        (b) => b.brand_name.toUpperCase() === newItemForm.brand.toUpperCase(),
+      ),
+    );
+    return filtered.length > 0 ? filtered : suppliers || [];
+  }, [newItemForm.brand, suppliers]);
+
+  function addNewItemToLines() {
+    setNewItemErr("");
+    if (!newItemForm.brand.trim()) return setNewItemErr("Brand is required");
+    if (!newItemForm.supplier_id) return setNewItemErr("Select a supplier");
+    if (!newItemForm.design.trim()) return setNewItemErr("Design is required");
+    if (!newItemForm.size.trim()) return setNewItemErr("Size is required");
+    if (!newItemForm.category) return setNewItemErr("Category is required");
+    if (!newItemForm.unit_cost || parseFloat(newItemForm.unit_cost) <= 0)
+      return setNewItemErr("Unit cost is required");
+    if (
+      !newItemForm.selling_price ||
+      parseFloat(newItemForm.selling_price) <= 0
+    )
+      return setNewItemErr("Selling price is required");
+    const isTire = TIRE_CATS_QR.includes(
+      (newItemForm.category || "").toUpperCase(),
+    );
+    if (isTire && !newItemForm.dot_number.trim())
+      return setNewItemErr("DOT number is required for tire categories");
+    const qty = parseInt(newItemForm.quantity) || 1;
+    const cost = parseFloat(newItemForm.unit_cost);
+    const brandUp = newItemForm.brand.toUpperCase();
+    const designUp = newItemForm.design.toUpperCase();
+    setLines((prev) => [
+      ...prev,
+      {
+        _key: `NEW-${Date.now()}-${Math.random()}`,
+        item_id: null,
+        is_new_item: true,
+        item_name: `${brandUp} ${designUp} ${newItemForm.size}`,
+        brand: brandUp,
+        design: designUp,
+        size: newItemForm.size,
+        category: newItemForm.category,
+        supplier_id: newItemForm.supplier_id,
+        quantity: qty,
+        unit_cost: cost,
+        selling_price: parseFloat(newItemForm.selling_price),
+        reorder_point: parseInt(newItemForm.reorder_point) || 0,
+        dot_number: newItemForm.dot_number.trim(),
+        current_qty: 0,
+      },
+    ]);
+    setNewItemForm({
+      brand: "",
+      supplier_id: "",
+      design: "",
+      size: "",
+      category: "",
+      unit_cost: "",
+      selling_price: "",
+      quantity: "1",
+      reorder_point: "0",
+      dot_number: "",
+    });
+    setNewItemErr("");
+    setQrTab("search");
+  }
+
+  async function handleSubmit() {
+    setErr("");
+    if (!dr.trim()) {
+      setErr("Delivery Receipt (DR) number is required");
+      return;
+    }
+    if (lines.length === 0) {
+      setErr("Add at least one item");
+      return;
+    }
+    for (const l of lines) {
+      if (!l.quantity || parseFloat(l.quantity) <= 0) {
+        setErr(`Quantity must be > 0 for ${l.item_name}`);
+        return;
+      }
+      if (!l.supplier_id) {
+        setErr(`Select a supplier for ${l.item_name}`);
+        return;
+      }
+      const isTire = TIRE_CATS_QR.includes((l.category || "").toUpperCase());
+      if (isTire && !l.dot_number?.trim()) {
+        setErr(`DOT number required for tire: ${l.item_name}`);
+        return;
+      }
+    }
+
+    const existingLines = lines.filter((l) => !l.is_new_item);
+    const newItemLines = lines.filter((l) => l.is_new_item);
+
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem("th-token");
+      const r = await apiFetch(`${API_URL}/orders/quick-receive`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          shop_id: shopId,
+          delivery_receipt: dr.trim(),
+          payment_mode: paymentMode,
+          check_info: paymentMode === "CHECK" ? checkInfo : null,
+          notes: notes.trim() || null,
+          received_by: localStorage.getItem("th-user") || "SYSTEM",
+          lines: existingLines.map((l) => ({
+            item_id: l.item_id,
+            supplier_id: l.supplier_id,
+            quantity: parseFloat(l.quantity),
+            unit_cost: parseFloat(l.unit_cost),
+            dot_number: l.dot_number?.trim() || null,
+          })),
+          new_items: newItemLines.map((l) => ({
+            brand: l.brand,
+            design: l.design,
+            size: l.size,
+            category: l.category,
+            unit_cost: parseFloat(l.unit_cost),
+            selling_price: parseFloat(l.selling_price),
+            quantity: parseFloat(l.quantity),
+            dot_number: l.dot_number?.trim() || null,
+            supplier_id: l.supplier_id,
+            reorder_point: l.reorder_point || 0,
+          })),
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Quick Receive failed");
+      onSuccess(data);
+    } catch (e) {
+      setErr(e.message);
+    }
+    setSubmitting(false);
+  }
+
+  const modeBtn = (mode, label, icon) => (
+    <button
+      key={mode}
+      onClick={() => setPaymentMode(mode)}
+      className="ord-paymode-btn"
+      style={{
+        flex: 1,
+        border:
+          paymentMode === mode
+            ? "1.5px solid var(--th-emerald)"
+            : "1px solid var(--th-border-strong)",
+        background:
+          paymentMode === mode ? "var(--th-emerald-bg)" : "var(--th-bg-input)",
+        color:
+          paymentMode === mode ? "var(--th-emerald)" : "var(--th-text-dim)",
+      }}
+    >
+      {icon} {label}
+    </button>
+  );
+
+  return (
+    <div
+      className="inv-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && !submitting && onClose()}
+    >
+      <div
+        className="inv-modal"
+        style={{
+          maxWidth: 880,
+          maxHeight: "95vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header */}
+        <div className="inv-modal-header">
+          <div
+            className="inv-modal-title"
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <div
+              style={{
+                background: "var(--th-emerald-bg)",
+                color: "var(--th-emerald)",
+                width: 32,
+                height: 32,
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid var(--th-emerald-glow)",
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                ⚡ Quick Receive
+              </div>
+              <div
+                style={{
+                  fontSize: "0.7rem",
+                  color: "var(--th-text-dim)",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Walk-In / Pickup Bypass
+              </div>
+            </div>
+          </div>
+          <button className="inv-modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div
+          className="inv-modal-body"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: ".5rem",
+            padding: "1.25rem",
+            minHeight: "400px",
+          }}
+        >
+          {/* Top Form Section */}
+          <div
+            style={{
+              display: "grid",
+              gap: "1rem",
+              background: "var(--th-bg-card-alt)",
+              padding: "1rem",
+              borderRadius: "12px",
+              border: "1px solid var(--th-border)",
+              alignContent: "start",
+            }}
+          >
+            <div className="qr-in">
+              <div className="qr-in-width" style={{ gridColumn: "span 1" }}>
+                <label className="th-label" style={{ fontSize: "0.7rem" }}>
+                  Delivery Receipt (DR) #{" "}
+                  <span style={{ color: "var(--th-rose)" }}>*</span>
+                </label>
+                <input
+                  className="inv-input"
+                  style={{ background: "var(--th-bg-card)" }}
+                  placeholder="e.g. DR-2026-00123"
+                  value={dr}
+                  onChange={(e) => setDr(e.target.value)}
+                />
+              </div>
+              <div className="qr-in-width" style={{ gridColumn: "span 1" }}>
+                <label className="th-label" style={{ fontSize: "0.7rem" }}>
+                  Notes (optional)
+                </label>
+                <input
+                  className="inv-input"
+                  style={{ background: "var(--th-bg-card)" }}
+                  placeholder="e.g. Picked up from warehouse"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label className="th-label" style={{ fontSize: "0.7rem" }}>
+                Payment Mode <span style={{ color: "var(--th-rose)" }}>*</span>
+              </label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                {modeBtn("CASH", "Cash", "💵")}
+                {modeBtn("CHECK", "Check Release", "✏️")}
+                {modeBtn("TERMS", "Supplier Terms", "🗓️")}
+              </div>
+            </div>
+
+            {paymentMode === "CHECK" && (
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                  gap: "0.5rem",
+                  padding: "0.75rem",
+                  background: "var(--th-bg-card)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--th-border)",
+                }}
+              >
+                <div>
+                  <label className="th-label" style={{ fontSize: "0.65rem" }}>
+                    Check #
+                  </label>
+                  <input
+                    className="inv-input"
+                    placeholder="001234"
+                    value={checkInfo.check_number}
+                    onChange={(e) =>
+                      setCheckInfo((c) => ({
+                        ...c,
+                        check_number: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="th-label" style={{ fontSize: "0.65rem" }}>
+                    Bank
+                  </label>
+                  <input
+                    className="inv-input"
+                    placeholder="BDO"
+                    value={checkInfo.bank}
+                    onChange={(e) =>
+                      setCheckInfo((c) => ({ ...c, bank: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="th-label" style={{ fontSize: "0.65rem" }}>
+                    Check Date
+                  </label>
+                  <input
+                    className="inv-input"
+                    type="date"
+                    value={checkInfo.check_date}
+                    onChange={(e) =>
+                      setCheckInfo((c) => ({
+                        ...c,
+                        check_date: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Item Add Section — tabbed */}
+          <div
+            style={{
+              background: "var(--th-bg-card-alt)",
+              borderRadius: "12px",
+              border: "1px solid var(--th-border)",
+              overflow: "visible",
+            }}
+          >
+            {/* Tab Strip */}
+            <div
+              style={{
+                display: "flex",
+                borderBottom: "1px solid var(--th-border)",
+              }}
+            >
+              {[
+                ["search", "🔍 Search Existing"],
+                ["new", "✦ New Item"],
+              ].map(([t, lbl]) => (
+                <button
+                  key={t}
+                  onClick={() => setQrTab(t)}
+                  style={{
+                    flex: 1,
+                    padding: "0.6rem 1rem",
+                    cursor: "pointer",
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontWeight: 700,
+                    fontSize: "0.82rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    border: "none",
+                    borderBottom:
+                      qrTab === t
+                        ? "2px solid var(--th-orange)"
+                        : "2px solid transparent",
+                    background: "transparent",
+                    color:
+                      qrTab === t ? "var(--th-orange)" : "var(--th-text-dim)",
+                    transition: "color 0.15s, border-color 0.15s",
+                  }}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+
+            {qrTab === "search" ? (
+              /* ── Search existing ── */
+              <div style={{ padding: "1rem", position: "relative" }}>
+                <input
+                  ref={itemSearchRef}
+                  className="inv-input"
+                  style={{
+                    paddingLeft: "2.5rem",
+                    background: "var(--th-bg-card)",
+                    height: "42px",
+                    fontSize: "1rem",
+                  }}
+                  placeholder="Type item name, brand, size or SKU…"
+                  value={itemSearch}
+                  onChange={(e) => {
+                    setItemSearch(e.target.value);
+                    setShowSug(true);
+                  }}
+                  onFocus={() => setShowSug(true)}
+                  onBlur={() => setTimeout(() => setShowSug(false), 200)}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 28,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--th-text-faint)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </span>
+                {showSug && suggestions.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% - 4px)",
+                      left: 16,
+                      right: 16,
+                      background: "var(--th-bg-card)",
+                      border: "1px solid var(--th-border-strong)",
+                      borderRadius: "10px",
+                      zIndex: 100,
+                      maxHeight: 280,
+                      overflowY: "auto",
+                      boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
+                    }}
+                  >
+                    {suggestions.map((item) => (
+                      <div
+                        key={item.item_id}
+                        onMouseDown={() => addLine(item)}
+                        className="ord-sug-item"
+                        style={{
+                          padding: "0.75rem 1rem",
+                          borderBottom: "1px solid var(--th-border)",
+                          cursor: "pointer",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "0.9rem",
+                              color: "var(--th-text-primary)",
+                            }}
+                          >
+                            {item.item_name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "var(--th-text-dim)",
+                            }}
+                          >
+                            {item.sku || "No SKU"} · {item.category} ·{" "}
+                            {item.brand}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color:
+                                (item.current_quantity || 0) > 0
+                                  ? "var(--th-emerald)"
+                                  : "var(--th-rose)",
+                              fontWeight: 700,
+                            }}
+                          >
+                            Stock: {item.current_quantity || 0}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── New Item Form ── */
+              <div
+                style={{
+                  padding: "1rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.6rem",
+                }}
+              >
+                {/* Row 1: Brand + Supplier */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Brand <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      placeholder="e.g. PRINX"
+                      value={newItemForm.brand}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          brand: e.target.value,
+                          supplier_id: "",
+                        }))
+                      }
+                      onFocus={() => setShowNiBrand(true)}
+                      onBlur={() =>
+                        setTimeout(() => setShowNiBrand(false), 200)
+                      }
+                    />
+                    {showNiBrand && niBrandSuggestions.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "var(--th-bg-input)",
+                          border: "1px solid var(--th-border-strong)",
+                          borderRadius: "8px",
+                          maxHeight: 150,
+                          overflowY: "auto",
+                          zIndex: 60,
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                        }}
+                      >
+                        {niBrandSuggestions.map((s, i) => (
+                          <div
+                            key={i}
+                            onMouseDown={() => {
+                              setNewItemForm((f) => ({
+                                ...f,
+                                brand: s.brand,
+                                design: s.fromDesign || f.design,
+                                supplier_id: "",
+                              }));
+                              setShowNiBrand(false);
+                            }}
+                            style={{
+                              padding: "0.45rem 0.75rem",
+                              cursor: "pointer",
+                              fontSize: "0.85rem",
+                              color: "var(--th-text-primary)",
+                              borderBottom: "1px solid var(--th-border)",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background =
+                                "var(--th-border)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                          >
+                            {s.brand}
+                            {s.fromDesign && (
+                              <span
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--th-orange)",
+                                  marginLeft: "0.4rem",
+                                  opacity: 0.8,
+                                }}
+                              >
+                                ({s.fromDesign})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Supplier <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <select
+                      className="inv-input"
+                      value={newItemForm.supplier_id}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          supplier_id: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">— Select supplier —</option>
+                      {suppliersForNiBrand.map((s) => (
+                        <option key={s.supplier_id} value={s.supplier_id}>
+                          {s.supplier_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Row 2: Design + Size */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div style={{ position: "relative" }}>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Design <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      placeholder="e.g. CHANGER"
+                      value={newItemForm.design}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          design: e.target.value,
+                        }))
+                      }
+                      onFocus={() => setShowNiDesign(true)}
+                      onBlur={() =>
+                        setTimeout(() => setShowNiDesign(false), 200)
+                      }
+                    />
+                    {showNiDesign && niDesignSuggestions.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "var(--th-bg-input)",
+                          border: "1px solid var(--th-border-strong)",
+                          borderRadius: "8px",
+                          maxHeight: 150,
+                          overflowY: "auto",
+                          zIndex: 60,
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                        }}
+                      >
+                        {niDesignSuggestions.map((d, i) => (
+                          <div
+                            key={i}
+                            onMouseDown={() => {
+                              setNewItemForm((f) => ({
+                                ...f,
+                                design: d.design,
+                                brand: d.brand || f.brand,
+                                category: d.category || f.category,
+                              }));
+                              setShowNiDesign(false);
+                            }}
+                            style={{
+                              padding: "0.45rem 0.75rem",
+                              cursor: "pointer",
+                              fontSize: "0.85rem",
+                              color: "var(--th-text-primary)",
+                              borderBottom: "1px solid var(--th-border)",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background =
+                                "var(--th-border)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                          >
+                            {d.design}
+                            {!newItemForm.brand && d.brand && (
+                              <span
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--th-text-dim)",
+                                  marginLeft: "0.4rem",
+                                }}
+                              >
+                                ({d.brand})
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Size <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      placeholder="e.g. 205/65R16"
+                      value={newItemForm.size}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({ ...f, size: e.target.value }))
+                      }
+                      onFocus={() => setShowNiSize(true)}
+                      onBlur={() => setTimeout(() => setShowNiSize(false), 200)}
+                    />
+                    {showNiSize && niSizeSuggestions.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          left: 0,
+                          right: 0,
+                          background: "var(--th-bg-input)",
+                          border: "1px solid var(--th-border-strong)",
+                          borderRadius: "8px",
+                          maxHeight: 150,
+                          overflowY: "auto",
+                          zIndex: 60,
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                        }}
+                      >
+                        {niSizeSuggestions.map((s) => (
+                          <div
+                            key={s}
+                            onMouseDown={() => {
+                              setNewItemForm((f) => ({ ...f, size: s }));
+                              setShowNiSize(false);
+                            }}
+                            style={{
+                              padding: "0.45rem 0.75rem",
+                              cursor: "pointer",
+                              fontSize: "0.85rem",
+                              color: "var(--th-text-primary)",
+                              borderBottom: "1px solid var(--th-border)",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.background =
+                                "var(--th-border)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.background = "transparent")
+                            }
+                          >
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Row 3: Category + Qty + DOT */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.2fr 0.6fr 0.8fr",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Category <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <select
+                      className="inv-input"
+                      value={newItemForm.category}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          category: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">— Select —</option>
+                      {[
+                        "PCR",
+                        "SUV",
+                        "TBR",
+                        "LT",
+                        "MOTORCYCLE",
+                        "VALVE",
+                        "WEIGHT",
+                        "SEALANT",
+                        "MISC",
+                      ].map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Qty <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={newItemForm.quantity}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          quantity: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      DOT #
+                      {TIRE_CATS_QR.includes(
+                        (newItemForm.category || "").toUpperCase(),
+                      ) && <span style={{ color: "var(--th-rose)" }}> *</span>}
+                    </label>
+                    <input
+                      className="inv-input"
+                      placeholder="e.g. 3524"
+                      style={{
+                        borderColor:
+                          TIRE_CATS_QR.includes(
+                            (newItemForm.category || "").toUpperCase(),
+                          ) && !newItemForm.dot_number.trim()
+                            ? "var(--th-rose)"
+                            : undefined,
+                      }}
+                      value={newItemForm.dot_number}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          dot_number: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                {/* Row 4: Unit Cost + Selling Price + Reorder Point */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 0.7fr",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Unit Cost{" "}
+                      <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newItemForm.unit_cost}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          unit_cost: e.target.value,
+                        }))
+                      }
+                      style={{ color: "var(--th-amber)", fontWeight: 700 }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Selling Price{" "}
+                      <span style={{ color: "var(--th-sky)" }}>*</span>
+                    </label>
+                    <input
+                      className="inv-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newItemForm.selling_price}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          selling_price: e.target.value,
+                        }))
+                      }
+                      style={{ color: "var(--th-emerald)", fontWeight: 700 }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "0.68rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        color: "var(--th-text-faint)",
+                        fontWeight: 600,
+                        display: "block",
+                        marginBottom: "0.2rem",
+                      }}
+                    >
+                      Reorder Pt.
+                    </label>
+                    <input
+                      className="inv-input"
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={newItemForm.reorder_point}
+                      onChange={(e) =>
+                        setNewItemForm((f) => ({
+                          ...f,
+                          reorder_point: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                {newItemErr && (
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--th-rose)",
+                      background: "var(--th-rose-bg)",
+                      border: "1px solid var(--th-rose)",
+                      borderRadius: 6,
+                      padding: "0.35rem 0.6rem",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {newItemErr}
+                  </div>
+                )}
+                <button
+                  className="inv-btn inv-btn-emerald"
+                  onClick={addNewItemToLines}
+                  style={{ marginTop: "0.15rem", fontWeight: 800 }}
+                >
+                  ✦ Add to Receive List
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Line Items — responsive card list */}
+          {lines.length > 0 && (
+            <div className="qr-lines-wrap">
+              {/* Desktop table header */}
+              <div className="qr-lines-header">
+                {[
+                  "Item",
+                  "Supplier",
+                  "Qty",
+                  "Cost",
+                  "DOT #",
+                  "Subtotal",
+                  "",
+                ].map((h) => (
+                  <div
+                    key={h}
+                    className={`qr-lines-hcell${h === "Subtotal" ? " right" : h === "" ? " center" : ""}`}
+                  >
+                    {h}
+                  </div>
+                ))}
+              </div>
+
+              {lines.map((line) => {
+                const isTire = TIRE_CATS_QR.includes(
+                  (line.category || "").toUpperCase(),
+                );
+                const lineTotal =
+                  (parseFloat(line.quantity) || 0) *
+                  (parseFloat(line.unit_cost) || 0);
+                const brandUp = (line.brand || "").trim().toUpperCase();
+                const brandSups = (suppliers || []).filter((s) =>
+                  (s.supplier_brands || []).some(
+                    (b) => b.brand_name.trim().toUpperCase() === brandUp,
+                  ),
+                );
+                const supList =
+                  brandSups.length > 0 ? brandSups : suppliers || [];
+                return (
+                  <div key={line._key} className="qr-line-card">
+                    {/* ── Item info + delete (always visible) ── */}
+                    <div className="qr-card-item-row">
+                      <div className="qr-card-item-info">
+                        <div className="qr-card-item-name">
+                          {line.item_name}
+                          {line.is_new_item && (
+                            <span className="qr-card-new-badge">NEW</span>
+                          )}
+                        </div>
+                        <div className="qr-card-item-sub">
+                          {line.category}
+                          {!line.is_new_item && ` · Stock: ${line.current_qty}`}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeLine(line._key)}
+                        className="inv-btn-icon qr-card-delete"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* ── Supplier (full-width on mobile, cell on desktop) ── */}
+                    <div className="qr-card-supplier-row">
+                      <label className="qr-card-label">Supplier</label>
+                      <select
+                        className="inv-input qr-card-select"
+                        value={line.supplier_id}
+                        onChange={(e) =>
+                          updateLine(line._key, "supplier_id", e.target.value)
+                        }
+                      >
+                        <option value="">— Select Supplier —</option>
+                        {supList.map((s) => (
+                          <option key={s.supplier_id} value={s.supplier_id}>
+                            {s.supplier_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* ── Qty / Cost / DOT / Subtotal ── */}
+                    <div className="qr-card-inputs-row">
+                      <div className="qr-card-field">
+                        <label className="qr-card-label">Qty</label>
+                        <input
+                          className="inv-input"
+                          type="number"
+                          min="1"
+                          step="1"
+                          style={{ textAlign: "center", fontWeight: 700 }}
+                          value={line.quantity}
+                          onChange={(e) =>
+                            updateLine(line._key, "quantity", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="qr-card-field">
+                        <label className="qr-card-label">Cost</label>
+                        <div style={{ position: "relative" }}>
+                          <span className="qr-cost-prefix">₱</span>
+                          <input
+                            className="inv-input"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            style={{
+                              paddingLeft: "1.25rem",
+                              fontWeight: 700,
+                              color: "var(--th-amber)",
+                            }}
+                            value={line.unit_cost}
+                            onChange={(e) =>
+                              updateLine(line._key, "unit_cost", e.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="qr-card-field">
+                        <label className="qr-card-label">DOT #</label>
+                        {isTire ? (
+                          <input
+                            className="inv-input"
+                            placeholder="e.g. 3524"
+                            style={{
+                              textAlign: "center",
+                              borderColor: !line.dot_number?.trim()
+                                ? "var(--th-rose)"
+                                : undefined,
+                              background: !line.dot_number?.trim()
+                                ? "var(--th-rose-bg)"
+                                : undefined,
+                            }}
+                            value={line.dot_number}
+                            onChange={(e) =>
+                              updateLine(
+                                line._key,
+                                "dot_number",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        ) : (
+                          <div className="qr-card-na">N/A</div>
+                        )}
+                      </div>
+                      <div className="qr-card-field qr-card-field-subtotal">
+                        <label className="qr-card-label">Subtotal</label>
+                        <div className="qr-card-subtotal-val">
+                          {ordCurrency(lineTotal)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Grand Total */}
+              <div className="qr-lines-total">
+                <span className="qr-lines-total-label">Grand Total</span>
+                <span className="qr-lines-total-amount">
+                  {ordCurrency(totalAmount)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {err && (
+            <div
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--th-rose)",
+                background: "var(--th-rose-bg)",
+                border: "1px solid var(--th-rose)",
+                borderRadius: 7,
+                padding: "0.45rem 0.7rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              {err}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="inv-modal-footer"
+          style={{ justifyContent: "flex-end", gap: "0.75rem" }}
+        >
+          <button
+            className="inv-btn inv-btn-slate"
+            style={{ flex: "0 0 auto", minWidth: 120, height: "42px" }}
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            className="inv-btn"
+            style={{
+              flex: "0 0 auto",
+              minWidth: 200,
+              height: "42px",
+              background:
+                lines.length > 0
+                  ? "var(--th-emerald)"
+                  : "var(--th-bg-card-alt)",
+              color: lines.length > 0 ? "#061018" : "var(--th-text-faint)",
+              fontWeight: 900,
+              boxShadow:
+                lines.length > 0 ? "0 4px 12px var(--th-emerald-glow)" : "none",
+            }}
+            disabled={submitting || lines.length === 0}
+            onClick={handleSubmit}
+          >
+            {submitting ? (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                <div
+                  className="th-spinner th-spinner-sm"
+                  style={{ borderTopColor: "#061018" }}
+                ></div>
+                Processing…
+              </div>
+            ) : (
+              `⚡ Confirm & Quick Receive`
+            )}
           </button>
         </div>
       </div>
@@ -659,10 +3017,12 @@ export default function OrdersPage({ shopId, onRefresh }) {
   const ORDERS_PAGE_SIZE = 10;
   const {
     data: orders,
-    page: ordersPage, setPage: setOrdersPage,
+    page: ordersPage,
+    setPage: setOrdersPage,
     totalPages: ordersTotalPages,
     total: ordersTotalCount,
-    search: searchQuery, setSearch: setSearchQuery,
+    search: searchQuery,
+    setSearch: setSearchQuery,
     refetch: fetchOrders,
   } = usePaginatedResource({
     url: `${API_URL}/orders/${shopId}`,
@@ -691,10 +3051,17 @@ export default function OrdersPage({ shopId, onRefresh }) {
   const [receiveOverrides, setReceiveOverrides] = React.useState({}); // {order_item_id: {quantity, unit_cost, dot_number}}
   const [deliveryReceipt, setDeliveryReceipt] = React.useState("");
   const [receivePaymentMode, setReceivePaymentMode] = React.useState("TERMS"); // CASH | CHECK | TERMS
-  const [receiveCheckInfo, setReceiveCheckInfo] = React.useState({ check_number: "", bank: "", check_date: "" });
+  const [receiveCheckInfo, setReceiveCheckInfo] = React.useState({
+    check_number: "",
+    bank: "",
+    check_date: "",
+  });
 
   // Confirmation modal state
   const [pending, setPending] = React.useState(null); // { title, rows, okLabel, danger, action }
+
+  // Quick Receive state
+  const [showQuickReceive, setShowQuickReceive] = React.useState(false);
 
   // Create Order modal state
   const [showCreateOrderModal, setShowCreateOrderModal] = React.useState(false);
@@ -728,66 +3095,94 @@ export default function OrdersPage({ shopId, onRefresh }) {
       const r = await apiFetch(`${API_URL}/items/${shopId}`);
       setItems((await r.json()) || []);
     } catch (err) {
-      console.error('fetchItems failed:', err);
+      console.error("fetchItems failed:", err);
     }
   }
 
   async function fetchSuppliers() {
     try {
-      const qs = shopId ? `?shop_id=${encodeURIComponent(shopId)}` : '';
+      const qs = shopId ? `?shop_id=${encodeURIComponent(shopId)}` : "";
       const r = await apiFetch(`${API_URL}/suppliers${qs}`);
       setSuppliers((await r.json()) || []);
     } catch (err) {
-      console.error('fetchSuppliers failed:', err);
+      console.error("fetchSuppliers failed:", err);
     }
   }
 
   function addItemToCreateOrder(item) {
-    const existing = createOrderItems.find(o => o.item_id === item.item_id);
+    const existing = createOrderItems.find((o) => o.item_id === item.item_id);
     if (existing) {
-      setCreateOrderItems(createOrderItems.map(o =>
-        o.item_id === item.item_id
-          ? { ...o, quantity: o.quantity + 1, line_total: (o.quantity + 1) * o.unit_cost }
-          : o
-      ));
+      setCreateOrderItems(
+        createOrderItems.map((o) =>
+          o.item_id === item.item_id
+            ? {
+                ...o,
+                quantity: o.quantity + 1,
+                line_total: (o.quantity + 1) * o.unit_cost,
+              }
+            : o,
+        ),
+      );
     } else {
       const brandLower = (item.brand || "").trim().toUpperCase();
-      const brandSuppliers = suppliers.filter(s =>
-        (s.supplier_brands || []).some(b => b.brand_name.trim().toUpperCase() === brandLower)
+      const brandSuppliers = suppliers.filter((s) =>
+        (s.supplier_brands || []).some(
+          (b) => b.brand_name.trim().toUpperCase() === brandLower,
+        ),
       );
-      const autoSupplier = brandSuppliers.length === 1 ? brandSuppliers[0] : null;
-      setCreateOrderItems([...createOrderItems, {
-        ...item,
-        order_item_id: `TEMP-${Date.now()}`,
-        quantity: item.quantity || 1,
-        unit_cost: item.unit_cost,
-        line_total: (item.quantity || 1) * item.unit_cost,
-        supplier_id: autoSupplier ? autoSupplier.supplier_id : null,
-        supplier_name: autoSupplier ? autoSupplier.supplier_name : null,
-      }]);
+      const autoSupplier =
+        brandSuppliers.length === 1 ? brandSuppliers[0] : null;
+      setCreateOrderItems([
+        ...createOrderItems,
+        {
+          ...item,
+          order_item_id: `TEMP-${Date.now()}`,
+          quantity: item.quantity || 1,
+          unit_cost: item.unit_cost,
+          line_total: (item.quantity || 1) * item.unit_cost,
+          supplier_id: autoSupplier ? autoSupplier.supplier_id : null,
+          supplier_name: autoSupplier ? autoSupplier.supplier_name : null,
+        },
+      ]);
     }
   }
 
   function removeFromCreateOrder(id) {
-    setCreateOrderItems(createOrderItems.filter(o => o.order_item_id !== id));
+    setCreateOrderItems(createOrderItems.filter((o) => o.order_item_id !== id));
   }
 
   function updateCreateOrderSupplier(id, supplier_id) {
-    setCreateOrderItems(createOrderItems.map(o => o.order_item_id === id ? { ...o, supplier_id } : o));
+    setCreateOrderItems(
+      createOrderItems.map((o) =>
+        o.order_item_id === id ? { ...o, supplier_id } : o,
+      ),
+    );
   }
 
   function updateCreateOrderQuantity(id, qty) {
-    if (qty <= 0) { removeFromCreateOrder(id); return; }
-    setCreateOrderItems(createOrderItems.map(o =>
-      o.order_item_id === id ? { ...o, quantity: qty, line_total: qty * o.unit_cost } : o
-    ));
+    if (qty <= 0) {
+      removeFromCreateOrder(id);
+      return;
+    }
+    setCreateOrderItems(
+      createOrderItems.map((o) =>
+        o.order_item_id === id
+          ? { ...o, quantity: qty, line_total: qty * o.unit_cost }
+          : o,
+      ),
+    );
   }
 
   async function submitCreateOrder() {
-    if (createOrderItems.length === 0) { setError("Add items to the order first"); return; }
-    const missingSupplier = createOrderItems.filter(o => !o.supplier_id);
+    if (createOrderItems.length === 0) {
+      setError("Add items to the order first");
+      return;
+    }
+    const missingSupplier = createOrderItems.filter((o) => !o.supplier_id);
     if (missingSupplier.length > 0) {
-      setError(`Select a supplier for: ${missingSupplier.map(o => o.item_name).join(", ")}`);
+      setError(
+        `Select a supplier for: ${missingSupplier.map((o) => o.item_name).join(", ")}`,
+      );
       return;
     }
     // Group items by supplier → one order per supplier
@@ -797,18 +3192,28 @@ export default function OrdersPage({ shopId, onRefresh }) {
       if (!groups[sid]) groups[sid] = [];
       groups[sid].push(o);
     }
-    const supplierNames = Object.keys(groups).map(sid => {
-      const s = suppliers.find(x => x.supplier_id === sid);
+    const supplierNames = Object.keys(groups).map((sid) => {
+      const s = suppliers.find((x) => x.supplier_id === sid);
       return s ? s.supplier_name : sid;
     });
     const total = createOrderItems.reduce((s, o) => s + (o.line_total || 0), 0);
     setPending({
       title: "Create Purchase Order?",
       rows: [
-        { label: "Items", value: `${createOrderItems.length} line${createOrderItems.length !== 1 ? "s" : ""}` },
+        {
+          label: "Items",
+          value: `${createOrderItems.length} line${createOrderItems.length !== 1 ? "s" : ""}`,
+        },
         { label: "Supplier(s)", value: supplierNames.join(", ") },
         { label: "Total Amount", value: ordCurrency(total) },
-        ...(Object.keys(groups).length > 1 ? [{ label: "Orders", value: `Will split into ${Object.keys(groups).length} orders` }] : []),
+        ...(Object.keys(groups).length > 1
+          ? [
+              {
+                label: "Orders",
+                value: `Will split into ${Object.keys(groups).length} orders`,
+              },
+            ]
+          : []),
       ],
       okLabel: "Create Order",
       danger: false,
@@ -826,33 +3231,61 @@ export default function OrdersPage({ shopId, onRefresh }) {
     setLoading(true);
     try {
       const supplierIds = Object.keys(groups);
-      const results = await Promise.all(supplierIds.map(sid => {
-        const groupItems = groups[sid];
-        const supplierName = (suppliers.find(s => s.supplier_id === sid) || {}).supplier_name || sid;
-        return apiFetch(`${API_URL}/orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            shop_id: shopId,
-            items: groupItems.filter(o => !o.is_new_item).map(o => ({
-              item_id: o.item_id, quantity: o.quantity, unit_cost: o.unit_cost, supplier_id: sid,
-            })),
-            new_items: groupItems.filter(o => o.is_new_item).map(o => ({
-              brand: o.brand, design: o.design, size: o.size, category: o.category,
-              unit_cost: o.unit_cost, selling_price: o.selling_price,
-              quantity: o.quantity, reorder_point: o.reorder_point || 0, supplier_id: sid,
-            })),
-            order_notes: `${createOrderNotes || "Order"} — ${supplierName}`,
-          }),
-        }).then(r => r.json()).then(res => { if (res.error) throw new Error(res.error); return res; });
-      }));
+      const results = await Promise.all(
+        supplierIds.map((sid) => {
+          const groupItems = groups[sid];
+          const supplierName =
+            (suppliers.find((s) => s.supplier_id === sid) || {})
+              .supplier_name || sid;
+          return apiFetch(`${API_URL}/orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              shop_id: shopId,
+              items: groupItems
+                .filter((o) => !o.is_new_item)
+                .map((o) => ({
+                  item_id: o.item_id,
+                  quantity: o.quantity,
+                  unit_cost: o.unit_cost,
+                  supplier_id: sid,
+                })),
+              new_items: groupItems
+                .filter((o) => o.is_new_item)
+                .map((o) => ({
+                  brand: o.brand,
+                  design: o.design,
+                  size: o.size,
+                  category: o.category,
+                  unit_cost: o.unit_cost,
+                  selling_price: o.selling_price,
+                  quantity: o.quantity,
+                  reorder_point: o.reorder_point || 0,
+                  supplier_id: sid,
+                })),
+              order_notes: `${createOrderNotes || "Order"} — ${supplierName}`,
+            }),
+          })
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.error) throw new Error(res.error);
+              return res;
+            });
+        }),
+      );
       setCreateOrderItems([]);
       setCreateOrderNotes("");
       setShowCreateOrderModal(false);
       setError("");
       setToast({
-        title: results.length > 1 ? `${results.length} Orders Created` : "Order Created",
-        sub: results.length > 1 ? `Split across ${results.length} suppliers` : `Total: ${ordCurrency(results[0].total_amount)}`,
+        title:
+          results.length > 1
+            ? `${results.length} Orders Created`
+            : "Order Created",
+        sub:
+          results.length > 1
+            ? `Split across ${results.length} suppliers`
+            : `Total: ${ordCurrency(results[0].total_amount)}`,
       });
       fetchOrders();
     } catch (e) {
@@ -893,15 +3326,21 @@ export default function OrdersPage({ shopId, onRefresh }) {
   }
 
   function stageUpdateOrderStatus(orderId, newStatus) {
-    const order = orders.find(o => o.order_id === orderId) || orderDetails;
+    const order = orders.find((o) => o.order_id === orderId) || orderDetails;
     const itemCount = (order?.items || orderDetails?.items)?.length ?? 0;
-    const amount = order?.total_amount ?? orderDetails?.items?.reduce((s, i) => s + (i.line_total || 0), 0) ?? 0;
+    const amount =
+      order?.total_amount ??
+      orderDetails?.items?.reduce((s, i) => s + (i.line_total || 0), 0) ??
+      0;
     setPending({
       title: `${newStatus === "CONFIRMED" ? "Confirm" : "Update"} Order?`,
       rows: [
         { label: "Order", value: orderId },
         { label: "New Status", value: newStatus },
-        { label: "Items", value: `${itemCount} item${itemCount !== 1 ? "s" : ""}` },
+        {
+          label: "Items",
+          value: `${itemCount} item${itemCount !== 1 ? "s" : ""}`,
+        },
         { label: "Amount", value: ordCurrency(amount) },
       ],
       okLabel: newStatus === "CONFIRMED" ? "Confirm Order" : `Set ${newStatus}`,
@@ -934,14 +3373,17 @@ export default function OrdersPage({ shopId, onRefresh }) {
       setError("Please provide a cancellation reason");
       return;
     }
-    const order = orders.find(o => o.order_id === orderId);
+    const order = orders.find((o) => o.order_id === orderId);
     const itemCount = order?.items?.length ?? 0;
     setPending({
       title: "Cancel Order?",
       rows: [
         { label: "Order", value: orderId },
         { label: "Status", value: order?.status || "—" },
-        { label: "Items", value: `${itemCount} item${itemCount !== 1 ? "s" : ""}` },
+        {
+          label: "Items",
+          value: `${itemCount} item${itemCount !== 1 ? "s" : ""}`,
+        },
         { label: "Amount", value: ordCurrency(order?.total_amount) },
         { label: "Reason", value: reason },
       ],
@@ -983,10 +3425,14 @@ export default function OrdersPage({ shopId, onRefresh }) {
       return;
     }
     if (receivePaymentMode === "CHECK") {
-      if (!receiveCheckInfo.check_date) { setError("Check date is required"); return; }
+      if (!receiveCheckInfo.check_date) {
+        setError("Check date is required");
+        return;
+      }
     }
     const notRecvd = orderDetails.items.filter(
-      (item) => !receivedItems.some((ri) => ri.order_item_id === item.order_item_id),
+      (item) =>
+        !receivedItems.some((ri) => ri.order_item_id === item.order_item_id),
     );
     const missingReason = notRecvd.filter(
       (item) => !notReceivedReasons[item.order_item_id]?.trim(),
@@ -999,31 +3445,53 @@ export default function OrdersPage({ shopId, onRefresh }) {
     for (const ri of receivedItems) {
       const ov = receiveOverrides[ri.order_item_id] || {};
       const qty = parseFloat(ov.quantity ?? ri.quantity);
-      if (!qty || qty <= 0) { setError(`Invalid quantity for ${ri.item_name}`); return; }
+      if (!qty || qty <= 0) {
+        setError(`Invalid quantity for ${ri.item_name}`);
+        return;
+      }
       // DOT required for tire items
-      const isTire = (ri.category || "").toUpperCase() === "TIRE" || (ri.category || "").toUpperCase().includes("TIRE") ||
-        /\d+\/\d+[Rr]\d+/.test(ri.size || "") || (ri.item_name || "").toLowerCase().includes("tire");
+      const isTire =
+        (ri.category || "").toUpperCase() === "TIRE" ||
+        (ri.category || "").toUpperCase().includes("TIRE") ||
+        /\d+\/\d+[Rr]\d+/.test(ri.size || "") ||
+        (ri.item_name || "").toLowerCase().includes("tire");
       const dot = (ov.dot_number ?? ri.dot_number ?? "").toString().trim();
-      if (isTire && !dot) { setError(`DOT number is required for tire: ${ri.item_name}`); return; }
+      if (isTire && !dot) {
+        setError(`DOT number is required for tire: ${ri.item_name}`);
+        return;
+      }
     }
-    const paymentLabel = receivePaymentMode === "CASH" ? "Cash" : receivePaymentMode === "CHECK" ? "Check Release" : "Supplier Terms";
+    const paymentLabel =
+      receivePaymentMode === "CASH"
+        ? "Cash"
+        : receivePaymentMode === "CHECK"
+          ? "Check Release"
+          : "Supplier Terms";
     const totalReceived = receivedItems.reduce((s, ri) => {
       const ov = receiveOverrides[ri.order_item_id] || {};
       const qty = parseFloat(ov.quantity ?? ri.quantity);
       const cost = parseFloat(ov.unit_cost ?? ri.unit_cost);
-      return s + (qty * cost);
+      return s + qty * cost;
     }, 0);
     setPending({
       title: "Complete Receive Order?",
       rows: [
         { label: "Order", value: selectedOrderForReceive },
-        { label: "Items Received", value: `${receivedItems.length} of ${orderDetails.items?.length}` },
         {
-          label: "Items List", value: receivedItems.map(ri => {
-            const ov = receiveOverrides[ri.order_item_id] || {};
-            const dot = (ov.dot_number ?? ri.dot_number ?? "").toString().trim();
-            return dot ? `${ri.item_name} [DOT ${dot}]` : ri.item_name;
-          }).join(", ")
+          label: "Items Received",
+          value: `${receivedItems.length} of ${orderDetails.items?.length}`,
+        },
+        {
+          label: "Items List",
+          value: receivedItems
+            .map((ri) => {
+              const ov = receiveOverrides[ri.order_item_id] || {};
+              const dot = (ov.dot_number ?? ri.dot_number ?? "")
+                .toString()
+                .trim();
+              return dot ? `${ri.item_name} [DOT ${dot}]` : ri.item_name;
+            })
+            .join(", "),
         },
         { label: "Payment", value: ordCurrency(totalReceived) },
         { label: "Method", value: paymentLabel },
@@ -1047,21 +3515,30 @@ export default function OrdersPage({ shopId, onRefresh }) {
             received_by: "WAREHOUSE",
             delivery_receipt: deliveryReceipt.trim() || null,
             payment_mode: receivePaymentMode,
-            check_info: receivePaymentMode === "CHECK" ? receiveCheckInfo : null,
+            check_info:
+              receivePaymentMode === "CHECK" ? receiveCheckInfo : null,
             received_items: receivedItems.map((ri) => {
               const ov = receiveOverrides[ri.order_item_id] || {};
               return {
                 order_item_id: ri.order_item_id,
                 quantity: parseFloat(ov.quantity ?? ri.quantity),
                 unit_cost: parseFloat(ov.unit_cost ?? ri.unit_cost),
-                dot_number: (ov.dot_number ?? ri.dot_number ?? "").toString().trim() || null,
+                dot_number:
+                  (ov.dot_number ?? ri.dot_number ?? "").toString().trim() ||
+                  null,
               };
             }),
             not_received_items: (orderDetails.items || [])
-              .filter((item) => !receivedItems.some((ri) => ri.order_item_id === item.order_item_id))
+              .filter(
+                (item) =>
+                  !receivedItems.some(
+                    (ri) => ri.order_item_id === item.order_item_id,
+                  ),
+              )
               .map((item) => ({
                 order_item_id: item.order_item_id,
-                reason: notReceivedReasons[item.order_item_id] || "Not provided",
+                reason:
+                  notReceivedReasons[item.order_item_id] || "Not provided",
               })),
           }),
         },
@@ -1102,12 +3579,17 @@ export default function OrdersPage({ shopId, onRefresh }) {
     const map = new Map();
     for (const o of orders) {
       for (const item of o.items || []) {
-        if (item.supplier_id && item.supplier_name && !map.has(item.supplier_id)) {
+        if (
+          item.supplier_id &&
+          item.supplier_name &&
+          !map.has(item.supplier_id)
+        ) {
           map.set(item.supplier_id, item.supplier_name);
         }
       }
     }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [orders]);
 
@@ -1134,14 +3616,18 @@ export default function OrdersPage({ shopId, onRefresh }) {
       }
     }
     for (const o of filteredOrders) {
-      if (o.delivery_receipt && o.delivery_receipt.toLowerCase().includes(q) && !seen.has(o.delivery_receipt)) {
+      if (
+        o.delivery_receipt &&
+        o.delivery_receipt.toLowerCase().includes(q) &&
+        !seen.has(o.delivery_receipt)
+      ) {
         seen.add(o.delivery_receipt);
         sugs.push({ text: o.delivery_receipt, type: "DR #" });
         if (sugs.length >= 8) break;
       }
     }
     for (const o of filteredOrders) {
-      for (const item of (o.items || [])) {
+      for (const item of o.items || []) {
         for (const [val, label] of [
           [item.supplier_name, "Supplier"],
           [item.brand, "Brand"],
@@ -1193,14 +3679,14 @@ export default function OrdersPage({ shopId, onRefresh }) {
             border-bottom: 1px solid var(--th-border);
             padding-bottom: 1rem;
         }
-        .ord-create-btn-desktop { display: inline-flex; }
-        .ord-create-btn-mobile  { display: none; }
+        .ord-actions-desktop { display: flex; gap: 0.6rem; align-items: center; }
+        .ord-actions-mobile  { display: none; }
         @media (max-width: 640px) {
           .ord-header { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-          .ord-header div { display: flex; flex-direction: row; align-items: center; }
-          .ord-create-btn-desktop { display: none !important; }
-          .ord-create-btn-mobile  { display: flex !important; width: 100%; justify-content: center; margin-top: 0; }
-          .ord-title { justify-content: center; width: 100%; }
+          .ord-header .ord-title { display: flex; flex-direction: row; align-items: center; justify-content: center; width: 100%; }
+          .ord-actions-desktop { display: none !important; }
+          .ord-actions-mobile  { display: flex !important; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; margin-top: 0; }
+          .ord-actions-mobile button { flex: 1; padding-left: 0; padding-right: 0; justify-content: center; }
         }
       `}</style>
       {toast && (
@@ -1222,42 +3708,84 @@ export default function OrdersPage({ shopId, onRefresh }) {
       )}
 
       {/* ── Create Order Modal ── */}
-      {showCreateOrderModal && (() => {
-        const filteredItems = items.filter(i =>
-          !createOrderSearch.trim() ||
-          [i.item_name, i.sku, i.brand, i.design, i.size].some(f => f && f.toLowerCase().includes(createOrderSearch.toLowerCase()))
-        );
-        const totalPages = Math.max(1, Math.ceil(filteredItems.length / CREATE_ORDER_PER_PAGE));
-        const safePage = Math.min(createOrderPage, totalPages);
-        const pageItems = filteredItems.slice((safePage - 1) * CREATE_ORDER_PER_PAGE, safePage * CREATE_ORDER_PER_PAGE);
-        const total = createOrderItems.reduce((s, o) => s + (o.line_total || 0), 0);
-        return (
-          <CreateOrderModal
-            items={items}
-            suppliers={suppliers}
-            orderItems={createOrderItems}
-            orderNotes={createOrderNotes}
-            orderSearchQuery={createOrderSearch}
-            orderModalCurrentPage={safePage}
-            orderModalTotalPages={totalPages}
-            orderModalCurrentItems={pageItems}
-            filteredOrderItems={filteredItems}
-            totalOrderAmount={total}
-            loading={loading}
-            error={error}
-            onClose={() => { setShowCreateOrderModal(false); setCreateOrderItems([]); setCreateOrderNotes(""); setError(""); }}
-            onAddItem={addItemToCreateOrder}
-            onUpdateQty={updateCreateOrderQuantity}
-            onUpdateSupplier={updateCreateOrderSupplier}
-            onRemoveItem={removeFromCreateOrder}
-            onSearchChange={(v) => { setCreateOrderSearch(v); setCreateOrderPage(1); }}
-            onPageChange={setCreateOrderPage}
-            onNotesChange={setCreateOrderNotes}
-            onSubmit={submitCreateOrder}
-            ORDER_MODAL_ITEMS_PER_PAGE={CREATE_ORDER_PER_PAGE}
-          />
-        );
-      })()}
+      {showCreateOrderModal &&
+        (() => {
+          const filteredItems = items.filter(
+            (i) =>
+              !createOrderSearch.trim() ||
+              [i.item_name, i.sku, i.brand, i.design, i.size].some(
+                (f) =>
+                  f &&
+                  f.toLowerCase().includes(createOrderSearch.toLowerCase()),
+              ),
+          );
+          const totalPages = Math.max(
+            1,
+            Math.ceil(filteredItems.length / CREATE_ORDER_PER_PAGE),
+          );
+          const safePage = Math.min(createOrderPage, totalPages);
+          const pageItems = filteredItems.slice(
+            (safePage - 1) * CREATE_ORDER_PER_PAGE,
+            safePage * CREATE_ORDER_PER_PAGE,
+          );
+          const total = createOrderItems.reduce(
+            (s, o) => s + (o.line_total || 0),
+            0,
+          );
+          return (
+            <CreateOrderModal
+              items={items}
+              suppliers={suppliers}
+              orderItems={createOrderItems}
+              orderNotes={createOrderNotes}
+              orderSearchQuery={createOrderSearch}
+              orderModalCurrentPage={safePage}
+              orderModalTotalPages={totalPages}
+              orderModalCurrentItems={pageItems}
+              filteredOrderItems={filteredItems}
+              totalOrderAmount={total}
+              loading={loading}
+              error={error}
+              onClose={() => {
+                setShowCreateOrderModal(false);
+                setCreateOrderItems([]);
+                setCreateOrderNotes("");
+                setError("");
+              }}
+              onAddItem={addItemToCreateOrder}
+              onUpdateQty={updateCreateOrderQuantity}
+              onUpdateSupplier={updateCreateOrderSupplier}
+              onRemoveItem={removeFromCreateOrder}
+              onSearchChange={(v) => {
+                setCreateOrderSearch(v);
+                setCreateOrderPage(1);
+              }}
+              onPageChange={setCreateOrderPage}
+              onNotesChange={setCreateOrderNotes}
+              onSubmit={submitCreateOrder}
+              ORDER_MODAL_ITEMS_PER_PAGE={CREATE_ORDER_PER_PAGE}
+            />
+          );
+        })()}
+
+      {/* ⚡ Quick Receive Modal */}
+      {showQuickReceive && (
+        <QuickReceiveModal
+          shopId={shopId}
+          suppliers={suppliers}
+          items={items}
+          onClose={() => setShowQuickReceive(false)}
+          onSuccess={(result) => {
+            setShowQuickReceive(false);
+            setToast({
+              title: "⚡ Quick Receive Complete",
+              sub: `${result.items_received} item(s) added to inventory`,
+            });
+            fetchOrders();
+            if (onRefresh) onRefresh();
+          }}
+        />
+      )}
 
       {/* ── Main layout ── */}
       <div className="ord-root">
@@ -1267,53 +3795,110 @@ export default function OrdersPage({ shopId, onRefresh }) {
             <div className="ord-title">
               Purchase <span>Orders</span>
             </div>
-            <button
-              className="inv-btn inv-btn-orange ord-create-btn-desktop"
-              onClick={() => { setShowCreateOrderModal(true); setError(""); }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-              Create Order
-            </button>
+            <div className="ord-actions-desktop">
+              <button
+                className="inv-btn inv-btn-orange"
+                onClick={() => {
+                  setShowCreateOrderModal(true);
+                  setError("");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
+                Create Order
+              </button>
+              <button
+                className="inv-btn"
+                style={{
+                  background: "var(--th-emerald-bg,rgba(52,211,153,0.12))",
+                  color: "var(--th-emerald,#34d399)",
+                  border: "1px solid var(--th-emerald,#34d399)",
+                }}
+                onClick={() => {
+                  setShowQuickReceive(true);
+                  setError("");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                Quick Receive
+              </button>
+            </div>
           </div>
 
           {/* KPIs */}
           {(() => {
-            const totalVal = orders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
-            const pendingVal = orders.filter(o => o.status === 'PENDING').reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
-            const receivedVal = orders.filter(o => o.status === 'RECEIVED').reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0)
+            const totalVal = orders.reduce(
+              (s, o) => s + (parseFloat(o.total_amount) || 0),
+              0,
+            );
+            const pendingVal = orders
+              .filter((o) => o.status === "PENDING")
+              .reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
+            const receivedVal = orders
+              .filter((o) => o.status === "RECEIVED")
+              .reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
             return (
               <div className="th-kpi-row">
                 <div className="th-kpi sky">
                   <div className="th-kpi-label kpi-lbl">Total Orders</div>
                   <div className="th-kpi-value kpi-val">{orders.length}</div>
-                  <div className="th-kpi-sub kpi-sub">{ordCurrency(totalVal)} total value</div>
+                  <div className="th-kpi-sub kpi-sub">
+                    {ordCurrency(totalVal)} total value
+                  </div>
                 </div>
                 <div className="th-kpi amber">
                   <div className="th-kpi-label kpi-lbl">Pending</div>
-                  <div className="th-kpi-value kpi-val">{statusCounts.PENDING}</div>
-                  <div className="th-kpi-sub kpi-sub">{ordCurrency(pendingVal)} awaiting</div>
+                  <div className="th-kpi-value kpi-val">
+                    {statusCounts.PENDING}
+                  </div>
+                  <div className="th-kpi-sub kpi-sub">
+                    {ordCurrency(pendingVal)} awaiting
+                  </div>
                 </div>
                 <div className="th-kpi violet">
                   <div className="th-kpi-label kpi-lbl">Confirmed</div>
-                  <div className="th-kpi-value kpi-val">{statusCounts.CONFIRMED}</div>
+                  <div className="th-kpi-value kpi-val">
+                    {statusCounts.CONFIRMED}
+                  </div>
                   <div className="th-kpi-sub kpi-sub">ready for delivery</div>
                 </div>
                 <div className="th-kpi emerald">
                   <div className="th-kpi-label kpi-lbl">Received</div>
-                  <div className="th-kpi-value kpi-val">{statusCounts.RECEIVED}</div>
-                  <div className="th-kpi-sub kpi-sub">{ordCurrency(receivedVal)} completed</div>
+                  <div className="th-kpi-value kpi-val">
+                    {statusCounts.RECEIVED}
+                  </div>
+                  <div className="th-kpi-sub kpi-sub">
+                    {ordCurrency(receivedVal)} completed
+                  </div>
                 </div>
                 <div className="th-kpi rose">
                   <div className="th-kpi-label kpi-lbl">Cancelled</div>
-                  <div className="th-kpi-value kpi-val">{statusCounts.CANCELLED}</div>
+                  <div className="th-kpi-value kpi-val">
+                    {statusCounts.CANCELLED}
+                  </div>
                   <div className="th-kpi-sub kpi-sub">voided orders</div>
                 </div>
               </div>
-            )
+            );
           })()}
 
           {/* Error */}
@@ -1327,37 +3912,90 @@ export default function OrdersPage({ shopId, onRefresh }) {
           )}
 
           {/* Search + Filters container — unified card */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-          }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+            }}
+          >
             {/* Search */}
-            <div style={{ background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', borderRadius: '10px', padding: '0.5rem' }}>
+            <div
+              style={{
+                background: "var(--th-bg-card)",
+                border: "1px solid var(--th-border)",
+                borderRadius: "10px",
+                padding: "0.5rem",
+              }}
+            >
               <SearchInput
                 value={searchQuery}
                 onChange={setSearchQuery}
                 placeholder="Search by order ID, DR#, or notes…"
                 suggestions={searchSuggestions}
-                resultCount={(searchQuery || supplierFilter) ? displayOrders.length : undefined}
-                totalCount={(searchQuery || supplierFilter) ? filteredOrders.length : undefined}
+                resultCount={
+                  searchQuery || supplierFilter
+                    ? displayOrders.length
+                    : undefined
+                }
+                totalCount={
+                  searchQuery || supplierFilter
+                    ? filteredOrders.length
+                    : undefined
+                }
                 resultLabel="orders"
                 style={{ marginBottom: 0 }}
               />
             </div>
 
-            {/* Mobile-only Create Order button */}
-            <button
-              className="inv-btn inv-btn-orange ord-create-btn-mobile"
-              onClick={() => { setShowCreateOrderModal(true); setError(""); }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-              Create Order
-            </button>
+            {/* Mobile-only action buttons */}
+            <div className="ord-actions-mobile">
+              <button
+                className="inv-btn inv-btn-orange"
+                onClick={() => {
+                  setShowCreateOrderModal(true);
+                  setError("");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
+                Create Order
+              </button>
+              <button
+                className="inv-btn"
+                style={{
+                  background: "var(--th-emerald-bg,rgba(52,211,153,0.12))",
+                  color: "var(--th-emerald,#34d399)",
+                  border: "1px solid var(--th-emerald,#34d399)",
+                }}
+                onClick={() => {
+                  setShowQuickReceive(true);
+                  setError("");
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                Quick Receive
+              </button>
+            </div>
 
             {/* Status filter */}
             <div className="ord-status-bar">
@@ -1399,21 +4037,55 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
             {/* Supplier filter */}
             {uniqueSuppliers.length > 0 && (
-              <div style={{ background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', borderRadius: '10px', padding: '0.5rem' }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "0.75rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--th-text-dim)", flexShrink: 0 }}>
+              <div
+                style={{
+                  background: "var(--th-bg-card)",
+                  border: "1px solid var(--th-border)",
+                  borderRadius: "10px",
+                  padding: "0.5rem",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontFamily: "'Barlow Condensed',sans-serif",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      color: "var(--th-text-dim)",
+                      flexShrink: 0,
+                    }}
+                  >
                     Supplier:
                   </span>
                   <button
                     onClick={() => setSupplierFilter("")}
                     style={{
-                      fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
-                      textTransform: "uppercase", letterSpacing: "0.04em",
-                      padding: "0.25rem 0.75rem", borderRadius: 20, border: "1px solid",
-                      cursor: "pointer", transition: "all 0.15s",
-                      background: !supplierFilter ? "var(--th-orange)" : "transparent",
+                      fontFamily: "'Barlow Condensed',sans-serif",
+                      fontWeight: 700,
+                      fontSize: "0.8rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      padding: "0.25rem 0.75rem",
+                      borderRadius: 20,
+                      border: "1px solid",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: !supplierFilter
+                        ? "var(--th-orange)"
+                        : "transparent",
                       color: !supplierFilter ? "#fff" : "var(--th-text-dim)",
-                      borderColor: !supplierFilter ? "var(--th-orange)" : "var(--th-border-strong)",
+                      borderColor: !supplierFilter
+                        ? "var(--th-orange)"
+                        : "var(--th-border-strong)",
                     }}
                   >
                     All
@@ -1421,15 +4093,32 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   {uniqueSuppliers.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => setSupplierFilter(supplierFilter === s.id ? "" : s.id)}
+                      onClick={() =>
+                        setSupplierFilter(supplierFilter === s.id ? "" : s.id)
+                      }
                       style={{
-                        fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
-                        textTransform: "uppercase", letterSpacing: "0.04em",
-                        padding: "0.25rem 0.75rem", borderRadius: 20, border: "1px solid",
-                        cursor: "pointer", transition: "all 0.15s",
-                        background: supplierFilter === s.id ? "var(--th-sky)" : "transparent",
-                        color: supplierFilter === s.id ? "#1a2132" : "var(--th-text-dim)",
-                        borderColor: supplierFilter === s.id ? "var(--th-sky)" : "var(--th-border-strong)",
+                        fontFamily: "'Barlow Condensed',sans-serif",
+                        fontWeight: 700,
+                        fontSize: "0.8rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        padding: "0.25rem 0.75rem",
+                        borderRadius: 20,
+                        border: "1px solid",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        background:
+                          supplierFilter === s.id
+                            ? "var(--th-sky)"
+                            : "transparent",
+                        color:
+                          supplierFilter === s.id
+                            ? "#1a2132"
+                            : "var(--th-text-dim)",
+                        borderColor:
+                          supplierFilter === s.id
+                            ? "var(--th-sky)"
+                            : "var(--th-border-strong)",
                       }}
                     >
                       {s.name}
@@ -1459,9 +4148,22 @@ export default function OrdersPage({ shopId, onRefresh }) {
                     <tr>
                       <td colSpan="4">
                         <div className="ord-table-empty">
-                          <svg className="ord-table-empty-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /><path d="M12 12v4M10 12h4" /></svg>
+                          <svg
+                            className="ord-table-empty-icon"
+                            width="48"
+                            height="48"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                          >
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            <path d="M12 12v4M10 12h4" />
+                          </svg>
                           <div className="ord-table-empty-title">
-                            {searchQuery || supplierFilter ? "No Orders Match" : "No Orders Found"}
+                            {searchQuery || supplierFilter
+                              ? "No Orders Match"
+                              : "No Orders Found"}
                           </div>
                           <div>
                             {searchQuery || supplierFilter
@@ -1486,7 +4188,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         <td>
                           <div className="ord-order-id">{order.order_id}</div>
                           {order.delivery_receipt && (
-                            <div className="ord-order-notes" style={{ color: "var(--th-sky)" }}>
+                            <div
+                              className="ord-order-notes"
+                              style={{ color: "var(--th-sky)" }}
+                            >
                               🧾 DR# {order.delivery_receipt}
                             </div>
                           )}
@@ -1569,15 +4274,21 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 </tbody>
               </table>
             </div>
-            <Pagination currentPage={ordersPage} totalPages={ordersTotalPages} onPageChange={setOrdersPage} />
+            <Pagination
+              currentPage={ordersPage}
+              totalPages={ordersTotalPages}
+              onPageChange={setOrdersPage}
+            />
           </div>
         </div>
-
       </div>
 
       {/* ── Details modal ── */}
       {orderDetails && !showReceiveModal && !showCancelModal && (
-        <div className="ord-details-overlay" onClick={(e) => e.target === e.currentTarget && setOrderDetails(null)}>
+        <div
+          className="ord-details-overlay"
+          onClick={(e) => e.target === e.currentTarget && setOrderDetails(null)}
+        >
           <div className="ord-details">
             <div className="ord-details-header">
               <div className="ord-details-header-row">
@@ -1639,29 +4350,88 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   </div>
                 </div>
                 {orderDetails.delivery_receipt && (
-                  <div className="ord-meta-card" style={{ gridColumn: "span 2" }}>
+                  <div
+                    className="ord-meta-card"
+                    style={{ gridColumn: "span 2" }}
+                  >
                     <div className="ord-meta-label">Delivery Receipt (DR#)</div>
-                    <div className="ord-meta-val" style={{ fontSize: "0.95rem", color: "var(--th-sky)", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>
+                    <div
+                      className="ord-meta-val"
+                      style={{
+                        fontSize: "0.95rem",
+                        color: "var(--th-sky)",
+                        fontFamily: "'Barlow Condensed',sans-serif",
+                        fontWeight: 700,
+                      }}
+                    >
                       {orderDetails.delivery_receipt}
                     </div>
                   </div>
                 )}
                 {orderDetails.payment_mode && (
-                  <div className="ord-meta-card" style={{ gridColumn: "span 2" }}>
+                  <div
+                    className="ord-meta-card"
+                    style={{ gridColumn: "span 2" }}
+                  >
                     <div className="ord-meta-label">Payment Mode</div>
                     <div style={{ marginTop: "0.25rem" }}>
                       {orderDetails.payment_mode === "CASH" && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", padding: "0.25rem 0.75rem", borderRadius: 20, background: "var(--th-emerald-bg)", color: "var(--th-emerald)", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.88rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                            padding: "0.25rem 0.75rem",
+                            borderRadius: 20,
+                            background: "var(--th-emerald-bg)",
+                            color: "var(--th-emerald)",
+                            fontFamily: "'Barlow Condensed',sans-serif",
+                            fontWeight: 700,
+                            fontSize: "0.88rem",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
                           💵 Cash
                         </span>
                       )}
                       {orderDetails.payment_mode === "CHECK" && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", padding: "0.25rem 0.75rem", borderRadius: 20, background: "var(--th-violet-bg)", color: "var(--th-violet)", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.88rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                            padding: "0.25rem 0.75rem",
+                            borderRadius: 20,
+                            background: "var(--th-violet-bg)",
+                            color: "var(--th-violet)",
+                            fontFamily: "'Barlow Condensed',sans-serif",
+                            fontWeight: 700,
+                            fontSize: "0.88rem",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
                           🖊 Check Release
                         </span>
                       )}
                       {orderDetails.payment_mode === "TERMS" && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", padding: "0.25rem 0.75rem", borderRadius: 20, background: "var(--th-sky-bg)", color: "var(--th-sky)", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.88rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                            padding: "0.25rem 0.75rem",
+                            borderRadius: 20,
+                            background: "var(--th-sky-bg)",
+                            color: "var(--th-sky)",
+                            fontFamily: "'Barlow Condensed',sans-serif",
+                            fontWeight: 700,
+                            fontSize: "0.88rem",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
                           📅 Supplier Terms
                         </span>
                       )}
@@ -1752,7 +4522,11 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 Items ({orderDetails.items?.length})
               </div>
               {orderDetails.items?.map((item) => (
-                <DetailItem key={item.order_item_id} item={item} orderStatus={orderDetails.status} />
+                <DetailItem
+                  key={item.order_item_id}
+                  item={item}
+                  orderStatus={orderDetails.status}
+                />
               ))}
             </div>
 
@@ -1763,10 +4537,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                     className="ord-btn ord-btn-sky"
                     style={{ flex: 1, justifyContent: "center" }}
                     onClick={() =>
-                      stageUpdateOrderStatus(
-                        orderDetails.order_id,
-                        "CONFIRMED",
-                      )
+                      stageUpdateOrderStatus(orderDetails.order_id, "CONFIRMED")
                     }
                   >
                     ✓ Confirm Order
@@ -1978,7 +4749,11 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   setReceiveOverrides({});
                   setDeliveryReceipt("");
                   setReceivePaymentMode("TERMS");
-                  setReceiveCheckInfo({ check_number: "", bank: "", check_date: "" });
+                  setReceiveCheckInfo({
+                    check_number: "",
+                    bank: "",
+                    check_date: "",
+                  });
                   setError("");
                 }}
               >
@@ -1999,8 +4774,19 @@ export default function OrdersPage({ shopId, onRefresh }) {
               )}
               {/* DR# field */}
               <div style={{ marginBottom: "1rem" }}>
-                <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.3rem" }}>
-                  Delivery Receipt (DR) # <span style={{ color: "var(--th-rose)" }}>*</span>
+                <label
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.07em",
+                    color: "var(--th-text-dim)",
+                    display: "block",
+                    marginBottom: "0.3rem",
+                  }}
+                >
+                  Delivery Receipt (DR) #{" "}
+                  <span style={{ color: "var(--th-rose)" }}>*</span>
                 </label>
                 <input
                   className="ord-input"
@@ -2012,55 +4798,215 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
               {/* Payment Mode */}
               <div style={{ marginBottom: "1rem" }}>
-                <label style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.4rem" }}>
-                  Payment Mode <span style={{ color: "var(--th-rose)" }}>*</span>
+                <label
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.07em",
+                    color: "var(--th-text-dim)",
+                    display: "block",
+                    marginBottom: "0.4rem",
+                  }}
+                >
+                  Payment Mode{" "}
+                  <span style={{ color: "var(--th-rose)" }}>*</span>
                 </label>
                 <div className="ord-paymode-btns">
                   {[
-                    { value: "CASH", label: "💵 Cash", color: "var(--th-emerald)", bg: "var(--th-emerald-bg)" },
-                    { value: "CHECK", label: "🖊 Check Release", color: "var(--th-violet)", bg: "var(--th-violet-bg)" },
-                    { value: "TERMS", label: "📅 Supplier Terms", color: "var(--th-sky)", bg: "var(--th-sky-bg)" },
-                  ].map(opt => (
-                    <button key={opt.value} className="ord-paymode-btn" onClick={() => setReceivePaymentMode(opt.value)} style={{
-                      border: receivePaymentMode === opt.value ? `1.5px solid ${opt.color}` : "1px solid var(--th-border-strong)",
-                      background: receivePaymentMode === opt.value ? opt.bg : "var(--th-bg-input)",
-                      color: receivePaymentMode === opt.value ? opt.color : "var(--th-text-dim)",
-                    }}>{opt.label}</button>
+                    {
+                      value: "CASH",
+                      label: "💵 Cash",
+                      color: "var(--th-emerald)",
+                      bg: "var(--th-emerald-bg)",
+                    },
+                    {
+                      value: "CHECK",
+                      label: "🖊 Check Release",
+                      color: "var(--th-violet)",
+                      bg: "var(--th-violet-bg)",
+                    },
+                    {
+                      value: "TERMS",
+                      label: "📅 Supplier Terms",
+                      color: "var(--th-sky)",
+                      bg: "var(--th-sky-bg)",
+                    },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      className="ord-paymode-btn"
+                      onClick={() => setReceivePaymentMode(opt.value)}
+                      style={{
+                        border:
+                          receivePaymentMode === opt.value
+                            ? `1.5px solid ${opt.color}`
+                            : "1px solid var(--th-border-strong)",
+                        background:
+                          receivePaymentMode === opt.value
+                            ? opt.bg
+                            : "var(--th-bg-input)",
+                        color:
+                          receivePaymentMode === opt.value
+                            ? opt.color
+                            : "var(--th-text-dim)",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
                   ))}
                 </div>
                 {receivePaymentMode === "CASH" && (
-                  <div style={{ marginTop: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: 6, background: "var(--th-emerald-bg)", fontSize: "0.82rem", color: "var(--th-emerald)" }}>
+                  <div
+                    style={{
+                      marginTop: "0.5rem",
+                      padding: "0.5rem 0.75rem",
+                      borderRadius: 6,
+                      background: "var(--th-emerald-bg)",
+                      fontSize: "0.82rem",
+                      color: "var(--th-emerald)",
+                    }}
+                  >
                     Payable will be recorded as already <b>PAID</b> on receipt.
                   </div>
                 )}
                 {receivePaymentMode === "TERMS" && (
-                  <div style={{ marginTop: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: 6, background: "var(--th-sky-bg)", fontSize: "0.82rem", color: "var(--th-sky)" }}>
-                    Payable will be created as <b>OPEN</b> with due date from supplier payment terms.
+                  <div
+                    style={{
+                      marginTop: "0.5rem",
+                      padding: "0.5rem 0.75rem",
+                      borderRadius: 6,
+                      background: "var(--th-sky-bg)",
+                      fontSize: "0.82rem",
+                      color: "var(--th-sky)",
+                    }}
+                  >
+                    Payable will be created as <b>OPEN</b> with due date from
+                    supplier payment terms.
                   </div>
                 )}
                 {receivePaymentMode === "CHECK" && (
-                  <div style={{ marginTop: "0.6rem", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}>
+                  <div
+                    style={{
+                      marginTop: "0.6rem",
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: "0.5rem",
+                    }}
+                  >
                     <div>
-                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Check # <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input className="ord-input" placeholder="e.g. 001234" value={receiveCheckInfo.check_number} onChange={e => setReceiveCheckInfo(p => ({ ...p, check_number: e.target.value }))} style={{ fontSize: "0.88rem" }} />
+                      <label
+                        style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          color: "var(--th-text-dim)",
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Check #{" "}
+                        <span style={{ color: "var(--th-rose)" }}>*</span>
+                      </label>
+                      <input
+                        className="ord-input"
+                        placeholder="e.g. 001234"
+                        value={receiveCheckInfo.check_number}
+                        onChange={(e) =>
+                          setReceiveCheckInfo((p) => ({
+                            ...p,
+                            check_number: e.target.value,
+                          }))
+                        }
+                        style={{ fontSize: "0.88rem" }}
+                      />
                     </div>
                     <div>
-                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Bank <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input className="ord-input" placeholder="e.g. BPI, BDO" value={receiveCheckInfo.bank} onChange={e => setReceiveCheckInfo(p => ({ ...p, bank: e.target.value }))} style={{ fontSize: "0.88rem" }} />
+                      <label
+                        style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          color: "var(--th-text-dim)",
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Bank <span style={{ color: "var(--th-rose)" }}>*</span>
+                      </label>
+                      <input
+                        className="ord-input"
+                        placeholder="e.g. BPI, BDO"
+                        value={receiveCheckInfo.bank}
+                        onChange={(e) =>
+                          setReceiveCheckInfo((p) => ({
+                            ...p,
+                            bank: e.target.value,
+                          }))
+                        }
+                        style={{ fontSize: "0.88rem" }}
+                      />
                     </div>
                     <div>
-                      <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem" }}>Check Date <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input className="ord-input" type="date" value={receiveCheckInfo.check_date} onChange={e => setReceiveCheckInfo(p => ({ ...p, check_date: e.target.value }))} style={{ fontSize: "0.88rem" }} />
+                      <label
+                        style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.06em",
+                          color: "var(--th-text-dim)",
+                          display: "block",
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Check Date{" "}
+                        <span style={{ color: "var(--th-rose)" }}>*</span>
+                      </label>
+                      <input
+                        className="ord-input"
+                        type="date"
+                        value={receiveCheckInfo.check_date}
+                        onChange={(e) =>
+                          setReceiveCheckInfo((p) => ({
+                            ...p,
+                            check_date: e.target.value,
+                          }))
+                        }
+                        style={{ fontSize: "0.88rem" }}
+                      />
                     </div>
-                    <div style={{ gridColumn: "1 / -1", padding: "0.45rem 0.7rem", borderRadius: 6, background: "var(--th-violet-bg)", fontSize: "0.82rem", color: "var(--th-violet)" }}>
-                      Payable will be created as <b>CHECK_RELEASED</b> — waiting for supplier to deposit and clear.
+                    <div
+                      style={{
+                        gridColumn: "1 / -1",
+                        padding: "0.45rem 0.7rem",
+                        borderRadius: 6,
+                        background: "var(--th-violet-bg)",
+                        fontSize: "0.82rem",
+                        color: "var(--th-violet)",
+                      }}
+                    >
+                      Payable will be created as <b>CHECK_RELEASED</b> — waiting
+                      for supplier to deposit and clear.
                     </div>
                   </div>
                 )}
               </div>
 
-              <p style={{ fontSize: "0.88rem", color: "var(--th-text-muted)", marginBottom: "1rem" }}>
-                Check items that arrived. Edit qty/price if delivery differs from the order. <strong style={{ color: "var(--th-amber, #fbbf24)" }}>DOT number is required for all tire items.</strong> Unchecked items need a reason.
+              <p
+                style={{
+                  fontSize: "0.88rem",
+                  color: "var(--th-text-muted)",
+                  marginBottom: "1rem",
+                }}
+              >
+                Check items that arrived. Edit qty/price if delivery differs
+                from the order.{" "}
+                <strong style={{ color: "var(--th-amber, #fbbf24)" }}>
+                  DOT number is required for all tire items.
+                </strong>{" "}
+                Unchecked items need a reason.
               </p>
 
               {orderDetails.items?.map((item) => {
@@ -2070,7 +5016,8 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 const ov = receiveOverrides[item.order_item_id] || {};
                 const dispQty = ov.quantity ?? item.quantity;
                 const dispCost = ov.unit_cost ?? item.unit_cost;
-                const isTire = (item.category || "").toUpperCase() === "TIRE" ||
+                const isTire =
+                  (item.category || "").toUpperCase() === "TIRE" ||
                   (item.category || "").toUpperCase().includes("TIRE") ||
                   /\d+\/\d+[Rr]\d+/.test(item.size || "") ||
                   (item.item_name || "").toLowerCase().includes("tire");
@@ -2100,24 +5047,75 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         }}
                       />
                       <div style={{ flex: 1 }}>
-                        <div className="ord-check-name" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                        <div
+                          className="ord-check-name"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
+                          }}
+                        >
                           {item.item_name}
-                          {item.is_new_item ? <span style={{ fontSize: "0.6rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", background: "rgba(52,211,153,0.15)", border: "1px solid #34d399", color: "#34d399", borderRadius: 4, padding: "0.05rem 0.3rem" }}>NEW</span> : null}
+                          {item.is_new_item ? (
+                            <span
+                              style={{
+                                fontSize: "0.6rem",
+                                fontFamily: "'Barlow Condensed',sans-serif",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                background: "rgba(52,211,153,0.15)",
+                                border: "1px solid #34d399",
+                                color: "#34d399",
+                                borderRadius: 4,
+                                padding: "0.05rem 0.3rem",
+                              }}
+                            >
+                              NEW
+                            </span>
+                          ) : null}
                         </div>
-                        {item.supplier_name && <div className="ord-check-sku" style={{ color: "#38bdf8" }}>📦 {item.supplier_name}</div>}
+                        {item.supplier_name && (
+                          <div
+                            className="ord-check-sku"
+                            style={{ color: "#38bdf8" }}
+                          >
+                            📦 {item.supplier_name}
+                          </div>
+                        )}
                         {item.sku && !item.is_new_item && (
                           <div className="ord-check-sku">{item.sku}</div>
                         )}
                         <div className="ord-check-qty">
-                          Ordered: <b>{item.quantity} units</b> @ {ordCurrency(item.unit_cost)}
+                          Ordered: <b>{item.quantity} units</b> @{" "}
+                          {ordCurrency(item.unit_cost)}
                         </div>
                       </div>
                     </label>
                     {isChecked && (
-                      <div className="ord-check-fields" style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+                      <div
+                        className="ord-check-fields"
+                        style={{
+                          display: "flex",
+                          gap: "0.6rem",
+                          alignItems: "flex-start",
+                        }}
+                      >
                         <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem", minHeight: "1.35rem", whiteSpace: "nowrap" }}>
-                            Qty Received <span style={{ color: "var(--th-orange)" }}>*</span>
+                          <label
+                            style={{
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.06em",
+                              color: "var(--th-text-dim)",
+                              display: "block",
+                              marginBottom: "0.25rem",
+                              minHeight: "1.35rem",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Qty Received{" "}
+                            <span style={{ color: "var(--th-orange)" }}>*</span>
                           </label>
                           <input
                             className="ord-input"
@@ -2125,12 +5123,31 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             min="0.01"
                             step="any"
                             value={dispQty}
-                            onChange={(e) => setReceiveOverrides(prev => ({ ...prev, [item.order_item_id]: { ...prev[item.order_item_id], quantity: e.target.value } }))}
+                            onChange={(e) =>
+                              setReceiveOverrides((prev) => ({
+                                ...prev,
+                                [item.order_item_id]: {
+                                  ...prev[item.order_item_id],
+                                  quantity: e.target.value,
+                                },
+                              }))
+                            }
                             style={{ fontSize: "0.88rem", width: "100%" }}
                           />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", display: "block", marginBottom: "0.25rem", minHeight: "1.35rem" }}>
+                          <label
+                            style={{
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.06em",
+                              color: "var(--th-text-dim)",
+                              display: "block",
+                              marginBottom: "0.25rem",
+                              minHeight: "1.35rem",
+                            }}
+                          >
                             Unit Cost
                           </label>
                           <input
@@ -2139,25 +5156,71 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             min="0"
                             step="0.01"
                             value={dispCost}
-                            onChange={(e) => setReceiveOverrides(prev => ({ ...prev, [item.order_item_id]: { ...prev[item.order_item_id], unit_cost: e.target.value } }))}
+                            onChange={(e) =>
+                              setReceiveOverrides((prev) => ({
+                                ...prev,
+                                [item.order_item_id]: {
+                                  ...prev[item.order_item_id],
+                                  unit_cost: e.target.value,
+                                },
+                              }))
+                            }
                             style={{ fontSize: "0.88rem", width: "100%" }}
                           />
                         </div>
                         {isTire && (
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-amber, #fbbf24)", display: "block", marginBottom: "0.25rem", minHeight: "1.35rem" }}>
-                              DOT / Year <span style={{ color: "var(--th-orange)" }}>*</span>
+                            <label
+                              style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.06em",
+                                color: "var(--th-amber, #fbbf24)",
+                                display: "block",
+                                marginBottom: "0.25rem",
+                                minHeight: "1.35rem",
+                              }}
+                            >
+                              DOT / Year{" "}
+                              <span style={{ color: "var(--th-orange)" }}>
+                                *
+                              </span>
                             </label>
                             <input
                               className="ord-input"
                               type="text"
                               placeholder="e.g. 2025"
                               value={dispDot}
-                              onChange={(e) => setReceiveOverrides(prev => ({ ...prev, [item.order_item_id]: { ...prev[item.order_item_id], dot_number: e.target.value } }))}
-                              style={{ fontSize: "0.88rem", width: "100%", borderColor: isTire && !dispDot ? "var(--th-rose, #fb7185)" : undefined }}
+                              onChange={(e) =>
+                                setReceiveOverrides((prev) => ({
+                                  ...prev,
+                                  [item.order_item_id]: {
+                                    ...prev[item.order_item_id],
+                                    dot_number: e.target.value,
+                                  },
+                                }))
+                              }
+                              style={{
+                                fontSize: "0.88rem",
+                                width: "100%",
+                                borderColor:
+                                  isTire && !dispDot
+                                    ? "var(--th-rose, #fb7185)"
+                                    : undefined,
+                              }}
                             />
                             {isTire && !dispDot && (
-                              <div style={{ fontSize: "0.62rem", color: "var(--th-rose, #fb7185)", marginTop: "0.2rem", whiteSpace: "nowrap" }}>Required</div>
+                              <div
+                                style={{
+                                  fontSize: "0.62rem",
+                                  color: "var(--th-rose, #fb7185)",
+                                  marginTop: "0.2rem",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Required
+                              </div>
                             )}
                           </div>
                         )}
@@ -2170,7 +5233,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         </div>
                         <textarea
                           className="ord-textarea"
-                          style={{ marginLeft: "1.6rem", width: "calc(100% - 1.6rem)" }}
+                          style={{
+                            marginLeft: "1.6rem",
+                            width: "calc(100% - 1.6rem)",
+                          }}
                           rows="2"
                           value={notReceivedReasons[item.order_item_id] || ""}
                           onChange={(e) =>
@@ -2227,7 +5293,11 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   setReceiveOverrides({});
                   setDeliveryReceipt("");
                   setReceivePaymentMode("TERMS");
-                  setReceiveCheckInfo({ check_number: "", bank: "", check_date: "" });
+                  setReceiveCheckInfo({
+                    check_number: "",
+                    bank: "",
+                    check_date: "",
+                  });
                   setError("");
                 }}
               >

@@ -401,9 +401,20 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
   const [posGroups, setPosGroups] = React.useState([]);
   const [posTotalPages, setPosTotalPages] = React.useState(1);
   const [posLoading, setPosLoading] = React.useState(false);
+  const [livePosCategories, setLivePosCategories] = React.useState([]);
+
+  async function fetchPosCategories() {
+    if (!shopId) return;
+    try {
+      const r = await apiFetch(`${API_URL}/item-categories/${shopId}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setLivePosCategories(d);
+    } catch { }
+  }
 
   React.useEffect(() => {
     loadPOS();
+    fetchPosCategories();
   }, [shopId]);
 
   /* Debounced server-side picker fetch */
@@ -1032,11 +1043,14 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                   suggestions: searchSuggestions,
                   onSuggestionSelect: (s) => setSearch(s.text),
                 }}
-                filters={CATEGORIES.map(cat => ({
-                  label: cat,
-                  value: cat === "All" ? "" : cat,
-                  active: category === (cat === "All" ? "" : cat),
-                }))}
+                filters={[
+                  { label: "All", value: "", active: category === "" },
+                  ...livePosCategories.map(cat => ({
+                    label: cat,
+                    value: cat,
+                    active: category === cat,
+                  }))
+                ]}
                 onFilterChange={setCategory}
               />
             </div>

@@ -64,13 +64,14 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       t.setDate(t.getDate() - 1)
       const y = t.toISOString().split('T')[0]
       setStartDate(y); setEndDate(y)
-    } else if (key === 'wk') {
+    } else if (key === '3mo') {
       const d = new Date(todayStr)
-      d.setDate(d.getDate() - d.getDay())
+      d.setMonth(d.getMonth() - 3)
       setStartDate(d.toISOString().split('T')[0]); setEndDate(todayStr)
-    } else if (key === 'mo') {
-      const mo = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`
-      setStartDate(mo); setEndDate(todayStr)
+    } else if (key === '6mo') {
+      const d = new Date(todayStr)
+      d.setMonth(d.getMonth() - 6)
+      setStartDate(d.toISOString().split('T')[0]); setEndDate(todayStr)
     } else if (key === 'yr') {
       setStartDate(`${t.getFullYear()}-01-01`); setEndDate(todayStr)
     }
@@ -413,8 +414,8 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
         filters={[
           { value: 'today', label: 'Today', active: activePreset === 'today' },
           { value: 'yesterday', label: 'Yesterday', active: activePreset === 'yesterday' },
-          { value: 'wk', label: 'This Wk', active: activePreset === 'wk' },
-          { value: 'mo', label: 'This Mo', active: activePreset === 'mo' },
+          { value: '3mo', label: '3 Months', active: activePreset === '3mo' },
+          { value: '6mo', label: '6 Months', active: activePreset === '6mo' },
           { value: 'yr', label: 'This Yr', active: activePreset === 'yr' },
         ]}
         onFilterChange={applyPreset}

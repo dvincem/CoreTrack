@@ -1744,3 +1744,303 @@
     transform: scale(1) translateY(0);
   }
 }
+
+/* ══════════════════════════════════════
+   QUICK RECEIVE — responsive line items
+══════════════════════════════════════ */
+.qr-lines-wrap {
+  border: 1px solid var(--th-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--th-bg-card);
+}
+
+.qr-in {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    gap: .5rem;
+}
+
+@media (max-width: 640px) {
+    .qr-in {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 0.75rem;
+  }
+
+  .qr-in-width {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.qr-in-width{
+  min-width: 0;
+  flex: 1;
+}
+
+/* ── Desktop-only header row ── */
+.qr-lines-header {
+  display: grid;
+  grid-template-columns: 2fr 1.6fr 0.7fr 1.1fr 0.85fr 1fr 36px;
+  gap: 0;
+  background: var(--th-bg-header);
+  border-bottom: 1px solid var(--th-border);
+  padding: 0 0.75rem;
+}
+
+.qr-lines-hcell {
+  padding: 0.6rem 0.5rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-text-dim);
+  white-space: nowrap;
+}
+
+.qr-lines-hcell.right { text-align: right; }
+.qr-lines-hcell.center { text-align: center; }
+
+/* ── Each line item ── */
+.qr-line-card {
+  display: grid;
+  grid-template-columns: 2fr 1.6fr 0.7fr 1.1fr 0.85fr 1fr 36px;
+  grid-template-rows: auto;
+  align-items: center;
+  gap: 0;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--th-border);
+  transition: background 0.15s;
+}
+
+.qr-line-card:last-of-type {
+  border-bottom: none;
+}
+
+.qr-line-card:hover {
+  background: var(--th-bg-hover);
+}
+
+/* ── Item info block (col 1) ── */
+.qr-card-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding-right: 0.5rem;
+}
+
+.qr-card-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.qr-card-item-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--th-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  line-height: 1.3;
+}
+
+.qr-card-new-badge {
+  font-size: 0.6rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid #34d399;
+  color: #34d399;
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+  line-height: 1.4;
+}
+
+.qr-card-item-sub {
+  font-size: 0.7rem;
+  color: var(--th-text-faint);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+/* ── Supplier cell (col 2) ── */
+.qr-card-supplier-row {
+  padding: 0 0.4rem;
+}
+
+.qr-card-select {
+  font-size: 0.8rem !important;
+  padding: 0.3rem 0.5rem !important;
+  height: 34px !important;
+  width: 100%;
+}
+
+/* ── Input cells (cols 3-6) ── */
+.qr-card-inputs-row {
+  display: contents; /* participates in parent grid */
+}
+
+.qr-card-field {
+  padding: 0 0.4rem;
+}
+
+.qr-card-field-subtotal {
+  text-align: right;
+}
+
+.qr-card-label {
+  display: none; /* hidden on desktop — header row serves as labels */
+}
+
+.qr-card-na {
+  color: var(--th-text-faint);
+  font-size: 0.68rem;
+  opacity: 0.5;
+  text-align: center;
+}
+
+.qr-card-subtotal-val {
+  font-weight: 800;
+  color: var(--th-orange);
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.qr-cost-prefix {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--th-text-faint);
+  pointer-events: none;
+}
+
+/* ── Delete button (col 7) ── */
+.qr-card-delete {
+  background: var(--th-rose-bg) !important;
+  color: var(--th-rose) !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  font-size: 0.75rem !important;
+  justify-self: center;
+}
+
+/* ── Grand total bar ── */
+.qr-lines-total {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--th-bg-header);
+  border-top: 1px solid var(--th-border);
+}
+
+.qr-lines-total-label {
+  font-size: 0.75rem;
+  color: var(--th-text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.qr-lines-total-amount {
+  font-weight: 900;
+  font-size: 1.4rem;
+  color: var(--th-orange);
+  font-family: 'Barlow Condensed', sans-serif;
+}
+
+/* ══ Mobile: switch to stacked cards ══ */
+@media (max-width: 640px) {
+  .qr-lines-wrap {
+    overflow-x: hidden;
+  }
+
+  .qr-lines-header {
+    display: none; /* hide desktop header — field labels shown inline */
+  }
+
+  .qr-line-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--th-border);
+  }
+
+  /* Item row: name + delete side by side */
+  .qr-card-item-row {
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-right: 0;
+  }
+
+  /* Supplier: full-width */
+  .qr-card-supplier-row {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  /* Show labels on mobile */
+  .qr-card-label {
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--th-text-faint);
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  /* Inputs row: 2x2 grid on mobile to avoid overflow */
+  .qr-card-inputs-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+  }
+
+  .qr-card-field {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .qr-card-field-subtotal {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .qr-card-subtotal-val {
+    font-size: 0.9rem;
+    padding-top: 0.3rem; /* align with inputs */
+  }
+
+  /* Don't show delete inside item row on mobile (it's in the item row already) */
+  .qr-card-delete {
+    flex-shrink: 0;
+  }
+
+  /* Total bar smaller on mobile */
+  .qr-lines-total {
+    padding: 0.7rem 1rem;
+  }
+
+  .qr-lines-total-amount {
+    font-size: 1.2rem;
+  }
+}

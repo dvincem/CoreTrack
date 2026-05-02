@@ -5,6 +5,20 @@ const itemsRouter = require("./items");
 const findOrCreateDotVariant = itemsRouter.findOrCreateDotVariant;
 const logPriceHistory = itemsRouter.logPriceHistory;
 
+async function syncCurrentStock(shop_id, item_ids) {
+  const dbRun = (sql, p) => new Promise((resolve, reject) => db.run(sql, p, function(e) { e ? reject(e) : resolve(this); }));
+  for (const item_id of [...new Set(item_ids)]) {
+    if (!item_id) continue;
+    await dbRun(`
+      INSERT INTO current_stock (shop_id, item_id, current_quantity, last_updated)
+      VALUES (?, ?, (SELECT COALESCE(SUM(quantity),0) FROM inventory_ledger WHERE shop_id = ? AND item_id = ?), CURRENT_TIMESTAMP)
+      ON CONFLICT(shop_id,item_id) DO UPDATE SET
+        current_quantity = (SELECT COALESCE(SUM(quantity),0) FROM inventory_ledger WHERE shop_id = ? AND item_id = ?),
+        last_updated = CURRENT_TIMESTAMP
+    `, [shop_id, item_id, shop_id, item_id, shop_id, item_id]);
+  }
+}
+
 router.post("/orders", (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;
   if (!shop_id || (items.length === 0 && new_items.length === 0)) {
@@ -303,7 +317,10 @@ router.post("/orders/:order_id/receive", async (req, res) => {
         for (const item of receivedItems) {
           stmt.run([`INVTXN-${Date.now()}-${Math.random()}`, order.shop_id, item.item_id, "PURCHASE", item.quantity, item.unit_cost, reference_id, item.supplier_id || null, item.dot_number || null, received_by || "SYSTEM"]);
         }
-        stmt.finalize(checkComplete);
+        stmt.finalize(async () => {
+          await syncCurrentStock(order.shop_id, receivedItems.map(i => i.item_id));
+          checkComplete();
+        });
       });
     } else {
       checkComplete();
@@ -503,6 +520,251 @@ router.delete("/orders/:order_id", (req, res) => {
       });
     });
   });
+});
+
+router.post("/orders/quick-receive", async (req, res) => {
+  const {
+    shop_id, delivery_receipt, payment_mode, check_info,
+    received_by, notes, lines = [], new_items = []
+  } = req.body;
+
+  if (!shop_id) return res.status(400).json({ error: "shop_id is required" });
+  if (!lines.length && !new_items.length) return res.status(400).json({ error: "At least one line item is required" });
+
+  const dbGet = (sql, p) => new Promise((resolve, reject) => db.get(sql, p, (e, r) => e ? reject(e) : resolve(r)));
+  const dbAll = (sql, p) => new Promise((resolve, reject) => db.all(sql, p, (e, r) => e ? reject(e) : resolve(r || [])));
+  const dbRun  = (sql, p) => new Promise((resolve, reject) => db.run(sql, p, function(e) { e ? reject(e) : resolve(this); }));
+
+  // Helper: build a clean SKU from new-item fields
+  function buildQrSku(ni) {
+    const cat    = (ni.category  || 'MISC').toUpperCase().replace(/\s+/g, '');
+    const brand  = (ni.brand     || '').toUpperCase().replace(/\s+/g, '').substring(0, 4);
+    const design = (ni.design    || '').toUpperCase().replace(/\s+/g, '').substring(0, 4);
+    const size   = (ni.size      || '').replace(/\s+/g, '');
+    return `${cat}-${brand}-${design}-${size}-${Date.now().toString().slice(-4)}`;
+  }
+
+  try {
+    const order_id = `QORD-${Date.now()}`;
+    const now = new Date().toISOString();
+    const reference_id = delivery_receipt || order_id;
+    const TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TIRE', 'RECAP', 'TUBE'];
+
+    // ── Step 0: Create new item_master rows for new_items[], then merge into lines ──
+    const allLines = [...lines];
+    for (const ni of new_items) {
+      const newItemId = `ITEM-QR-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const sku        = buildQrSku(ni);
+      const upperBrand  = ni.brand  ? ni.brand.toUpperCase()  : null;
+      const upperDesign = ni.design ? ni.design.toUpperCase() : null;
+      const item_name   = [upperBrand, upperDesign, ni.size].filter(Boolean).join(' ');
+      await dbRun(
+        `INSERT INTO item_master
+           (item_id, sku, item_name, category, brand, design, size,
+            unit_cost, selling_price, supplier_id, reorder_point, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+        [
+          newItemId, sku, item_name,
+          (ni.category || 'MISC').toUpperCase(),
+          upperBrand, upperDesign, ni.size || null,
+          parseFloat(ni.unit_cost)    || 0,
+          parseFloat(ni.selling_price) || 0,
+          ni.supplier_id || null,
+          parseInt(ni.reorder_point) || 0,
+        ]
+      );
+      // Merge the freshly-created item as a regular line
+      allLines.push({
+        item_id:    newItemId,
+        supplier_id: ni.supplier_id || null,
+        quantity:   parseFloat(ni.quantity)  || 1,
+        unit_cost:  parseFloat(ni.unit_cost) || 0,
+        dot_number: (ni.dot_number || '').trim() || null,
+        _is_new:    true,
+      });
+    }
+
+    // Enrich + resolve DOT variants for each line
+    const resolvedLines = [];
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i];
+      const item = await dbGet(
+        `SELECT im.*, COALESCE(im.item_name, '') as item_name, im.category FROM item_master im WHERE im.item_id = ?`,
+        [line.item_id]
+      );
+      if (!item) { return res.status(400).json({ error: `Item not found: ${line.item_id}` }); }
+
+      let finalItemId = item.item_id;
+      const qty      = parseFloat(line.quantity) || 1;
+      const cost     = parseFloat(line.unit_cost) || 0;
+      const dot      = (line.dot_number || '').trim() || null;
+      const isTire   = TIRE_CATS.includes((item.category || '').toUpperCase());
+
+      if (isTire && dot) {
+        const parentItemId = item.parent_item_id || item.item_id;
+        const { item_id: variantId } = await findOrCreateDotVariant(parentItemId, dot, cost, null, received_by);
+        finalItemId = variantId;
+      } else if (!isTire || !dot) {
+        // Update cost on parent if changed
+        const newCost = cost;
+        const costDelta = newCost - (item.unit_cost || 0);
+        if (Math.abs(costDelta) > 0.001) {
+          const newPrice = (item.selling_price || 0) + costDelta;
+          await dbRun(`UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`, [newCost, newPrice, finalItemId]);
+          const ts = new Date().toISOString();
+          logPriceHistory(finalItemId, 'UNIT_COST', item.unit_cost, newCost, received_by, null, ts);
+          logPriceHistory(finalItemId, 'SELLING_PRICE', item.selling_price, newPrice, received_by, null, ts);
+        }
+      }
+
+      resolvedLines.push({
+        order_item_id: `QORDITEM-${Date.now()}-${i}`,
+        item_id: finalItemId,
+        item_name: item.item_name,
+        brand: item.brand,
+        design: item.design,
+        size: item.size,
+        category: item.category,
+        quantity: qty,
+        unit_cost: cost,
+        line_total: qty * cost,
+        supplier_id: line.supplier_id || null,
+        dot_number: dot,
+      });
+    }
+
+    const total_amount = resolvedLines.reduce((s, l) => s + l.line_total, 0);
+
+    // ── Atomic transaction ──
+    await dbRun("BEGIN TRANSACTION");
+    try {
+      // Insert the synthetic order at RECEIVED status right away
+      await dbRun(
+        `INSERT INTO orders (order_id, shop_id, status, total_amount, order_notes, delivery_receipt, payment_mode, created_by, created_at, received_at, received_by)
+         VALUES (?, ?, 'RECEIVED', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [order_id, shop_id, total_amount, notes || `Walk-in / Quick Receive`, delivery_receipt || null,
+         payment_mode || 'TERMS', received_by || 'SYSTEM', now, now, received_by || 'SYSTEM']
+      );
+
+      // Insert order_items + inventory_ledger entries
+      for (const line of resolvedLines) {
+        await dbRun(
+          `INSERT INTO order_items (order_item_id, order_id, item_id, quantity, unit_cost, line_total, supplier_id, dot_number, received_status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'RECEIVED', ?)`,
+          [line.order_item_id, order_id, line.item_id, line.quantity, line.unit_cost, line.line_total,
+           line.supplier_id, line.dot_number, now]
+        );
+        await dbRun(
+          `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, supplier_id, dot_number, created_by, created_at)
+           VALUES (?, ?, ?, 'PURCHASE', ?, ?, ?, ?, ?, ?, ?)`,
+          [`INVTXN-QR-${Date.now()}-${Math.random()}`, shop_id, line.item_id, line.quantity, line.unit_cost,
+           reference_id, line.supplier_id || null, line.dot_number || null, received_by || 'SYSTEM', now]
+        );
+      }
+
+      await dbRun("COMMIT");
+      // Synchronize current_stock cache for UI display
+      await syncCurrentStock(shop_id, resolvedLines.map(l => l.item_id));
+    } catch (txErr) {
+      await dbRun("ROLLBACK").catch(() => {});
+      return res.status(500).json({ error: "Transaction failed: " + txErr.message });
+    }
+
+    // ── Payables (outside transaction, mirrors existing receive logic) ──
+    const mode = payment_mode || 'TERMS';
+    const drLabel = delivery_receipt ? `DR# ${delivery_receipt}` : '';
+    // Group by supplier
+    const bySupplier = {};
+    for (const line of resolvedLines) {
+      const key = line.supplier_id || '__NOSUPPLIER__';
+      if (!bySupplier[key]) {
+        const sup = line.supplier_id
+          ? await dbGet(`SELECT supplier_name, default_payment_terms_days FROM supplier_master WHERE supplier_id = ?`, [line.supplier_id])
+          : null;
+        bySupplier[key] = {
+          supplier_id: line.supplier_id,
+          supplier_name: sup?.supplier_name || 'Unknown Supplier',
+          payment_terms: sup?.default_payment_terms_days || 0,
+          lines: []
+        };
+      }
+      bySupplier[key].lines.push(line);
+    }
+
+    for (const grp of Object.values(bySupplier)) {
+      const total = grp.lines.reduce((s, l) => s + l.line_total, 0);
+      if (total <= 0) continue;
+
+      let due_date = null;
+      if (grp.payment_terms > 0) {
+        const d = new Date();
+        d.setDate(d.getDate() + grp.payment_terms);
+        due_date = d.toISOString().split('T')[0];
+      }
+
+      const description = [`Quick Receive ${order_id}`, drLabel, grp.supplier_name].filter(Boolean).join(' — ');
+      const itemLines = grp.lines.map(l => {
+        const lbl = [l.brand, l.design, l.size].filter(Boolean).join(' ') || l.item_name || l.item_id;
+        return `${lbl} | Qty: ${l.quantity} | Unit: ₱${Number(l.unit_cost).toFixed(2)} | Total: ₱${Number(l.line_total).toFixed(2)}`;
+      });
+      const payNotes = [
+        `Quick Receive: ${order_id}`, drLabel || null,
+        grp.payment_terms ? `Terms: ${grp.payment_terms} days` : null,
+        '---', ...itemLines, '---',
+        `Grand Total: ₱${Number(total).toFixed(2)}`
+      ].filter(Boolean).join('\n');
+
+      const payable_id = `PAY-QR-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const initStatus = mode === 'CASH' ? 'PAID' : mode === 'CHECK' ? 'CHECK_RELEASED' : 'OPEN';
+      const initPaid   = mode === 'CASH' ? total : 0;
+      const initBal    = mode === 'CASH' ? 0 : total;
+      const closedAt   = mode === 'CASH' ? now : null;
+
+      await dbRun(
+        `INSERT INTO accounts_payable
+           (payable_id, shop_id, payable_type, supplier_id, reference_id, description, notes,
+            original_amount, amount_paid, balance_amount, status, due_date, created_by, closed_at)
+         VALUES (?, ?, 'SUPPLIER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [payable_id, shop_id, grp.supplier_id || null,
+         `${order_id}${delivery_receipt ? '/' + delivery_receipt : ''}`,
+         description, payNotes, total, initPaid, initBal, initStatus, due_date,
+         received_by || 'SYSTEM', closedAt]
+      );
+
+      if (mode === 'CASH') {
+        const pay_id = `PAYPMT-QR-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        await dbRun(
+          `INSERT INTO payable_payments
+             (payment_id, payable_id, shop_id, amount, payment_date, payment_method, check_status, notes, recorded_by)
+           VALUES (?, ?, ?, ?, ?, 'CASH', 'CLEARED', ?, ?)`,
+          [pay_id, payable_id, shop_id, total, now,
+           `Cash on receipt — DR# ${delivery_receipt || order_id}`, received_by || 'SYSTEM']
+        );
+      } else if (mode === 'CHECK' && check_info) {
+        const pay_id = `PAYPMT-QR-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        await dbRun(
+          `INSERT INTO payable_payments
+             (payment_id, payable_id, shop_id, amount, payment_date, payment_method,
+              check_number, bank, check_date, release_date, check_status, notes, recorded_by)
+           VALUES (?, ?, ?, ?, ?, 'CHECK', ?, ?, ?, ?, 'RELEASED', ?, ?)`,
+          [pay_id, payable_id, shop_id, total, now,
+           check_info.check_number || null, check_info.bank || null,
+           check_info.check_date || null, check_info.check_date || null,
+           `Check #${check_info.check_number} — ${check_info.bank}`, received_by || 'SYSTEM']
+        );
+      }
+    }
+
+    res.json({
+      order_id, status: 'RECEIVED', items_received: resolvedLines.length,
+      total_amount, delivery_receipt: delivery_receipt || null,
+      message: `Quick Receive complete. ${resolvedLines.length} item(s) added to inventory.`
+    });
+
+  } catch (err) {
+    console.error("quick-receive error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

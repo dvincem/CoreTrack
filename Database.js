@@ -917,7 +917,7 @@ function initializeDatabase() {
 
               UPDATE current_stock
               SET current_quantity = current_quantity + CASE
-                WHEN NEW.transaction_type IN ('PURCHASE', 'RETURN', 'CUSTOMER_RETURN', 'SUPPLIER_REPLACEMENT') THEN ABS(NEW.quantity)
+                WHEN NEW.transaction_type IN ('PURCHASE', 'RETURN', 'CUSTOMER_RETURN', 'SUPPLIER_REPLACEMENT', 'BULK_IMPORT') THEN ABS(NEW.quantity)
                 WHEN NEW.transaction_type = 'ADJUSTMENT' THEN NEW.quantity
                 WHEN NEW.transaction_type IN ('SALE', 'SUPPLIER_RETURN') THEN -ABS(NEW.quantity)
                 ELSE 0

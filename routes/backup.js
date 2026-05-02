@@ -154,8 +154,8 @@ const COL_MAP = {
 };
 
 const IMPORT_ORDER = [
-  "shop_master", "staff_master", "supplier_master", "item_master", "services_master",
-  "commission_rules", "customer_master", "staff_attendance", "inventory_ledger",
+  "shop_master", "staff_master", "supplier_master", "supplier_brands", "item_master", "services_master",
+  "commission_rules", "customer_master", "vehicle_plates", "staff_attendance", "inventory_ledger",
   "current_stock", "sale_header", "sale_items", "sales_ledger", "orders", "order_items",
   "recap_job_master", "recap_job_ledger", "recap_price_defaults", "accounts_receivable",
   "receivable_payments", "accounts_payable", "payable_payments", "labor_log",

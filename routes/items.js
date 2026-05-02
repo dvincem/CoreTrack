@@ -121,7 +121,14 @@ router.get("/items/:shop_id", (req, res) => {
   const fromJoin = `FROM item_master im
     LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?
     LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
-    WHERE im.is_active = 1`;
+    WHERE im.is_active = 1
+      AND NOT (
+        im.parent_item_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM item_master child
+          WHERE child.parent_item_id = im.item_id AND child.is_active = 1
+        )
+      )`;
 
   const baseParams = [shop_id];
   let whereExtra = '';
@@ -640,7 +647,14 @@ router.get("/items-kpi/:shop_id", async (req, res) => {
          COALESCE(AVG(CASE WHEN im.unit_cost > 0 AND im.selling_price > 0 THEN ((im.selling_price - im.unit_cost) / im.selling_price) * 100 ELSE NULL END), 0) AS avgMargin
        FROM item_master im
        LEFT JOIN current_stock cs ON cs.item_id = im.item_id AND cs.shop_id = ?
-       WHERE im.is_active = 1${categoryClause}`,
+       WHERE im.is_active = 1
+         AND NOT (
+           im.parent_item_id IS NULL
+           AND EXISTS (
+             SELECT 1 FROM item_master child
+             WHERE child.parent_item_id = im.item_id AND child.is_active = 1
+           )
+         )${categoryClause}`,
       params
     );
     res.json(row || { totalItems: 0, totalStockUnits: 0, stockValueCost: 0, stockValueRetail: 0, lowStockCount: 0, tireItems: 0, otherItems: 0, avgMargin: 0 });
@@ -744,8 +758,12 @@ router.get("/pos-items/:shop_id", async (req, res) => {
 router.get("/item-categories/:shop_id", (req, res) => {
   const { shop_id } = req.params;
   db.all(
-    `SELECT DISTINCT category FROM item_master WHERE is_active = 1 AND category IS NOT NULL ORDER BY category ASC`,
-    [],
+    `SELECT DISTINCT im.category
+     FROM item_master im
+     JOIN current_stock cs ON cs.item_id = im.item_id AND cs.shop_id = ?
+     WHERE im.is_active = 1 AND im.category IS NOT NULL AND cs.current_quantity > 0
+     ORDER BY im.category ASC`,
+    [shop_id],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows.map(r => r.category));

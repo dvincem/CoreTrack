@@ -41,8 +41,8 @@ function presets() {
     { label: 'Today',    start: fmtD(today),      end: fmtD(today) },
     { label: '7 Days',   start: ago(6),            end: fmtD(today) },
     { label: '30 Days',  start: ago(29),           end: fmtD(today) },
-    { label: 'This Wk',  start: startOf('week'),   end: fmtD(today) },
-    { label: 'This Mo',  start: startOf('month'),  end: fmtD(today) },
+    { label: '3 Months', start: ago(89),            end: fmtD(today) },
+    { label: '6 Months', start: ago(179),           end: fmtD(today) },
     { label: 'This Yr',  start: startOf('year'),   end: fmtD(today) },
   ]
 }
@@ -54,7 +54,7 @@ function ProfitsPage({ shopId, setPageContext }) {
   const [startDate,    setStartDate]    = React.useState(monthStart)
   const [endDate,      setEndDate]      = React.useState(today)
   const [applied,      setApplied]      = React.useState({ start: monthStart, end: today })
-  const [activePreset, setActivePreset] = React.useState('This Mo')
+  const [activePreset, setActivePreset] = React.useState('30 Days')
 
   const [summary,    setSummary]    = React.useState(null)
   const [byCategory, setByCategory] = React.useState([])

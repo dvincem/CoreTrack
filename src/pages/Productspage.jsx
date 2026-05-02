@@ -200,6 +200,7 @@ function Productspage({ shopId }) {
 
   // Toast
   const [toasts, setToasts] = React.useState([]);
+  const [liveCats, setLiveCats] = React.useState(["ALL"]);
 
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
@@ -224,8 +225,18 @@ function Productspage({ shopId }) {
     fetchSuppliers();
     fetchKpi();
     fetchDbSuggestions();
+    fetchLiveCats();
     return () => obs.disconnect();
   }, [shopId]);
+
+  async function fetchLiveCats() {
+    if (!shopId) return;
+    try {
+      const r = await apiFetch(`${API_URL}/item-categories/${shopId}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setLiveCats(["ALL", ...d]);
+    } catch { }
+  }
 
   async function fetchDbSuggestions() {
     try {
@@ -267,6 +278,7 @@ function Productspage({ shopId }) {
       toast(`"${item.item_name}" archived`);
       refetchItems();
       fetchKpi();
+      fetchLiveCats();
       if (selected?.item_id === item.item_id) setSelected(null);
     } catch {
       toast("Failed to archive item", "error");
@@ -282,16 +294,13 @@ function Productspage({ shopId }) {
       refetchItems();
       refetchArchived();
       fetchKpi();
+      fetchLiveCats();
     } catch {
       toast("Failed to restore item", "error");
     }
   }
 
   /* ── Derived ── */
-  // We still need all categories for the pills. 
-  // For now, let's keep tireCats and otherCats as the source for pills, 
-  // or fetch all unique categories from the server if possible.
-  const allCats = ["ALL", ...new Set([...tireCats, ...otherCats])].sort();
 
   React.useEffect(() => {
     const q = search.trim().toLowerCase();
@@ -1465,20 +1474,73 @@ function Productspage({ shopId }) {
         {/* Toolbar */}
         <FilterHeader
           leftComponent={
-            <div className="prod-view-tabs">
+            <div style={{
+              display: "inline-flex",
+              border: !showArchived
+                ? "1.5px solid var(--th-orange)"
+                : "1.5px solid var(--th-amber)",
+              borderRadius: 9,
+              overflow: "hidden",
+              flexShrink: 0,
+              transition: "border-color 0.2s",
+              boxShadow: !showArchived
+                ? "0 0 0 3px rgba(255,107,0,0.12)"
+                : "0 0 0 3px rgba(251,191,36,0.12)",
+            }}>
               <button
-                className={`prod-view-tab${!showArchived ? " active" : ""}`}
                 onClick={() => setShowArchived(false)}
+                style={{
+                  padding: "0.38rem 1.05rem",
+                  border: "none",
+                  borderRight: !showArchived
+                    ? "1.5px solid var(--th-orange)"
+                    : "1.5px solid var(--th-amber)",
+                  cursor: "pointer",
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.07em",
+                  transition: "all 0.18s",
+                  background: !showArchived ? "var(--th-orange)" : "transparent",
+                  color: !showArchived ? "#fff" : "var(--th-text-faint)",
+                  opacity: !showArchived ? 1 : 0.5,
+                }}
               >
                 Active
               </button>
               <button
-                className={`prod-view-tab archive-tab${showArchived ? " active" : ""}`}
                 onClick={() => { setShowArchived(true); refetchArchived(); }}
+                style={{
+                  padding: "0.38rem 1.05rem",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.07em",
+                  transition: "all 0.18s",
+                  background: showArchived ? "var(--th-amber)" : "transparent",
+                  color: showArchived ? "#fff" : "var(--th-text-faint)",
+                  opacity: showArchived ? 1 : 0.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                }}
               >
                 Archived
                 {archivedItems.length > 0 && (
-                  <span style={{ marginLeft: "0.3rem", background: "var(--th-amber-bg)", color: "var(--th-amber)", borderRadius: 4, padding: "1px 5px", fontSize: "0.72rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>
+                  <span style={{
+                    background: showArchived ? "rgba(255,255,255,0.22)" : "var(--th-amber-bg)",
+                    color: showArchived ? "#fff" : "var(--th-amber)",
+                    borderRadius: 4,
+                    padding: "1px 5px",
+                    fontSize: "0.7rem",
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    fontWeight: 700,
+                    lineHeight: 1.4,
+                  }}>
                     {archivedItems.length}
                   </span>
                 )}
@@ -1492,7 +1554,7 @@ function Productspage({ shopId }) {
             suggestions,
             onSuggestionSelect: (s) => { setSearch(s.text); setPage(1); },
           }}
-          filters={allCats.slice(0, 8).map(c => ({
+          filters={liveCats.map(c => ({
             label: c,
             value: c,
             active: catFilter === c,

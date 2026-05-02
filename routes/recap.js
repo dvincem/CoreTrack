@@ -487,12 +487,7 @@ router.post("/recap-jobs-bulk", async (req, res) => {
     await runAsync("BEGIN TRANSACTION");
     const created_at = await getEffectiveISO(shop_id);
 
-    // Create a dummy bulk supplier if supplier mapping is not provided strictly
-    const dummySupplierId = `SUPPLIER-BULK-${shop_id}`;
-    const dummyExists = await getAsync(`SELECT supplier_id FROM supplier_master WHERE supplier_id = ?`, [dummySupplierId]);
-    if (!dummyExists) {
-      await runAsync(`INSERT INTO supplier_master (supplier_id, shop_id, supplier_name) VALUES (?, ?, ?)`, [dummySupplierId, shop_id, "Bulk Imported Supplier"]);
-    }
+
 
     const customers = {};
 
@@ -523,7 +518,10 @@ router.post("/recap-jobs-bulk", async (req, res) => {
             customerId = cRow.customer_id;
           } else {
             customerId = `CUST-${Date.now()}-${index}`;
-            await runAsync(`INSERT INTO customer_master (customer_id, shop_id, customer_name) VALUES (?, ?, ?)`, [customerId, shop_id, cName]);
+            const namePrefix = cName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "");
+            const timestamp = Date.now().toString().slice(-6);
+            const customerCode = `CUST-${namePrefix}-${timestamp}-${index}`;
+            await runAsync(`INSERT INTO customer_master (customer_id, shop_id, customer_code, customer_name) VALUES (?, ?, ?, ?)`, [customerId, shop_id, customerCode, cName]);
           }
           customers[cName] = customerId;
         }
@@ -550,10 +548,11 @@ router.post("/recap-jobs-bulk", async (req, res) => {
           [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, size.trim(), cost, price, item_active, dot_number || null]
         );
 
+        const finalDescription = description ? `${description} (Bulk Imported)` : `${item_name} (Bulk Imported)`;
         await runAsync(
           `INSERT INTO recap_job_master (recap_job_id, shop_id, ownership_type, customer_id, supplier_id, casing_description, current_status, intake_date, recap_cost, expected_selling_price, finished_item_id, dot_number, forfeited_flag, created_at, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-          [job_id, shop_id, finalOwnership, customerId, dummySupplierId, description || item_name, parsedStatus, intakeStr, cost, price, item_id, dot_number || null, created_at, "BULK_IMPORT"]
+          [job_id, shop_id, finalOwnership, customerId, null, finalDescription, parsedStatus, intakeStr, cost, price, item_id, dot_number || null, created_at, "BULK_IMPORT"]
         );
 
         const ledger_id = `RECAPL-${Date.now()}-${index}`;
@@ -568,7 +567,7 @@ router.post("/recap-jobs-bulk", async (req, res) => {
           const inv_id = `INVTXN-${Date.now()}-${index}`;
           await runAsync(
             `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, dot_number, created_by, created_at)
-             VALUES (?, ?, ?, 'BULK_IMPORT', 1, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, 'PURCHASE', 1, ?, ?, ?, ?, ?)`,
             [inv_id, shop_id, item_id, cost, job_id, dot_number || null, "SYSTEM", created_at]
           );
         }
