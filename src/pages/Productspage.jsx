@@ -591,7 +591,7 @@ function Productspage({ shopId }) {
     const variants = parseVariantInfo(item.variant_info);
     const isGrouped = (item.variant_count || 0) > 1 && variants.length > 1;
     setSelected(item);
-    setHistoryVariants(isGrouped ? variants : []);
+    setHistoryVariants(variants);   // always store — needed for real item_id resolution even on single-DOT tires
     setActiveHistVariantId(null);
     setAdjQty("");
     setDetailTab("transactions");
@@ -726,9 +726,15 @@ function Productspage({ shopId }) {
       toast("Select a DOT variant tab first to adjust its stock.", "error");
       return;
     }
-    const adjItem = isGrouped
-      ? { ...selected, item_id: activeHistVariantId, dot_number: historyVariants.find(v => v.item_id === activeHistVariantId)?.dot_number }
-      : selected;
+    // For single-DOT tire items, selected.item_id is the synthetic group key;
+    // resolve to the real item_id from variant_info.
+    const realItemId = isGrouped
+      ? activeHistVariantId
+      : (historyVariants.length === 1 ? historyVariants[0].item_id : selected.item_id);
+    const realDot = isGrouped
+      ? historyVariants.find(v => v.item_id === activeHistVariantId)?.dot_number
+      : (historyVariants.length === 1 ? historyVariants[0].dot_number : selected.dot_number);
+    const adjItem = { ...selected, item_id: realItemId, dot_number: realDot };
     setPendingAdj({ qty, item: adjItem });
   }
 
@@ -1238,7 +1244,7 @@ function Productspage({ shopId }) {
                     </div>
 
                     {/* Fields Grid */}
-                    <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-start", flexWrap: "wrap", overflowX: "auto", paddingBottom: "0.5rem" }}>
+                    <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-start", flexWrap: "wrap", paddingBottom: "0.5rem" }}>
                       {item.itemType === "TIRE" ? (
                         <>
                           <div style={{ position: 'relative', flex: "1.5", minWidth: "100px" }}>
@@ -1981,12 +1987,16 @@ function Productspage({ shopId }) {
               }
               // Non-grouped: original behaviour
               if ((selected.current_quantity ?? 0) > 0) return null;
+              // Resolve real item_id — selected.item_id may be a synthetic group key for single-DOT tires
+              const realItem = historyVariants.length === 1
+                ? { ...selected, item_id: historyVariants[0].item_id }
+                : selected;
               return (
                 <div style={{ padding: "0.65rem 1.2rem", borderBottom: "1px solid var(--th-border)" }}>
                   <button
                     className="prod-btn-archive"
                     style={{ width: "100%", padding: "0.5rem", fontSize: "0.82rem" }}
-                    onClick={() => archiveItem(selected)}
+                    onClick={() => archiveItem(realItem)}
                   >
                     Archive this item (stock is 0)
                   </button>
