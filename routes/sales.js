@@ -159,15 +159,7 @@ router.post("/sales/complete", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields: shop_id, staff_id, items" });
   }
   try {
-    let sale_id_suffix = `${Date.now()}`;
-    const firstTire = items.find((item) => item.sale_type === "PRODUCT" && item.brand && item.design && item.tire_size);
-    if (firstTire) {
-      const brand = firstTire.brand.substring(0, 5).toUpperCase();
-      const design = firstTire.design.substring(0, 4).toUpperCase();
-      const size = (firstTire.tire_size || "").replace(/[\/\-]/g, "");
-      sale_id_suffix = `${brand}-${design}-${size}`;
-    }
-    const sale_id = `SALE-${sale_id_suffix}`;
+    const sale_id = `SALE-${Date.now()}`;
     const sale_datetime = new Date().toISOString();
     const business_date = await getEffectiveYYYYMMDD(shop_id);
     let total_amount = 0;
