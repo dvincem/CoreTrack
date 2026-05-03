@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require("../Database");
 const { v4: uuidv4 } = require("uuid");
 const { getEffectiveISO, getEffectiveYYYYMMDD } = require("../lib/businessDate");
+const { dbGet, dbAll, dbRun, syncCurrentStock } = require("../lib/db");
 
 function markRecapSold(shop_id, soldItemIds, sale_id) {
   if (!soldItemIds || soldItemIds.length === 0) return;
@@ -131,27 +132,6 @@ function recordServiceLabor(shop_id, tireman_ids, service_items, encoded_by) {
   });
 }
 
-function updateCurrentStockForSale(shopId, inventoryTransactions) {
-  return new Promise((resolve, reject) => {
-    const itemIds = [...new Set(inventoryTransactions.map((t) => t.item_id))];
-    if (itemIds.length === 0) { resolve(); return; }
-    const stmt = db.prepare(`
-      INSERT INTO current_stock (shop_id, item_id, current_quantity, last_updated)
-      VALUES (?, ?, (SELECT COALESCE(SUM(quantity),0) FROM inventory_ledger WHERE shop_id = ? AND item_id = ?), CURRENT_TIMESTAMP)
-      ON CONFLICT(shop_id,item_id) DO UPDATE SET
-        current_quantity = (SELECT COALESCE(SUM(quantity),0) FROM inventory_ledger WHERE shop_id = ? AND item_id = ?),
-        last_updated = CURRENT_TIMESTAMP
-    `);
-    let completed = 0;
-    for (const itemId of itemIds) {
-      stmt.run([shopId, itemId, shopId, itemId, shopId, itemId], (err) => {
-        if (err) return reject(err);
-        completed++;
-        if (completed === itemIds.length) stmt.finalize(resolve);
-      });
-    }
-  });
-}
 
 router.post("/sales/complete", async (req, res) => {
   const { shop_id, staff_id, items, created_by, tireman_ids, tireman_commission_total, tireman_balancing_total, customer_id, sale_notes, invoice_number, payment_method, credit_down_payment, credit_due_date, payment_splits } = req.body;
@@ -159,15 +139,7 @@ router.post("/sales/complete", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields: shop_id, staff_id, items" });
   }
   try {
-    let sale_id_suffix = `${Date.now()}`;
-    const firstTire = items.find((item) => item.sale_type === "PRODUCT" && item.brand && item.design && item.tire_size);
-    if (firstTire) {
-      const brand = firstTire.brand.substring(0, 5).toUpperCase();
-      const design = firstTire.design.substring(0, 4).toUpperCase();
-      const size = (firstTire.tire_size || "").replace(/[\/\-]/g, "");
-      sale_id_suffix = `${brand}-${design}-${size}`;
-    }
-    const sale_id = `SALE-${sale_id_suffix}`;
+    const sale_id = `SALE-${Date.now()}`;
     const sale_datetime = new Date().toISOString();
     const business_date = await getEffectiveYYYYMMDD(shop_id);
     let total_amount = 0;
@@ -223,29 +195,30 @@ router.post("/sales/complete", async (req, res) => {
               }
               invStmt.finalize((err) => {
                 if (err) return rollback(err.message);
-                db.run('COMMIT', (commitErr) => {
+                db.run('COMMIT', async (commitErr) => {
                   if (commitErr) return rollback(commitErr.message);
-                  updateCurrentStockForSale(shop_id, inventoryTransactions)
-                    .then(async () => {
-                      recordTiremanCommission(shop_id, tireman_ids, tireman_commission_total, sale_id, created_by);
-                      recordBalancingLabor(shop_id, tireman_ids, tireman_balancing_total, sale_id, created_by);
-                      recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE'), created_by);
-                      markRecapSold(shop_id, inventoryTransactions.map(t => t.item_id), sale_id);
-                      const splits = payment_splits || [];
-                      const creditSplit = splits.find(s => s.method === 'CREDIT');
-                      if (creditSplit || payment_method === 'CREDIT') {
-                        const creditAmt = creditSplit ? creditSplit.amount : total_amount;
-                        const desc = saleItems.map(i => i.item_name).slice(0, 3).join(', ');
-                        try {
-                          await recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by);
-                        } catch (rcvErr) {
-                          console.error('receivable insert error:', rcvErr.message);
-                          return res.status(500).json({ error: `Sale recorded but failed to create credit receivable: ${rcvErr.message}` });
-                        }
+                  try {
+                    await syncCurrentStock(shop_id, inventoryTransactions.map(t => t.item_id));
+                    recordTiremanCommission(shop_id, tireman_ids, tireman_commission_total, sale_id, created_by);
+                    recordBalancingLabor(shop_id, tireman_ids, tireman_balancing_total, sale_id, created_by);
+                    recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE'), created_by);
+                    markRecapSold(shop_id, inventoryTransactions.map(t => t.item_id), sale_id);
+                    const splits = payment_splits || [];
+                    const creditSplit = splits.find(s => s.method === 'CREDIT');
+                    if (creditSplit || payment_method === 'CREDIT') {
+                      const creditAmt = creditSplit ? creditSplit.amount : total_amount;
+                      const desc = saleItems.map(i => i.item_name).slice(0, 3).join(', ');
+                      try {
+                        await recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by);
+                      } catch (rcvErr) {
+                        console.error('receivable insert error:', rcvErr.message);
+                        return res.status(500).json({ error: `Sale recorded but failed to create credit receivable: ${rcvErr.message}` });
                       }
-                      res.json({ sale_id, total_amount, item_count: saleItems.length, status: "success", message: "Sale completed successfully" });
-                    })
-                    .catch((err) => res.status(500).json({ error: err.message }));
+                    }
+                    res.json({ sale_id, total_amount, item_count: saleItems.length, status: "success", message: "Sale completed successfully" });
+                  } catch (err) {
+                    res.status(500).json({ error: err.message });
+                  }
                 });
               });
             } else {
@@ -491,15 +464,24 @@ router.put("/sales/:sale_id/void", async (req, res) => {
               for (const log of logs) {
                 const reversal_id = `VOID-${uuidv4()}`;
                 db.run(
-                  `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, created_by)
-                   VALUES (?, ?, ?, 'RETURN', ?, ?, ?, ?)`,
-                  [reversal_id, log.shop_id, log.item_id, Math.abs(log.quantity), log.unit_cost, `VOID-${sale_id}`, 'SYSTEM']
+                  `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, dot_number, reference_id, created_by)
+                   VALUES (?, ?, ?, 'RETURN', ?, ?, ?, ?, ?)`,
+                  [reversal_id, log.shop_id, log.item_id, Math.abs(log.quantity), log.unit_cost, log.dot_number || null, `VOID-${sale_id}`, 'SYSTEM']
                 );
               }
             }
 
-            db.run("COMMIT", (errC) => {
+            db.run("COMMIT", async (errC) => {
               if (errC) return res.status(500).json({ error: errC.message });
+              
+              if (logs && logs.length > 0) {
+                try {
+                  await syncCurrentStock(logs[0].shop_id, logs.map(l => l.item_id));
+                } catch (stockErr) {
+                  console.error("Failed to update current stock on void:", stockErr.message);
+                }
+              }
+
               res.json({ sale_id, message: "Transaction voided and inventory restocked." });
             });
           }

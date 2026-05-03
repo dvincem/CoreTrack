@@ -80,7 +80,7 @@ export default function usePaginatedResource({
   useEffect(() => { run(); }, [run, depsKey]);
 
   return {
-    data, page, setPage, perPage,
+    data, setData, page, setPage, perPage,
     total, totalPages, stats,
     search, setSearch,
     loading, error,

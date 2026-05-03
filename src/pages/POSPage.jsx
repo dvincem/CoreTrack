@@ -203,9 +203,12 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
       {/* Header: name · badge · remove */}
       <div className="pos-ci-top">
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="pos-ci-name" style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
-            {item.name}{item.dot_number ? (
-              <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.05rem 0.35rem", borderRadius: 4, background: "rgba(251,191,36,0.12)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", lineHeight: 1.4, marginLeft: "0.25rem" }}>DOT {item.dot_number}</span>
+          <div className="pos-ci-name" style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexWrap: "wrap", lineHeight: 1.1 }}>
+            {item.brand && <span style={{ fontWeight: 800, color: "var(--th-text-heading)" }}>{item.brand}</span>}
+            <span style={{ fontWeight: 600 }}>{item.name}</span>
+            {item.design && <span style={{ color: "var(--th-text-faint)", fontStyle: "italic", fontSize: "0.85em" }}>{item.design}</span>}
+            {item.dot_number ? (
+              <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.05rem 0.35rem", borderRadius: 4, background: "rgba(251,191,36,0.12)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", lineHeight: 1.4, marginLeft: "0.1rem" }}>DOT {item.dot_number}</span>
             ) : null}
             {item.is_custom && (
               <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.05rem 0.35rem", borderRadius: 4, background: "var(--th-orange-bg)", color: "var(--th-orange)", border: "1px solid var(--th-orange)", lineHeight: 1.4 }}>MISC</span>
@@ -336,7 +339,7 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
 /* ══════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════ */
-function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed }) {
+function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed, businessDate }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
   React.useEffect(() => {
@@ -466,15 +469,14 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
 
   async function loadPOS() {
     try {
-      const tzOffset = (new Date()).getTimezoneOffset() * 60000;
-      const todayLocal = (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
+      const todayLocal = businessDate || new Date().toISOString().split('T')[0];
 
       const [srv, stf, cust, valve, weight, attendanceRes] = await Promise.all([
         apiFetch(`${API_URL}/services`),
         apiFetch(`${API_URL}/staff/${shopId}`),
         apiFetch(`${API_URL}/customers/${shopId}`),
         apiFetch(`${API_URL}/items/${shopId}?category=VALVE`),
-        apiFetch(`${API_URL}/items/${shopId}?category=WEIGHT`),
+        apiFetch(`${API_URL}/items/${shopId}?category=WHEEL WEIGHT`),
         apiFetch(`${API_URL}/attendance/${shopId}?attendance_date=${todayLocal}`)
       ]);
       setServices((await srv.json()) || []);
@@ -570,6 +572,8 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
           sku: item.sku,
           category: item.category,
           size: item.size,
+          brand: item.brand,
+          design: item.design,
           dot_number: item.dot_number || null,
           sealant_commission: (item.item_name || item.category || '').toUpperCase().includes('SEALANT') ? 400 : undefined,
         },
@@ -808,11 +812,11 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
       }
       // Standalone valve product sold directly
       const itemNameUpper = (item.name || item.sku || '').toUpperCase();
-      const isStandaloneValve = itemNameUpper.includes('VALVE') && rate === 0 && !item.valve_type;
+      const isStandaloneValve = (itemNameUpper.includes('VALVE') || cat.includes('VALVE')) && rate === 0 && !item.valve_type;
       if (isStandaloneValve) {
         const isSteel = itemNameUpper.includes('STEEL');
         const valveRate = isSteel ? 50 : 40;
-        const valveLabel = isSteel ? 'Steel valve (standalone)' : 'Rubber valve (standalone)';
+        const valveLabel = `${item.name || 'Valve'} (Standalone)`;
         lines.push({ label: valveLabel, qty: item.quantity, rate: valveRate, total: valveRate * item.quantity });
       }
     }
@@ -1051,6 +1055,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                     active: category === cat,
                   }))
                 ]}
+                twoRow
                 onFilterChange={setCategory}
               />
             </div>
@@ -1124,37 +1129,20 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                       {hasMultipleDots && (
                         <span className="pos-multi-dot-badge">{_variants.length} DOTs</span>
                       )}
-                      {(() => {
-                        // Parse item_name into Brand, Design, Size
-                        // Example: "Bridgestone Turanza 185/70R14" → Brand: Bridgestone, Design: Turanza, Size: 185/70R14
-                        const safeName = i.item_name || '';
-                        const parts = safeName.trim().split(/\s+/);
-                        const sizeMatch = safeName.match(/(\d+\/\d+R\d+)/);
-                        const size = sizeMatch ? sizeMatch[1] : '';
-                        const nameWithoutSize = sizeMatch ? safeName.replace(sizeMatch[1], '').trim() : safeName;
-                        const nameParts = nameWithoutSize.split(/\s+/);
-                        const brand = nameParts[0] || '';
-                        const design = nameParts.slice(1).join(' ') || '';
-
-                        return (
-                          <>
-                            <div className="pos-card-cat">{i.category}</div>
-                            <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700 }}>
-                              {brand}
-                            </div>
-                            {design && (
-                              <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic' }}>
-                                {design}
-                              </div>
-                            )}
-                            {size && (
-                              <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-dim)', marginBottom: '0.15rem', fontWeight: 700 }}>
-                                {size}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
+                      <div className="pos-card-cat">{i.category}</div>
+                      <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700 }}>
+                        {i.brand || i.item_name}
+                      </div>
+                      {i.design && (
+                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic' }}>
+                          {i.design}
+                        </div>
+                      )}
+                      {i.size && (
+                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-dim)', marginBottom: '0.15rem', fontWeight: 700 }}>
+                          {i.size}
+                        </div>
+                      )}
                       {!hasMultipleDots && i.dot_number && (
                         <div style={{ fontSize: "0.82rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.04em", marginBottom: "0.15rem" }}>DOT {i.dot_number}</div>
                       )}

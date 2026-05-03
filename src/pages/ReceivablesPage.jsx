@@ -96,6 +96,8 @@ function ReceivablesPage({ shopId }) {
   const [pendingPay, setPendingPay] = React.useState(null);
   const [pendingBale, setPendingBale] = React.useState(null);
   const [pendingBalePay, setPendingBalePay] = React.useState(null);
+  const [voidTarget, setVoidTarget] = React.useState(null);
+  const [voidReason, setVoidReason] = React.useState("");
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
   React.useEffect(() => { const obs = new MutationObserver(() => forceUpdate());
@@ -238,6 +240,26 @@ function ReceivablesPage({ shopId }) {
       setHistPayments(prev => [{ payment_id: data.payment_id, amount: amt, payment_date: pDate, payment_method: method, notes: pNotes || null, created_at: new Date().toISOString() }, ...prev]);
     } catch (e) { setPayError(e.message); }
     setPaying(false);
+  };
+
+  const handleVoid = async () => {
+    if (!voidTarget) return;
+    setSaving(true);
+    try {
+      const res = await apiFetch(`${API_URL}/receivables/${voidTarget.receivable_id}/void`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ void_reason: voidReason })
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error, "error"); setSaving(false); return; }
+      showToast("Receivable voided!");
+      setVoidTarget(null);
+      setVoidReason("");
+      setRcvDetailTarget(null);
+      refetch();
+    } catch (e) { showToast(e.message, "error"); }
+    setSaving(false);
   };
 
   // Bale derived data
@@ -770,8 +792,22 @@ function ReceivablesPage({ shopId }) {
             </div>
             </div>
 
-            <div className="rcv-modal-foot">
-              <button className="rcv-btn-cancel" onClick={closeRcvDetail} style={{flex:1}}>Close</button>
+            <div className="rcv-modal-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {rcvDetailTarget.status !== 'VOIDED' && (
+                <button 
+                  onClick={() => setVoidTarget(rcvDetailTarget)}
+                  style={{ 
+                    background: 'none', border: 'none', color: 'var(--th-text-faint)', 
+                    fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5, 
+                    textDecoration: 'underline', transition: 'opacity 0.2s' 
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                >
+                  Void this receivable
+                </button>
+              )}
+              <button className="rcv-btn-cancel" onClick={closeRcvDetail} style={{ flex: rcvDetailTarget.status === 'VOIDED' ? 1 : 0, minWidth: 80 }}>Close</button>
             </div>
           </div>
         </div>
@@ -1013,6 +1049,30 @@ function ReceivablesPage({ shopId }) {
       )}
 
       {/* Toast */}
+      {/* Void confirmation */}
+      {voidTarget && (
+        <div className="confirm-overlay">
+          <div className="confirm-box">
+            <div className="confirm-title">Void this Receivable?</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row"><span className="confirm-detail-label">ID</span><span className="confirm-detail-val">{voidTarget.receivable_id}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Balance</span><span className="confirm-detail-val">{rcvCurrency(voidTarget.balance_amount)}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{color:'var(--th-rose)'}}>Marks status as VOIDED and voids all payments</span></div>
+            </div>
+            <div className="rcv-form-group" style={{marginTop:'1rem', marginBottom:'1rem'}}>
+              <label className="rcv-form-label">Reason for voiding</label>
+              <input className="rcv-form-input" value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Data entry error" style={{width:'100%'}} />
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>
+              <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving}>
+                {saving ? 'Voiding...' : 'Yes, Void Receivable'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <div className={`rcv-toast ${toast.type}`}>{toast.msg}</div>}
     </div>
   );

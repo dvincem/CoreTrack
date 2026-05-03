@@ -235,6 +235,8 @@ function PayablesPage({ shopId }) {
   const [pendingEditPayable, setPendingEditPayable] = React.useState(null);
   const [pendingPayment, setPendingPayment] = React.useState(null);
   const [pendingMarkPaid, setPendingMarkPaid] = React.useState(null);
+  const [voidTarget, setVoidTarget] = React.useState(null);
+  const [voidReason, setVoidReason] = React.useState("");
 
   // Toast
   const [toast, setToast] = React.useState(null);
@@ -473,6 +475,26 @@ function PayablesPage({ shopId }) {
       setHistRefresh(r => r + 1);
     } catch (e) { setPayError(e.message); }
     setPaying(false);
+  };
+
+  const handleVoid = async () => {
+    if (!voidTarget) return;
+    setSaving(true);
+    try {
+      const res = await apiFetch(`${API_URL}/payables/${voidTarget.payable_id}/void`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ void_reason: voidReason })
+      });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); setSaving(false); return; }
+      showToast("Payable voided!");
+      setVoidTarget(null);
+      setVoidReason("");
+      setDetailTarget(null);
+      refetch();
+    } catch (e) { showToast(e.message); }
+    setSaving(false);
   };
 
 
@@ -1152,8 +1174,22 @@ function PayablesPage({ shopId }) {
                 </div>
               ))}
             </div>
-            <div className="pay-modal-foot">
-              <button className="pay-btn-cancel" onClick={closeDetail} style={{ flex: 1 }}>Close</button>
+            <div className="pay-modal-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {detailTarget.status !== 'VOIDED' && (
+                <button 
+                  onClick={() => setVoidTarget(detailTarget)}
+                  style={{ 
+                    background: 'none', border: 'none', color: 'var(--th-text-faint)', 
+                    fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5, 
+                    textDecoration: 'underline', transition: 'opacity 0.2s' 
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                >
+                  Void this payable
+                </button>
+              )}
+              <button className="pay-btn-cancel" onClick={closeDetail} style={{ flex: detailTarget.status === 'VOIDED' ? 1 : 0, minWidth: 80 }}>Close</button>
             </div>
           </div>
         </div>
@@ -1310,6 +1346,29 @@ function PayablesPage({ shopId }) {
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingMarkPaid(null)}>Cancel</button>
               <button className="confirm-btn-ok" onClick={confirmMarkPaidFull} disabled={paying}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Void confirmation */}
+      {voidTarget && (
+        <div className="confirm-overlay">
+          <div className="confirm-box">
+            <div className="confirm-title">Void this Payable?</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row"><span className="confirm-detail-label">ID</span><span className="confirm-detail-val">{voidTarget.payable_id}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Balance</span><span className="confirm-detail-val">{payCurrency(voidTarget.balance_amount)}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{color:'var(--th-rose)'}}>Marks status as VOIDED and voids all payments</span></div>
+            </div>
+            <div className="sl-field" style={{marginTop:'1rem', marginBottom:'1rem'}}>
+              <div className="sl-label">Reason for voiding</div>
+              <input className="sl-input" value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Data entry error" style={{width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)'}} />
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>
+              <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving}>
+                {saving ? 'Voiding...' : 'Yes, Void Payable'}
+              </button>
             </div>
           </div>
         </div>

@@ -1,11 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { db } = require("../Database");
+const { dbGet, dbAll, syncCurrentStock } = require("../lib/db");
 const { getEffectiveISO } = require("../lib/businessDate");
 
-const dbRun = (sql, p = []) => new Promise((res, rej) => db.run(sql, p, function(e) { e ? rej(e) : res(this) }));
-const dbGet = (sql, p = []) => new Promise((res, rej) => db.get(sql, p, (e, r) => e ? rej(e) : res(r)));
-const dbAll = (sql, p = []) => new Promise((res, rej) => db.all(sql, p, (e, r) => e ? rej(e) : res(r || [])));
+const { dbRun } = require("../lib/db");
 
 // ── GET /returns/:shop_id ─────────────────────────────────────────────────────
 router.get("/returns/:shop_id", (req, res) => {
@@ -388,6 +386,15 @@ router.post("/returns/customer", async (req, res) => {
 
     await dbRun("COMMIT");
 
+    // Sync stock for all items involved in the return (original items and replacements)
+    const syncItemIds = [...new Set([
+      ...items.map(i => i.item_id),
+      replacement_item_id
+    ].filter(Boolean))];
+    if (syncItemIds.length > 0) {
+      await syncCurrentStock(shop_id, syncItemIds);
+    }
+
     const messages = {
       FULL_REFUND: `${items.length} item(s) returned and restocked. Refund issued.`,
       DEFECTIVE_REPLACE_NOW: `Defective item(s) replaced from stock. Supplier return(s) auto-created — send defective unit(s) back to supplier for replenishment.`,
@@ -443,6 +450,10 @@ router.post("/returns/supplier", async (req, res) => {
     );
 
     await dbRun("COMMIT");
+    
+    // Sync stock for the returned item
+    await syncCurrentStock(shop_id, [item_id]);
+
     res.json({
       success: true, return_id, status,
       message: expect_replacement ? "Item sent to supplier. Awaiting replacement." : "Supplier return processed."
@@ -541,6 +552,10 @@ router.post("/returns/:return_id/receive-replacement", async (req, res) => {
       [repl_id, return_id]
     );
     await dbRun("COMMIT");
+    
+    // Sync stock for the received replacement
+    await syncCurrentStock(ret.shop_id, [ret.item_id]);
+
     res.json({ success: true, repl_return_id: repl_id, message: "Replacement received and added to inventory." });
   } catch (e) {
     await dbRun("ROLLBACK").catch(() => {});
@@ -663,6 +678,9 @@ router.post("/returns/:return_id/fulfill-replacement", async (req, res) => {
       [itemId, notes || null, return_id]
     );
     await dbRun("COMMIT");
+    
+    // Sync stock for the fulfilled replacement
+    await syncCurrentStock(ret.shop_id, [itemId]);
 
     res.json({ success: true, message: "Replacement fulfilled. Stock adjusted." });
   } catch (e) {

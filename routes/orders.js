@@ -3,21 +3,8 @@ const router = express.Router();
 const { db } = require("../Database");
 const itemsRouter = require("./items");
 const findOrCreateDotVariant = itemsRouter.findOrCreateDotVariant;
-const logPriceHistory = itemsRouter.logPriceHistory;
+const { syncCurrentStock } = require("../lib/db");
 
-async function syncCurrentStock(shop_id, item_ids) {
-  const dbRun = (sql, p) => new Promise((resolve, reject) => db.run(sql, p, function(e) { e ? reject(e) : resolve(this); }));
-  for (const item_id of [...new Set(item_ids)]) {
-    if (!item_id) continue;
-    await dbRun(`
-      INSERT INTO current_stock (shop_id, item_id, current_quantity, last_updated)
-      VALUES (?, ?, (SELECT COALESCE(SUM(quantity),0) FROM inventory_ledger WHERE shop_id = ? AND item_id = ?), CURRENT_TIMESTAMP)
-      ON CONFLICT(shop_id,item_id) DO UPDATE SET
-        current_quantity = (SELECT COALESCE(SUM(quantity),0) FROM inventory_ledger WHERE shop_id = ? AND item_id = ?),
-        last_updated = CURRENT_TIMESTAMP
-    `, [shop_id, item_id, shop_id, item_id, shop_id, item_id]);
-  }
-}
 
 router.post("/orders", (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;

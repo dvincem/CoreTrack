@@ -652,7 +652,7 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function InventoryPage({ shopId, setPageContext }) {
+function InventoryPage({ shopId, setPageContext, businessDate }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
@@ -685,6 +685,7 @@ function InventoryPage({ shopId, setPageContext }) {
     url: `${API_URL}/items/${shopId}`,
     perPage: ITEMS_PER_PAGE,
     enabled: !!shopId,
+    extraParams: React.useMemo(() => ({ groupByDot: "true" }), []),
     deps: [shopId],
   });
   const filteredItems = items;
@@ -693,6 +694,8 @@ function InventoryPage({ shopId, setPageContext }) {
     React.useState(null);
   const [itemHistory, setItemHistory] = React.useState([]);
   const [historyLoading, setHistoryLoading] = React.useState(false);
+  const [historyVariants, setHistoryVariants] = React.useState([]);
+  const [activeHistVariantId, setActiveHistVariantId] = React.useState(null);
 
   const [orderItems, setOrderItems] = React.useState([]);
   const [orderNotes, setOrderNotes] = React.useState("");
@@ -793,11 +796,28 @@ function InventoryPage({ shopId, setPageContext }) {
   const [historyTotalPages, setHistoryTotalPages] = React.useState(1);
   const [historyLoadingMore, setHistoryLoadingMore] = React.useState(false);
 
-  async function fetchItemHistory(itemId, { append = false, page = 1 } = {}) {
+  function parseVariantInfo(variant_info) {
+    if (!variant_info) return [];
+    return variant_info.split(',').map(entry => {
+      const parts = entry.split(':');
+      return {
+        item_id: parts[0],
+        dot_number: parts[1] === 'NONE' ? null : (parts[1] || null),
+        qty: parseInt(parts[2]) || 0,
+        selling_price: parseFloat(parts[3]) || 0,
+        unit_cost: parseFloat(parts[4]) || 0,
+      };
+    }).filter(v => v.item_id);
+  }
+
+  async function fetchItemHistory(itemIdOrIds, { append = false, page = 1 } = {}) {
     if (append) setHistoryLoadingMore(true); else setHistoryLoading(true);
     try {
+      const param = Array.isArray(itemIdOrIds)
+        ? `item_ids=${encodeURIComponent(itemIdOrIds.join(','))}`
+        : `item_id=${encodeURIComponent(itemIdOrIds)}`;
       const r = await apiFetch(
-        `${API_URL}/inventory-ledger/${shopId}?item_id=${itemId}&page=${page}&perPage=${HISTORY_PAGE_SIZE}`,
+        `${API_URL}/inventory-ledger/${shopId}?${param}&page=${page}&perPage=${HISTORY_PAGE_SIZE}`,
       );
       const d = await r.json();
       const rows = Array.isArray(d?.data) ? d.data : (Array.isArray(d) ? d : []);
@@ -813,12 +833,30 @@ function InventoryPage({ shopId, setPageContext }) {
 
   async function loadMoreHistory() {
     if (!selectedItemForHistory || historyPage >= historyTotalPages) return;
-    await fetchItemHistory(selectedItemForHistory.item_id, { append: true, page: historyPage + 1 });
+    const isGrouped = (selectedItemForHistory.variant_count || 0) > 1;
+    if (isGrouped && historyVariants.length > 0) {
+      await fetchItemHistory(historyVariants.map(v => v.item_id), { append: true, page: historyPage + 1 });
+    } else {
+      const variants = parseVariantInfo(selectedItemForHistory.variant_info);
+      const realId = variants.length === 1 ? variants[0].item_id : selectedItemForHistory.item_id;
+      await fetchItemHistory(realId, { append: true, page: historyPage + 1 });
+    }
   }
 
   async function handleItemClick(item) {
+    const variants = parseVariantInfo(item.variant_info);
+    const isGrouped = (item.variant_count || 0) > 1 && variants.length > 1;
+    setHistoryVariants(isGrouped ? variants : []);
+    setActiveHistVariantId(null);
     setSelectedItemForHistory(item);
-    await fetchItemHistory(item.item_id);
+    if (isGrouped) {
+      await fetchItemHistory(variants.map(v => v.item_id));
+    } else {
+      // For single-DOT tire items, item.item_id is a synthetic group key;
+      // use the real item_id from variant_info when available.
+      const realId = variants.length === 1 ? variants[0].item_id : item.item_id;
+      await fetchItemHistory(realId);
+    }
   }
 
   function addItemToOrder(item) {
@@ -1079,23 +1117,51 @@ function InventoryPage({ shopId, setPageContext }) {
     },
     {
       key: 'dot_number', label: 'DOT',
-      render: (item) => item.dot_number ? (
-        <span style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24', padding: '0.12rem 0.4rem', borderRadius: 4, fontSize: '0.72rem', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, letterSpacing: '0.04em' }}>
-          {item.dot_number}
-        </span>
-      ) : '\u2014',
+      render: (item) => {
+        if (item.variant_count > 1) {
+          const dots = (item.variant_info || "").split(",").map(v => v.split(":")[1]).filter(d => d && d !== "NONE");
+          const uniqueDots = Array.from(new Set(dots)).sort();
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
+              <span style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24', padding: '0.1rem 0.4rem', borderRadius: 4, fontSize: '0.65rem', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, letterSpacing: '0.04em', border: '1px solid rgba(251,191,36,0.2)' }}>
+                MULTIPLE ({item.variant_count})
+              </span>
+              {uniqueDots.length > 0 && (
+                <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>
+                  {uniqueDots.join(', ')}
+                </div>
+              )}
+            </div>
+          );
+        }
+        return item.dot_number ? (
+          <span style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24', padding: '0.12rem 0.4rem', borderRadius: 4, fontSize: '0.72rem', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, letterSpacing: '0.04em' }}>
+            {item.dot_number}
+          </span>
+        ) : '\u2014';
+      }
     },
     {
       key: 'unit_cost', label: 'Unit Cost', align: 'right',
-      render: (item) => (
-        <span style={{ color: 'var(--th-sky)', fontWeight: 600 }}>
-          {invCurrency(item.unit_cost || 0)}
-        </span>
-      ),
+      render: (item) => {
+        const isRange = item.variant_count > 1 && item.min_cost !== item.max_cost;
+        return (
+          <span style={{ color: 'var(--th-sky)', fontWeight: 600, fontSize: isRange ? '0.75rem' : 'inherit' }}>
+            {isRange ? `${invCurrency(item.min_cost)} - ${invCurrency(item.max_cost)}` : invCurrency(item.unit_cost || 0)}
+          </span>
+        );
+      }
     },
     {
       key: 'selling_price', label: 'Sell Price', align: 'right',
-      render: (item) => <span className="inv-price-val">{invCurrency(item.selling_price || 0)}</span>,
+      render: (item) => {
+        const isRange = item.variant_count > 1 && item.min_price !== item.max_price;
+        return (
+          <span className="inv-price-val" style={{ fontSize: isRange ? '0.75rem' : 'inherit' }}>
+            {isRange ? `${invCurrency(item.min_price)} - ${invCurrency(item.max_price)}` : invCurrency(item.selling_price || 0)}
+          </span>
+        );
+      }
     },
     {
       key: 'profit', label: 'Profit/Unit', align: 'right',
@@ -1390,18 +1456,30 @@ function InventoryPage({ shopId, setPageContext }) {
 
           </div>{/* end table+panel flex row */}
 
-          {selectedItemForHistory && (
+          {selectedItemForHistory && (() => {
+            const isGrouped = historyVariants.length > 1;
+            const visibleHistory = isGrouped && activeHistVariantId
+              ? itemHistory.filter(e => e.item_id === activeHistVariantId)
+              : itemHistory;
+            return (
             <ItemHistoryModal
               item={selectedItemForHistory}
-              onClose={() => { setSelectedItemForHistory(null); setItemHistory([]); setHistoryPage(1); setHistoryTotalPages(1); }}
+              onClose={() => {
+                setSelectedItemForHistory(null); setItemHistory([]);
+                setHistoryPage(1); setHistoryTotalPages(1);
+                setHistoryVariants([]); setActiveHistVariantId(null);
+              }}
               currency={invCurrency}
+              variants={isGrouped ? historyVariants : undefined}
+              activeVariantId={activeHistVariantId}
+              onVariantChange={setActiveHistVariantId}
               historyContent={
                 historyLoading ? (
                   <div className="inv-hist-loading"><div className="inv-hist-spinner" /> Loading…</div>
-                ) : itemHistory.length === 0 ? (
+                ) : visibleHistory.length === 0 ? (
                   <div className="inv-hist-empty">No transactions found</div>
                 ) : (<>
-                  {itemHistory.map((e, i) => {
+                  {visibleHistory.map((e, i) => {
                     const tc = e.transaction_type === "PURCHASE" ? "PURCHASE" : e.transaction_type === "SALE" ? "SALE" : e.transaction_type === "ADJUSTMENT" ? "ADJUSTMENT" : "other";
                     return (
                       <div key={i} className={`inv-hist-entry ${tc}`}>
@@ -1415,12 +1493,19 @@ function InventoryPage({ shopId, setPageContext }) {
                           <div>Qty: <b>{e.quantity}</b></div>
                           <div>Total: <b>{invCurrency((e.unit_cost || 0) * Math.abs(e.quantity))}</b></div>
                         </div>
-                        {(e.ledger_dot_number || e.dot_number) && <div className="inv-hist-ref" style={{ color: "var(--th-amber, #fbbf24)", fontWeight: 700 }}>DOT {e.ledger_dot_number || e.dot_number}</div>}
+                        {(e.ledger_dot_number || e.dot_number) && (
+                          <div className="inv-hist-ref" style={{ color: "var(--th-amber, #fbbf24)", fontWeight: 700 }}>
+                            DOT {e.ledger_dot_number || e.dot_number}
+                          </div>
+                        )}
+                        {isGrouped && !activeHistVariantId && e.item_name && (
+                          <div className="inv-hist-ref" style={{ opacity: 0.65, fontSize: '0.72rem' }}>{e.item_name}</div>
+                        )}
                         {e.reference_id && <div className="inv-hist-ref">Ref: {e.reference_id}</div>}
                       </div>
                     );
                   })}
-                  {historyPage < historyTotalPages && (
+                  {!activeHistVariantId && historyPage < historyTotalPages && (
                     <button
                       className="inv-hist-loadmore"
                       onClick={loadMoreHistory}
@@ -1433,7 +1518,8 @@ function InventoryPage({ shopId, setPageContext }) {
                 </>)
               }
             />
-          )}
+            );
+          })()}
         </div>
       </div>
 

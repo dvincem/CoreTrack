@@ -8,6 +8,12 @@ import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 
 const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const fmtCompact = (n) => {
+  const v = Number(n || 0)
+  if (v >= 1_000_000) return '₱' + (v / 1_000_000).toLocaleString('en-PH', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + 'M'
+  if (v >= 1_000) return '₱' + (v / 1_000).toLocaleString('en-PH', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + 'K'
+  return fmt(v)
+}
 const today = () => new Date().toISOString().split('T')[0]
 
 export default function ServicesSummaryPage({ shopId, isShopClosed }) {
@@ -58,6 +64,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
     const d = new Date(t)
     let from = t
     if (key === 'today') { from = t }
+    else if (key === 'yesterday') { const y = new Date(t); y.setDate(y.getDate() - 1); from = y.toISOString().split('T')[0]; setEndDate(from); setStartDate(from); setActiveRange(key); loadWith(from, from); return }
     else if (key === '7d') { d.setDate(d.getDate() - 6); from = d.toISOString().split('T')[0] }
     else if (key === '30d') { d.setDate(d.getDate() - 29); from = d.toISOString().split('T')[0] }
     else if (key === '3m') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
@@ -134,10 +141,10 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
           {/* KPI cards — first on mobile */}
           <div className="th-kpi-row">
             <KpiCard label="Tiremen Active" value={data.length} accent="violet" loading={loading} />
-            <KpiCard label="Service Total" value={fmt(totalSvcRevenue)} accent="sky" loading={loading} />
-            <KpiCard label="Service Pay (÷2)" value={fmt(totalSvcPay)} accent="amber" loading={loading} />
-            <KpiCard label="+ Commission" value={fmt(totalCommissions)} accent="emerald" loading={loading} />
-            <KpiCard label="= Total Payout" value={fmt(totalPayout)} accent="orange" loading={loading} sub={totalBaleDeducted > 0 ? `− ${fmt(totalBaleDeducted)} bale` : undefined} />
+            <KpiCard label="Service Total" value={fmtCompact(totalSvcRevenue)} accent="sky" loading={loading} />
+            <KpiCard label="Service Pay (÷2)" value={fmtCompact(totalSvcPay)} accent="amber" loading={loading} />
+            <KpiCard label="+ Commission" value={fmtCompact(totalCommissions)} accent="emerald" loading={loading} />
+            <KpiCard label="= Total Payout" value={fmtCompact(totalPayout)} accent="orange" loading={loading} sub={totalBaleDeducted > 0 ? `− ${fmtCompact(totalBaleDeducted)} bale` : undefined} />
           </div>
 
           {/* Filter Header for Summary */}
@@ -153,6 +160,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
               }
               filters={[
                 { value: 'today', label: 'Today', active: activeRange === 'today' },
+                { value: 'yesterday', label: 'Yesterday', active: activeRange === 'yesterday' },
                 { value: '7d', label: '7 Days', active: activeRange === '7d' },
                 { value: '30d', label: '30 Days', active: activeRange === '30d' },
                 { value: '3m', label: '3 Months', active: activeRange === '3m' },
@@ -458,7 +466,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
           {/* KPI summary */}
           <div className="th-kpi-row">
             <KpiCard label="Transactions" value={filteredRecords.length} accent="sky" loading={histLoading} />
-            <KpiCard label="Total Revenue" value={fmt(totalRevenue)} accent="emerald" loading={histLoading} />
+            <KpiCard label="Total Revenue" value={fmtCompact(totalRevenue)} accent="emerald" loading={histLoading} />
             <KpiCard label="Date Range" value={`${histStartDate} → ${histEndDate}`} accent="orange" loading={histLoading} />
           </div>
 

@@ -40,7 +40,7 @@ const makeStyles = (accentColor) => `
     gap: 0.5rem;
     order: 3;
     flex-shrink: 0;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
   .fh-btn {
     display: inline-flex;

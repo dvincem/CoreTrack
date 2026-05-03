@@ -72,7 +72,7 @@ router.get("/receivables-kpi/:shop_id", (req, res) => {
        COALESCE(SUM(ar.amount_paid), 0) AS totalPaid,
        SUM(CASE WHEN ar.status = 'OPEN' THEN 1 ELSE 0 END) AS openCount,
        SUM(CASE WHEN ar.status = 'PAID' THEN 1 ELSE 0 END) AS paidCount
-     FROM accounts_receivable ar WHERE ar.shop_id = ?`,
+     FROM accounts_receivable ar WHERE ar.shop_id = ? AND ar.status != 'VOIDED' `,
     [shop_id],
     (err, row) => res.json(err ? { error: err.message } : (row || {}))
   );
@@ -184,10 +184,36 @@ router.post("/receivables/:receivable_id/payment", (req, res) => {
 router.get("/receivables/:receivable_id/payments", (req, res) => {
   const { receivable_id } = req.params;
   db.all(
-    `SELECT * FROM receivable_payments WHERE receivable_id = ? ORDER BY payment_date DESC, created_at DESC`,
+    `SELECT * FROM receivable_payments WHERE receivable_id = ? AND is_void = 0 ORDER BY payment_date DESC, created_at DESC`,
     [receivable_id],
     (err, rows) => res.json(err ? { error: err.message } : rows)
   );
+});
+
+router.put("/receivables/:receivable_id/void", (req, res) => {
+  const { receivable_id } = req.params;
+  const { void_reason } = req.body;
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    db.run(
+      `UPDATE accounts_receivable SET status = 'VOIDED', notes = COALESCE(notes || '\n', '') || ? WHERE receivable_id = ?`,
+      [`VOIDED: ${void_reason || 'No reason'}`, receivable_id],
+      function(err) {
+        if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
+        db.run(
+          `UPDATE receivable_payments SET is_void = 1, void_reason = ? WHERE receivable_id = ?`,
+          [void_reason || null, receivable_id],
+          (err2) => {
+            if (err2) { db.run("ROLLBACK"); return res.status(500).json({ error: err2.message }); }
+            db.run("COMMIT", (errC) => {
+              if (errC) return res.status(500).json({ error: errC.message });
+              res.json({ message: "Receivable voided successfully" });
+            });
+          }
+        );
+      }
+    );
+  });
 });
 
 /* ── BALE BOOK ─────────────────────────────────────────────────── */
@@ -273,7 +299,7 @@ router.get("/payables-kpi/:shop_id", (req, res) => {
        SUM(CASE WHEN ap.status = 'PAID' OR ap.balance_amount = 0 THEN 1 ELSE 0 END) AS paidCount,
        SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND ap.due_date < date('now') THEN 1 ELSE 0 END) AS overdueCount,
        SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND (ap.due_date IS NULL OR ap.due_date >= date('now')) THEN 1 ELSE 0 END) AS openCount
-     FROM accounts_payable ap WHERE ap.shop_id = ?`,
+     FROM accounts_payable ap WHERE ap.shop_id = ? AND ap.status != 'VOIDED'`,
     [shop_id],
     (err, row) => res.json(err ? { error: err.message } : (row || {}))
   );
@@ -549,10 +575,43 @@ router.post("/payables/:payable_id/payments/:payment_id/bounce", (req, res) => {
 router.get("/payables/:payable_id/payments", (req, res) => {
   const { payable_id } = req.params;
   db.all(
-    `SELECT * FROM payable_payments WHERE payable_id = ? ORDER BY payment_date DESC, created_at DESC`,
+    `SELECT * FROM payable_payments WHERE payable_id = ? AND is_void = 0 ORDER BY payment_date DESC, created_at DESC`,
     [payable_id],
     (err, rows) => res.json(err ? { error: err.message } : rows)
   );
+});
+
+router.put("/payables/:payable_id/void", (req, res) => {
+  const { payable_id } = req.params;
+  const { void_reason } = req.body;
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    db.run(
+      `UPDATE accounts_payable SET status = 'VOIDED', notes = COALESCE(notes || '\n', '') || ? WHERE payable_id = ?`,
+      [`VOIDED: ${void_reason || 'No reason'}`, payable_id],
+      function(err) {
+        if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
+        db.run(
+          `UPDATE payable_payments SET is_void = 1, void_reason = ? WHERE payable_id = ?`,
+          [void_reason || null, payable_id],
+          (err2) => {
+            if (err2) { db.run("ROLLBACK"); return res.status(500).json({ error: err2.message }); }
+            db.run(
+              `UPDATE payment_ledger SET is_void = 1, void_reason = ? WHERE reference_type = 'PAYABLE' AND reference_id = ?`,
+              [void_reason || null, payable_id],
+              (err3) => {
+                if (err3) { db.run("ROLLBACK"); return res.status(500).json({ error: err3.message }); }
+                db.run("COMMIT", (errC) => {
+                  if (errC) return res.status(500).json({ error: errC.message });
+                  res.json({ message: "Payable voided successfully" });
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
 });
 
 /* ── FINANCIAL HEALTH ──────────────────────────────────────────── */

@@ -547,6 +547,8 @@ function initializeDatabase() {
         FOREIGN KEY (receivable_id) REFERENCES accounts_receivable(receivable_id)
       )`);
       db.run(`CREATE INDEX IF NOT EXISTS idx_rcv_shop ON accounts_receivable(shop_id, status)`);
+      db.run(`ALTER TABLE receivable_payments ADD COLUMN is_void INTEGER DEFAULT 0`, () => { });
+      db.run(`ALTER TABLE receivable_payments ADD COLUMN void_reason TEXT`, () => { });
 
       db.run(`CREATE TABLE IF NOT EXISTS accounts_payable (
         payable_id TEXT PRIMARY KEY,
@@ -592,6 +594,8 @@ function initializeDatabase() {
         FOREIGN KEY (payable_id) REFERENCES accounts_payable(payable_id)
       )`);
       db.run(`CREATE INDEX IF NOT EXISTS idx_payable_shop ON accounts_payable(shop_id, status)`);
+      db.run(`ALTER TABLE payable_payments ADD COLUMN is_void INTEGER DEFAULT 0`, () => { });
+      db.run(`ALTER TABLE payable_payments ADD COLUMN void_reason TEXT`, () => { });
 
       db.run(`CREATE TABLE IF NOT EXISTS payment_ledger (
         payment_id TEXT PRIMARY KEY,
@@ -607,6 +611,8 @@ function initializeDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
       )`);
+      db.run(`ALTER TABLE payment_ledger ADD COLUMN is_void INTEGER DEFAULT 0`, () => { });
+      db.run(`ALTER TABLE payment_ledger ADD COLUMN void_reason TEXT`, () => { });
 
       db.run(
         `CREATE TABLE IF NOT EXISTS staff_daily_revenue (

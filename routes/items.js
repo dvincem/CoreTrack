@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
-const { dbGet, dbAll } = require("../lib/db");
+const { dbGet, dbAll, syncCurrentStock } = require("../lib/db");
 const { v4: uuidv4 } = require("uuid");
 
 // ── Helper: log a price change to item_price_history ─────────────────────────
@@ -104,73 +104,127 @@ function findOrCreateDotVariant(parent_item_id, dot_number, unit_cost, selling_p
   });
 }
 
-router.get("/items/:shop_id", (req, res) => {
+router.get("/items/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
-  const { category, q, page, perPage } = req.query;
+  const { category, q, page, perPage, groupByDot } = req.query;
 
+  const isGrouped = groupByDot === 'true';
   const paginated = page !== undefined || perPage !== undefined || q !== undefined;
 
-  const selectCols = `
-    im.item_id, im.sku, im.item_name, im.category, im.brand, im.design,
-    im.size, im.rim_size, im.unit_cost, im.selling_price, im.is_active,
-    im.supplier_id, im.reorder_point, im.dot_number, im.parent_item_id,
-    sm.supplier_name,
-    COALESCE(cs.current_quantity, 0) as current_quantity,
-    COALESCE(cs.last_updated, im.created_at) as last_stock_update`;
+  const filters = ["im.is_active = 1"];
+  const params = [shop_id];
 
-  const fromJoin = `FROM item_master im
-    LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?
-    LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
-    WHERE im.is_active = 1
+  if (category) {
+    filters.push("im.category = ?");
+    params.push(category);
+  }
+
+  if (q && q.trim()) {
+    filters.push("(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)");
+    const like = `%${q.trim()}%`;
+    params.push(like, like, like, like, like);
+  }
+
+  const whereClause = filters.join(" AND ");
+
+  // CTE for base items and their stock
+  const baseSql = `
+    WITH raw_items AS (
+      SELECT 
+        im.*,
+        COALESCE(cs.current_quantity, 0) as current_quantity,
+        COALESCE(cs.last_updated, im.created_at) as last_stock_update,
+        sm.supplier_name
+      FROM item_master im
+      LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?
+      LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
+      WHERE ${whereClause}
+    )
+  `;
+
+  let selectCols, fromClause, orderBy;
+
+  if (isGrouped) {
+    selectCols = `
+      group_key as item_id,
+      MAX(sku) as sku,
+      MAX(item_name) as item_name,
+      MAX(category) as category,
+      brand, design, size,
+      MAX(rim_size) as rim_size,
+      MIN(unit_cost) as min_cost,
+      MAX(unit_cost) as max_cost,
+      MAX(unit_cost) as unit_cost,
+      MIN(selling_price) as min_price,
+      MAX(selling_price) as max_price,
+      MAX(selling_price) as selling_price,
+      MAX(dot_number) as dot_number,
+      SUM(current_quantity) as current_quantity,
+      MAX(last_stock_update) as last_stock_update,
+      COUNT(*) as variant_count,
+      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0)) as variant_info
+    `;
+    fromClause = `
+      FROM (
+        SELECT *,
+          CASE 
+            WHEN category IN ('PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAP') 
+            THEN COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+            ELSE item_id 
+          END as group_key
+        FROM raw_items
+      )
+      GROUP BY group_key
+    `;
+    orderBy = `ORDER BY current_quantity ASC, brand, design, size`;
+  } else {
+    // Original behavior: filter out parents that have children if not grouping
+    const parentFilter = `
       AND NOT (
         im.parent_item_id IS NULL
         AND EXISTS (
           SELECT 1 FROM item_master child
           WHERE child.parent_item_id = im.item_id AND child.is_active = 1
         )
-      )`;
-
-  const baseParams = [shop_id];
-  let whereExtra = '';
-  if (category) { whereExtra += ' AND im.category = ?'; baseParams.push(category); }
-  if (paginated && q && q.trim()) {
-    whereExtra += ` AND (im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)`;
-    const like = `%${q.trim()}%`;
-    baseParams.push(like, like, like, like, like);
+      )
+    `;
+    // We'll re-apply this logic in the raw_items CTE if not grouped
+    selectCols = "*";
+    fromClause = `FROM raw_items im WHERE 1=1 ${parentFilter.replace(/im\./g, '')}`;
+    orderBy = `ORDER BY current_quantity ASC, brand, design, size`;
   }
 
-  const orderBy = `ORDER BY current_quantity ASC, im.brand, im.design, im.size`;
-
-  if (!paginated) {
-    db.all(
-      `SELECT ${selectCols} ${fromJoin}${whereExtra} ${orderBy}`,
-      baseParams,
-      (err, rows) => {
+  try {
+    if (!paginated) {
+      const query = `${baseSql} SELECT ${selectCols} ${fromClause} ${orderBy}`;
+      db.all(query, params, (err, rows) => {
         if (err) return res.json({ error: err.message });
         res.json(rows || []);
-      },
-    );
-    return;
-  }
+      });
+      return;
+    }
 
-  const parsedPage = Math.max(1, parseInt(page, 10) || 1);
-  const parsedPerPage = Math.min(200, Math.max(1, parseInt(perPage, 10) || 50));
-  const offset = (parsedPage - 1) * parsedPerPage;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedPerPage = Math.min(200, Math.max(1, parseInt(perPage, 10) || 50));
+    const offset = (parsedPage - 1) * parsedPerPage;
 
-  const countSql = `SELECT COUNT(*) as total ${fromJoin}${whereExtra}`;
-  db.get(countSql, baseParams, (cErr, cRow) => {
-    if (cErr) return res.status(500).json({ error: cErr.message });
-    const total = cRow?.total || 0;
-    const totalPages = Math.ceil(total / parsedPerPage);
-    const dataSql = `SELECT ${selectCols} ${fromJoin}${whereExtra} ${orderBy} LIMIT ? OFFSET ?`;
-    db.all(dataSql, [...baseParams, parsedPerPage, offset], (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({
-        data: rows || [],
-        meta: { page: parsedPage, perPage: parsedPerPage, total, totalCount: total, totalPages },
+    const countSql = `${baseSql} SELECT COUNT(*) as total FROM (SELECT ${isGrouped ? 'group_key' : '*'} ${fromClause})`;
+    db.get(countSql, params, (cErr, cRow) => {
+      if (cErr) return res.status(500).json({ error: cErr.message });
+      const total = cRow?.total || 0;
+      const totalPages = Math.ceil(total / parsedPerPage);
+      const dataSql = `${baseSql} SELECT ${selectCols} ${fromClause} ${orderBy} LIMIT ? OFFSET ?`;
+      db.all(dataSql, [...params, parsedPerPage, offset], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({
+          data: rows || [],
+          meta: { page: parsedPage, perPage: parsedPerPage, total, totalCount: total, totalPages },
+        });
       });
     });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/items", (req, res) => {
@@ -245,7 +299,7 @@ router.post("/items-bulk", async (req, res) => {
         if (existing) {
           finalId = existing.item_id;
         } else {
-          finalId = `ITEM-${Date.now()}-${index}`;
+          finalId = `ITEM-${uuidv4()}`;
           try {
             await runAsync(
               `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
@@ -283,6 +337,13 @@ router.post("/items-bulk", async (req, res) => {
     }
 
     await runAsync("COMMIT");
+    
+    // Sync stock for all items involved in the bulk import
+    const allItemIds = results.map(r => r.item_id);
+    if (allItemIds.length > 0) {
+      await syncCurrentStock(shop_id, allItemIds);
+    }
+
     res.json({ results, errors });
   } catch (err) {
     await runAsync("ROLLBACK").catch(() => {});
@@ -400,6 +461,24 @@ router.get("/item-price-history/:item_id", (req, res) => {
   );
 });
 
+// Multi-item price history (for grouped DOT variants)
+router.get("/item-price-history-multi", (req, res) => {
+  const { item_ids } = req.query;
+  if (!item_ids) return res.json([]);
+  const ids = item_ids.split(',').map(s => s.trim()).filter(Boolean);
+  if (ids.length === 0) return res.json([]);
+  db.all(
+    `SELECT h.*, im.item_name, im.dot_number
+     FROM item_price_history h
+     JOIN item_master im ON h.item_id = im.item_id
+     WHERE h.item_id IN (${ids.map(() => '?').join(',')})
+     ORDER BY h.changed_at DESC
+     LIMIT 200`,
+    ids,
+    (err, rows) => res.json(err ? { error: err.message } : rows || [])
+  );
+});
+
 // Expose findOrCreateDotVariant for orders route
 router.findOrCreateDotVariant = findOrCreateDotVariant;
 
@@ -474,8 +553,9 @@ router.post("/inventory/purchase", (req, res) => {
     `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, supplier_id, dot_number, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [inventory_ledger_id, shop_id, item_id, "PURCHASE", parseInt(quantity), parseFloat(unit_cost) || 0, reference_id || null, supplier_id || null, dot_number || null, created_by || "SYSTEM"],
-    function (err) {
+    async function (err) {
       if (err) return res.status(400).json({ error: err.message });
+      await syncCurrentStock(shop_id, [item_id]);
       res.json({ inventory_ledger_id, shop_id, item_id, transaction_type: "PURCHASE", quantity: parseInt(quantity), unit_cost: parseFloat(unit_cost) || 0, reference_id, supplier_id, created_by, created_at: new Date().toISOString() });
     },
   );
@@ -491,8 +571,9 @@ router.post("/inventory/sale", (req, res) => {
     `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, dot_number, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [inventory_ledger_id, shop_id, item_id, "SALE", -Math.abs(parseInt(quantity)), 0, reference_id || null, dot_number || null, created_by || "SYSTEM"],
-    function (err) {
+    async function (err) {
       if (err) return res.status(400).json({ error: err.message });
+      await syncCurrentStock(shop_id, [item_id]);
       res.json({ inventory_ledger_id, shop_id, item_id, transaction_type: "SALE", quantity: parseInt(quantity), reference_id, created_by, created_at: new Date().toISOString() });
     },
   );
@@ -508,8 +589,9 @@ router.post("/inventory/adjustment", (req, res) => {
     `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, dot_number, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [inventory_ledger_id, shop_id, item_id, "ADJUSTMENT", parseInt(quantity), 0, reference_id || null, dot_number || null, created_by || "SYSTEM"],
-    function (err) {
+    async function (err) {
       if (err) return res.status(400).json({ error: err.message });
+      await syncCurrentStock(shop_id, [item_id]);
       res.json({ inventory_ledger_id, shop_id, item_id, transaction_type: "ADJUSTMENT", quantity: parseInt(quantity), reference_id, created_by, created_at: new Date().toISOString() });
     },
   );
@@ -517,7 +599,7 @@ router.post("/inventory/adjustment", (req, res) => {
 
 router.get("/inventory-ledger/:shop_id", (req, res) => {
   const { shop_id } = req.params;
-  const { item_id, page, perPage } = req.query;
+  const { item_id, item_ids, page, perPage } = req.query;
   const paginated = page !== undefined || perPage !== undefined;
 
   const selectCols = `il.inventory_ledger_id, il.shop_id, il.item_id, im.item_name, im.sku,
@@ -530,7 +612,13 @@ router.get("/inventory-ledger/:shop_id", (req, res) => {
     WHERE il.shop_id = ?`;
   const params = [shop_id];
   let whereExtra = '';
-  if (item_id) {
+  if (item_ids) {
+    const ids = item_ids.split(',').map(s => s.trim()).filter(Boolean);
+    if (ids.length > 0) {
+      whereExtra += ` AND il.item_id IN (${ids.map(() => '?').join(',')})`;      
+      params.push(...ids);
+    }
+  } else if (item_id) {
     whereExtra += ` AND il.item_id = ?`;
     params.push(item_id);
   }
@@ -695,7 +783,7 @@ router.get("/pos-items/:shop_id", async (req, res) => {
            THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
            ELSE item_id END AS group_key,
       MAX(brand) AS brand, MAX(design) AS design, MAX(size) AS size,
-      MAX(category) AS category,
+      MAX(category) AS category, MAX(item_name) AS item_name,
       MIN(item_id) AS representative_item_id,
       AVG(unit_cost) AS unit_cost, AVG(selling_price) AS selling_price,
       SUM(qty) AS total_quantity

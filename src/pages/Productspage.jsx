@@ -98,6 +98,7 @@ function Productspage({ shopId }) {
 
   const {
     data: items,
+    setData: setItems,
     page, setPage,
     totalPages,
     loading,
@@ -108,7 +109,8 @@ function Productspage({ shopId }) {
     perPage: PAGE_SIZE,
     enabled: !!shopId,
     extraParams: React.useMemo(() => ({
-      category: catFilter === "ALL" ? undefined : catFilter
+      category: catFilter === "ALL" ? undefined : catFilter,
+      groupByDot: "true"
     }), [catFilter]),
     deps: [shopId, catFilter],
   });
@@ -182,6 +184,22 @@ function Productspage({ shopId }) {
   const [histLoading, setHistLoading] = React.useState(false);
   const [priceHistory, setPriceHistory] = React.useState([]);
   const [priceHistLoading, setPriceHistLoading] = React.useState(false);
+  const [historyVariants, setHistoryVariants] = React.useState([]);
+  const [activeHistVariantId, setActiveHistVariantId] = React.useState(null);
+
+  function parseVariantInfo(variant_info) {
+    if (!variant_info) return [];
+    return variant_info.split(',').map(entry => {
+      const parts = entry.split(':');
+      return {
+        item_id: parts[0],
+        dot_number: parts[1] === 'NONE' ? null : (parts[1] || null),
+        qty: parseInt(parts[2]) || 0,
+        selling_price: parseFloat(parts[3]) || 0,
+        unit_cost: parseFloat(parts[4]) || 0,
+      };
+    }).filter(v => v.item_id);
+  }
   const [detailTab, setDetailTab] = React.useState("transactions");
   const [adjQty, setAdjQty] = React.useState("");
 
@@ -570,7 +588,11 @@ function Productspage({ shopId }) {
 
   /* ── Detail panel ── */
   async function openDetail(item) {
+    const variants = parseVariantInfo(item.variant_info);
+    const isGrouped = (item.variant_count || 0) > 1 && variants.length > 1;
     setSelected(item);
+    setHistoryVariants(isGrouped ? variants : []);
+    setActiveHistVariantId(null);
     setAdjQty("");
     setDetailTab("transactions");
     setHistLoading(true);
@@ -583,8 +605,16 @@ function Productspage({ shopId }) {
       size: item.size || ""
     });
     try {
+      // For non-grouped tire items variant_info still holds the real item_id;
+      // item.item_id is the synthetic group key (BRAND||DESIGN||SIZE) — use the real ID.
+      const realIds = isGrouped
+        ? variants.map(v => v.item_id)
+        : variants.length === 1 ? [variants[0].item_id] : [item.item_id];
+      const param = realIds.length > 1
+        ? `item_ids=${encodeURIComponent(realIds.join(','))}`
+        : `item_id=${encodeURIComponent(realIds[0])}`;
       const data = await apiFetch(
-        `${API_URL}/inventory-ledger/${shopId}?item_id=${item.item_id}&page=1&perPage=100`,
+        `${API_URL}/inventory-ledger/${shopId}?${param}&page=1&perPage=100`,
       ).then((r) => r.json());
       const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
       setHistory(rows);
@@ -593,10 +623,18 @@ function Productspage({ shopId }) {
     }
     setHistLoading(false);
     try {
-      const data = await apiFetch(
-        `${API_URL}/item-price-history/${item.item_id}`,
-      ).then((r) => r.json());
-      setPriceHistory(Array.isArray(data) ? data : []);
+      if (isGrouped) {
+        const data = await apiFetch(
+          `${API_URL}/item-price-history-multi?item_ids=${encodeURIComponent(variants.map(v => v.item_id).join(','))}`,
+        ).then((r) => r.json());
+        setPriceHistory(Array.isArray(data) ? data : []);
+      } else {
+        const realId = variants.length === 1 ? variants[0].item_id : item.item_id;
+        const data = await apiFetch(
+          `${API_URL}/item-price-history/${realId}`,
+        ).then((r) => r.json());
+        setPriceHistory(Array.isArray(data) ? data : []);
+      }
     } catch {
       setPriceHistory([]);
     }
@@ -605,8 +643,14 @@ function Productspage({ shopId }) {
 
   async function handleUpdateDetails() {
     setDetailsSaving(true);
+    // For grouped items use the active variant's real item_id; fall back to first variant
+    const targetId = (() => {
+      if ((selected?.variant_count || 0) <= 1) return selected?.item_id;
+      const v = historyVariants.find(x => x.item_id === activeHistVariantId) || historyVariants[0];
+      return v?.item_id || selected?.item_id;
+    })();
     try {
-      const res = await apiFetch(`${API_URL}/items/${selected.item_id}/details`, {
+      const res = await apiFetch(`${API_URL}/items/${targetId}/details`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(detailForm),
@@ -640,7 +684,13 @@ function Productspage({ shopId }) {
     }
     setAssigningSupplier(true);
     try {
-      const res = await apiFetch(`${API_URL}/items/${selected.item_id}/supplier`, {
+      // For grouped items use active variant's real item_id; fall back to first variant
+      const suppTargetId = (() => {
+        if ((selected?.variant_count || 0) <= 1) return selected?.item_id;
+        const v = historyVariants.find(x => x.item_id === activeHistVariantId) || historyVariants[0];
+        return v?.item_id || selected?.item_id;
+      })();
+      const res = await apiFetch(`${API_URL}/items/${suppTargetId}/supplier`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ supplier_id: assignSupplierId }),
@@ -670,7 +720,16 @@ function Productspage({ shopId }) {
       toast("Enter a non-zero quantity (+/-).", "error");
       return;
     }
-    setPendingAdj({ qty, item: selected });
+    // For grouped items, require a specific variant to be selected
+    const isGrouped = (selected?.variant_count || 0) > 1;
+    if (isGrouped && !activeHistVariantId) {
+      toast("Select a DOT variant tab first to adjust its stock.", "error");
+      return;
+    }
+    const adjItem = isGrouped
+      ? { ...selected, item_id: activeHistVariantId, dot_number: historyVariants.find(v => v.item_id === activeHistVariantId)?.dot_number }
+      : selected;
+    setPendingAdj({ qty, item: adjItem });
   }
 
   async function confirmAdjust() {
@@ -906,8 +965,36 @@ function Productspage({ shopId }) {
     {
       key: "dot_number",
       label: "DOT",
-      render: (item) =>
-        item.dot_number ? (
+      render: (item) => {
+        if (item.variant_count > 1) {
+          const dots = (item.variant_info || "").split(",").map(v => v.split(":")[1]).filter(d => d && d !== "NONE");
+          const uniqueDots = Array.from(new Set(dots)).sort();
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px", alignItems: "center" }}>
+              <span
+                style={{
+                  background: "var(--th-amber-bg)",
+                  color: "var(--th-amber)",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: 4,
+                  fontSize: "0.65rem",
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  border: "1px solid rgba(251,191,36,0.2)"
+                }}
+              >
+                MULTIPLE ({item.variant_count})
+              </span>
+              {uniqueDots.length > 0 && (
+                <div style={{ fontSize: "0.6rem", color: "var(--th-text-faint)", textAlign: "center", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={uniqueDots.join(", ")}>
+                  {uniqueDots.join(", ")}
+                </div>
+              )}
+            </div>
+          );
+        }
+        return item.dot_number ? (
           <span
             style={{
               background: "var(--th-amber-bg)",
@@ -922,19 +1009,10 @@ function Productspage({ shopId }) {
           >
             {item.dot_number}
           </span>
-        ) : item.parent_item_id ? (
-          "—"
         ) : (
-          <span
-            style={{
-              fontSize: "0.72rem",
-              color: "var(--th-text-faint)",
-              fontFamily: "'Barlow Condensed',sans-serif",
-            }}
-          >
-            —
-          </span>
-        ),
+          <span style={{ fontSize: "0.72rem", color: "var(--th-text-faint)", fontFamily: "'Barlow Condensed',sans-serif" }}>—</span>
+        );
+      }
     },
     {
       key: "current_quantity",
@@ -953,37 +1031,25 @@ function Productspage({ shopId }) {
       label: "Cost",
       align: "right",
       render: (item) => {
-        const isEditCost =
-          editCell?.item_id === item.item_id && editCell?.field === "unit_cost";
+        const isGroup = item.variant_count > 1;
+        const isRange = isGroup && item.min_cost !== item.max_cost;
+        const isEditCost = editCell?.item_id === item.item_id && editCell?.field === "unit_cost";
         return (
-          <div
-            className="prod-inline-edit"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="prod-inline-edit" onClick={(e) => e.stopPropagation()}>
             {isEditCost ? (
-              <input
-                autoFocus
-                className="prod-inline-input"
-                type="number"
-                value={editVal}
-                onChange={(e) => setEditVal(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitEdit(item);
-                  if (e.key === "Escape") setEditCell(null);
-                }}
+              <input autoFocus className="prod-inline-input" type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item); if (e.key === "Escape") setEditCell(null); }}
               />
             ) : (
               <>
-                <span style={{ fontSize: "0.85rem" }}>
-                  {prodCurrency(item.unit_cost)}
+                <span style={{ fontSize: isRange ? "0.75rem" : "0.85rem", whiteSpace: "nowrap" }}>
+                  {isRange ? `${prodCurrency(item.min_cost)} - ${prodCurrency(item.max_cost)}` : prodCurrency(item.unit_cost)}
                 </span>
-                <button
-                  className="prod-pencil-btn"
-                  title="Edit cost"
-                  onClick={(e) => startEdit(e, item, "unit_cost")}
-                >
-                  {pencilIcon}
-                </button>
+                {!isGroup && (
+                  <button className="prod-pencil-btn" title="Edit cost" onClick={(e) => startEdit(e, item, "unit_cost")}>
+                    {pencilIcon}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -995,38 +1061,25 @@ function Productspage({ shopId }) {
       label: "Price",
       align: "right",
       render: (item) => {
-        const isEditPrice =
-          editCell?.item_id === item.item_id &&
-          editCell?.field === "selling_price";
+        const isGroup = item.variant_count > 1;
+        const isRange = isGroup && item.min_price !== item.max_price;
+        const isEditPrice = editCell?.item_id === item.item_id && editCell?.field === "selling_price";
         return (
-          <div
-            className="prod-inline-edit"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="prod-inline-edit" onClick={(e) => e.stopPropagation()}>
             {isEditPrice ? (
-              <input
-                autoFocus
-                className="prod-inline-input"
-                type="number"
-                value={editVal}
-                onChange={(e) => setEditVal(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitEdit(item);
-                  if (e.key === "Escape") setEditCell(null);
-                }}
+              <input autoFocus className="prod-inline-input" type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item); if (e.key === "Escape") setEditCell(null); }}
               />
             ) : (
               <>
-                <span style={{ fontWeight: 600, color: "var(--th-emerald)" }}>
-                  {prodCurrency(item.selling_price)}
+                <span style={{ fontWeight: 600, color: "var(--th-emerald)", fontSize: isRange ? "0.75rem" : "0.85rem", whiteSpace: "nowrap" }}>
+                  {isRange ? `${prodCurrency(item.min_price)} - ${prodCurrency(item.max_price)}` : prodCurrency(item.selling_price)}
                 </span>
-                <button
-                  className="prod-pencil-btn"
-                  title="Edit price"
-                  onClick={(e) => startEdit(e, item, "selling_price")}
-                >
-                  {pencilIcon}
-                </button>
+                {!isGroup && (
+                  <button className="prod-pencil-btn" title="Edit price" onClick={(e) => startEdit(e, item, "selling_price")}>
+                    {pencilIcon}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -1559,6 +1612,7 @@ function Productspage({ shopId }) {
             value: c,
             active: catFilter === c,
           }))}
+          twoRow
           onFilterChange={(c) => { setCatFilter(c); setPage(1); }}
           accentColor="var(--th-orange)"
         />
@@ -1656,8 +1710,11 @@ function Productspage({ shopId }) {
         {selected && (
           <ItemHistoryModal
             item={selected}
-            onClose={() => setSelected(null)}
+            onClose={() => { setSelected(null); setHistoryVariants([]); setActiveHistVariantId(null); }}
             currency={prodCurrency}
+            variants={historyVariants.length > 1 ? historyVariants : undefined}
+            activeVariantId={activeHistVariantId}
+            onVariantChange={setActiveHistVariantId}
             historyContent={
               histLoading || priceHistLoading ? (
                 <div className="inv-hist-loading">
@@ -1665,13 +1722,22 @@ function Productspage({ shopId }) {
                 </div>
               ) : (
                 (() => {
-                  const txEntries = history.map((h) => ({
+                  // Filter by active variant when one is selected
+                  const filteredHistory = activeHistVariantId
+                    ? history.filter(h => h.item_id === activeHistVariantId)
+                    : history;
+                  const filteredPriceHistory = activeHistVariantId
+                    ? priceHistory.filter(p => p.item_id === activeHistVariantId)
+                    : priceHistory;
+                  const showItemName = !activeHistVariantId && historyVariants.length > 1;
+
+                  const txEntries = filteredHistory.map((h) => ({
                     _key: h.inventory_ledger_id,
                     _ts: new Date(h.created_at).getTime(),
                     _kind: "tx",
                     ...h,
                   }));
-                  const phEntries = priceHistory.map((p) => ({
+                  const phEntries = filteredPriceHistory.map((p) => ({
                     _key: p.history_id,
                     _ts: new Date(p.changed_at).getTime(),
                     _kind: "ph",
@@ -1803,6 +1869,9 @@ function Productspage({ shopId }) {
                               Ref: {tx.reference_id}
                             </div>
                           )}
+                          {showItemName && tx.item_name && (
+                            <div className="inv-hist-ref" style={{ opacity: 0.65, fontSize: '0.72rem' }}>{tx.item_name}</div>
+                          )}
                         </div>
                       );
                     } else {
@@ -1882,26 +1951,48 @@ function Productspage({ shopId }) {
               )
             }
           >
-            {(selected.current_quantity ?? 0) <= 0 && (
-              <div
-                style={{
-                  padding: "0.65rem 1.2rem",
-                  borderBottom: "1px solid var(--th-border)",
-                }}
-              >
-                <button
-                  className="prod-btn-archive"
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    fontSize: "0.82rem",
-                  }}
-                  onClick={() => archiveItem(selected)}
-                >
-                  Archive this item (stock is 0)
-                </button>
-              </div>
-            )}
+            {(() => {
+              const isGrouped = historyVariants.length > 1;
+              if (isGrouped) {
+                // For grouped rows: only show archive when a specific variant tab is selected and its qty is 0
+                if (!activeHistVariantId) return null;
+                const activeVar = historyVariants.find(v => v.item_id === activeHistVariantId);
+                if (!activeVar || activeVar.qty > 0) return null;
+                const variantItem = {
+                  item_id: activeVar.item_id,
+                  item_name: `${selected.item_name} [DOT ${activeVar.dot_number || '?'}]`,
+                };
+                return (
+                  <div style={{ padding: "0.65rem 1.2rem", borderBottom: "1px solid var(--th-border)" }}>
+                    <button
+                      className="prod-btn-archive"
+                      style={{ width: "100%", padding: "0.5rem", fontSize: "0.82rem" }}
+                      onClick={async () => {
+                        await archiveItem(variantItem);
+                        setSelected(null);
+                        setHistoryVariants([]);
+                        setActiveHistVariantId(null);
+                      }}
+                    >
+                      Archive DOT {activeVar.dot_number} (stock is 0)
+                    </button>
+                  </div>
+                );
+              }
+              // Non-grouped: original behaviour
+              if ((selected.current_quantity ?? 0) > 0) return null;
+              return (
+                <div style={{ padding: "0.65rem 1.2rem", borderBottom: "1px solid var(--th-border)" }}>
+                  <button
+                    className="prod-btn-archive"
+                    style={{ width: "100%", padding: "0.5rem", fontSize: "0.82rem" }}
+                    onClick={() => archiveItem(selected)}
+                  >
+                    Archive this item (stock is 0)
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Edit Details Section */}
             <div className="prod-adj-wrap" style={{ borderBottom: "1px solid var(--th-border)" }}>
@@ -2051,6 +2142,11 @@ function Productspage({ shopId }) {
             )}
             <div className="prod-adj-wrap">
               <div className="th-section-label">Stock Adjustment</div>
+              {(selected?.variant_count || 0) > 1 && !activeHistVariantId && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--th-amber,#fbbf24)', marginBottom: '0.4rem', opacity: 0.85 }}>
+                  Select a DOT variant tab above to adjust its stock.
+                </div>
+              )}
               <div className="prod-adj-row">
                 <input
                   className="prod-adj-input"
