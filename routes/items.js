@@ -695,7 +695,7 @@ router.get("/pos-items/:shop_id", async (req, res) => {
            THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
            ELSE item_id END AS group_key,
       MAX(brand) AS brand, MAX(design) AS design, MAX(size) AS size,
-      MAX(category) AS category,
+      MAX(category) AS category, MAX(item_name) AS item_name,
       MIN(item_id) AS representative_item_id,
       AVG(unit_cost) AS unit_cost, AVG(selling_price) AS selling_price,
       SUM(qty) AS total_quantity

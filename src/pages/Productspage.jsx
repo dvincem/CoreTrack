@@ -103,6 +103,7 @@ function Productspage({ shopId }) {
     loading,
     search, setSearch,
     refetch: refetchItems,
+    setData: setItems,
   } = usePaginatedResource({
     url: `${API_URL}/items/${shopId}`,
     perPage: PAGE_SIZE,
@@ -456,6 +457,7 @@ function Productspage({ shopId }) {
 
       validatedItems.push({
         ...item,
+        brand: isTire ? item.brand : item.item_name,
         sku: item.sku || autoSku,
         item_name: autoItemName,
         rim_size: isTire ? extractRimSize(item.size) : (item.rim_size ? parseFloat(item.rim_size) : null),

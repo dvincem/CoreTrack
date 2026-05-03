@@ -85,5 +85,6 @@ export default function usePaginatedResource({
     search, setSearch,
     loading, error,
     refetch: run,
+    setData,
   };
 }

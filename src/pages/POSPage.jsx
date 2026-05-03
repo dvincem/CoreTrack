@@ -1123,37 +1123,20 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
                       {hasMultipleDots && (
                         <span className="pos-multi-dot-badge">{_variants.length} DOTs</span>
                       )}
-                      {(() => {
-                        // Parse item_name into Brand, Design, Size
-                        // Example: "Bridgestone Turanza 185/70R14" → Brand: Bridgestone, Design: Turanza, Size: 185/70R14
-                        const safeName = i.item_name || '';
-                        const parts = safeName.trim().split(/\s+/);
-                        const sizeMatch = safeName.match(/(\d+\/\d+R\d+)/);
-                        const size = sizeMatch ? sizeMatch[1] : '';
-                        const nameWithoutSize = sizeMatch ? safeName.replace(sizeMatch[1], '').trim() : safeName;
-                        const nameParts = nameWithoutSize.split(/\s+/);
-                        const brand = nameParts[0] || '';
-                        const design = nameParts.slice(1).join(' ') || '';
-
-                        return (
-                          <>
-                            <div className="pos-card-cat">{i.category}</div>
-                            <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700 }}>
-                              {brand}
-                            </div>
-                            {design && (
-                              <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic' }}>
-                                {design}
-                              </div>
-                            )}
-                            {size && (
-                              <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-dim)', marginBottom: '0.15rem', fontWeight: 700 }}>
-                                {size}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
+                      <div className="pos-card-cat">{i.category}</div>
+                      <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700 }}>
+                        {i.brand || i.item_name}
+                      </div>
+                      {i.design && (
+                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic' }}>
+                          {i.design}
+                        </div>
+                      )}
+                      {i.size && (
+                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-dim)', marginBottom: '0.15rem', fontWeight: 700 }}>
+                          {i.size}
+                        </div>
+                      )}
                       {!hasMultipleDots && i.dot_number && (
                         <div style={{ fontSize: "0.82rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.04em", marginBottom: "0.15rem" }}>DOT {i.dot_number}</div>
                       )}
