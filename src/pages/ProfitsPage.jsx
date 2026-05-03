@@ -298,13 +298,13 @@ function ProfitsPage({ shopId, setPageContext, businessDate }) {
               <input className="fh-date" type="date" value={endDate} max={today} onChange={e => applyOnDateChange('end', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
             </div>
           }
-          filters={presets().map(p => ({
+          filters={presets(today).map(p => ({
             label: p.label,
             value: p.label,
             active: activePreset === p.label
           }))}
           onFilterChange={(label) => {
-            const p = presets().find(x => x.label === label)
+            const p = presets(today).find(x => x.label === label)
             if (p) applyPreset(p)
           }}
           accentColor="var(--th-emerald)"
