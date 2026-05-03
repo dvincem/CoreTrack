@@ -203,9 +203,12 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
       {/* Header: name · badge · remove */}
       <div className="pos-ci-top">
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="pos-ci-name" style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
-            {item.name}{item.dot_number ? (
-              <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.05rem 0.35rem", borderRadius: 4, background: "rgba(251,191,36,0.12)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", lineHeight: 1.4, marginLeft: "0.25rem" }}>DOT {item.dot_number}</span>
+          <div className="pos-ci-name" style={{ display: "flex", alignItems: "center", gap: "0.25rem", flexWrap: "wrap", lineHeight: 1.1 }}>
+            {item.brand && <span style={{ fontWeight: 800, color: "var(--th-text-heading)" }}>{item.brand}</span>}
+            <span style={{ fontWeight: 600 }}>{item.name}</span>
+            {item.design && <span style={{ color: "var(--th-text-faint)", fontStyle: "italic", fontSize: "0.85em" }}>{item.design}</span>}
+            {item.dot_number ? (
+              <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.05rem 0.35rem", borderRadius: 4, background: "rgba(251,191,36,0.12)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", lineHeight: 1.4, marginLeft: "0.1rem" }}>DOT {item.dot_number}</span>
             ) : null}
             {item.is_custom && (
               <span style={{ fontSize: "0.62rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.05rem 0.35rem", borderRadius: 4, background: "var(--th-orange-bg)", color: "var(--th-orange)", border: "1px solid var(--th-orange)", lineHeight: 1.4 }}>MISC</span>
@@ -569,6 +572,8 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
           sku: item.sku,
           category: item.category,
           size: item.size,
+          brand: item.brand,
+          design: item.design,
           dot_number: item.dot_number || null,
           sealant_commission: (item.item_name || item.category || '').toUpperCase().includes('SEALANT') ? 400 : undefined,
         },
@@ -807,11 +812,11 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
       }
       // Standalone valve product sold directly
       const itemNameUpper = (item.name || item.sku || '').toUpperCase();
-      const isStandaloneValve = itemNameUpper.includes('VALVE') && rate === 0 && !item.valve_type;
+      const isStandaloneValve = (itemNameUpper.includes('VALVE') || cat.includes('VALVE')) && rate === 0 && !item.valve_type;
       if (isStandaloneValve) {
         const isSteel = itemNameUpper.includes('STEEL');
         const valveRate = isSteel ? 50 : 40;
-        const valveLabel = isSteel ? 'Steel valve (standalone)' : 'Rubber valve (standalone)';
+        const valveLabel = `${item.name || 'Valve'} (Standalone)`;
         lines.push({ label: valveLabel, qty: item.quantity, rate: valveRate, total: valveRate * item.quantity });
       }
     }
