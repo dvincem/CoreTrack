@@ -71,7 +71,7 @@ function BotMessage({ text }) {
   );
 }
 
-export default function TireHubBot({ pageContext }) {
+export default function TireHubBot({ pageContext, businessDate }) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
@@ -106,7 +106,13 @@ export default function TireHubBot({ pageContext }) {
     try {
       const res = await apiFetch(`${API_URL}/chat`, {
         method: 'POST',
-        body: JSON.stringify({ message: msg, pageContext, role: 'owner', history: messages })
+        body: JSON.stringify({ 
+          message: msg, 
+          pageContext, 
+          businessDate,
+          role: 'owner', 
+          history: messages 
+        })
       });
       const data = await res.json();
       

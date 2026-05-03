@@ -27,34 +27,35 @@ const CAT_COLORS = {
   MOTORCYCLE: '#34d399', VALVE: '#fb7185', WEIGHT: '#f97316',
 }
 
-function presets() {
-  const today = new Date()
-  const fmtD = d => d.toISOString().split('T')[0]
-  const ago = n => { const d = new Date(today); d.setDate(d.getDate() - n); return fmtD(d) }
+function presets(baseDate) {
+  const todayStr = baseDate || new Date().toISOString().split('T')[0]
+  const ago = n => {
+    const d = new Date(todayStr);
+    d.setDate(d.getDate() - n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
   const startOf = (unit) => {
-    const d = new Date(today)
-    if (unit === 'week')  { d.setDate(d.getDate() - d.getDay()); return fmtD(d) }
-    if (unit === 'month') { d.setDate(1); return fmtD(d) }
-    if (unit === 'year')  { d.setMonth(0, 1); return fmtD(d) }
+    const d = new Date(todayStr)
+    if (unit === 'year')  { return `${d.getFullYear()}-01-01` }
   }
   return [
-    { label: 'Today',    start: fmtD(today),      end: fmtD(today) },
-    { label: '7 Days',   start: ago(6),            end: fmtD(today) },
-    { label: '30 Days',  start: ago(29),           end: fmtD(today) },
-    { label: '3 Months', start: ago(89),            end: fmtD(today) },
-    { label: '6 Months', start: ago(179),           end: fmtD(today) },
-    { label: 'This Yr',  start: startOf('year'),   end: fmtD(today) },
+    { label: 'Today',    start: todayStr,      end: todayStr },
+    { label: '7 Days',   start: ago(6),            end: todayStr },
+    { label: '30 Days',  start: ago(29),           end: todayStr },
+    { label: '3 Months', start: ago(89),            end: todayStr },
+    { label: '6 Months', start: ago(179),           end: todayStr },
+    { label: 'This Yr',  start: startOf('year'),   end: todayStr },
   ]
 }
 
-function ProfitsPage({ shopId, setPageContext }) {
-  const today = new Date().toISOString().split('T')[0]
+function ProfitsPage({ shopId, setPageContext, businessDate }) {
+  const today = businessDate || new Date().toISOString().split('T')[0]
   const monthStart = today.slice(0, 8) + '01'
 
   const [startDate,    setStartDate]    = React.useState(monthStart)
   const [endDate,      setEndDate]      = React.useState(today)
   const [applied,      setApplied]      = React.useState({ start: monthStart, end: today })
-  const [activePreset, setActivePreset] = React.useState('30 Days')
+  const [activePreset, setActivePreset] = React.useState('Today')
 
   const [summary,    setSummary]    = React.useState(null)
   const [byCategory, setByCategory] = React.useState([])
@@ -292,9 +293,9 @@ function ProfitsPage({ shopId, setPageContext }) {
           leftComponent={
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
               <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-              <input className="fh-date" type="date" value={startDate} onChange={e => applyOnDateChange('start', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
+              <input className="fh-date" type="date" value={startDate} max={today} onChange={e => applyOnDateChange('start', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
               <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-              <input className="fh-date" type="date" value={endDate} onChange={e => applyOnDateChange('end', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
+              <input className="fh-date" type="date" value={endDate} max={today} onChange={e => applyOnDateChange('end', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
             </div>
           }
           filters={presets().map(p => ({

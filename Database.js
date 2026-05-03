@@ -230,6 +230,7 @@ function initializeDatabase() {
         full_name TEXT NOT NULL,
         email TEXT,
         role TEXT,
+        profile_picture TEXT,
         is_active BOOLEAN DEFAULT 1,
         work_status TEXT DEFAULT 'ACTIVE',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -320,6 +321,7 @@ function initializeDatabase() {
         sale_id TEXT PRIMARY KEY,
         shop_id TEXT NOT NULL,
         sale_datetime DATETIME NOT NULL,
+        business_date DATE,
         staff_id TEXT NOT NULL,
         total_amount REAL NOT NULL,
         payment_status TEXT DEFAULT 'PENDING',
@@ -333,6 +335,8 @@ function initializeDatabase() {
         payment_method TEXT DEFAULT 'CASH',
         payment_splits TEXT,
         credit_down_payment REAL DEFAULT 0,
+        is_void INTEGER DEFAULT 0,
+        void_reason TEXT,
         FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id),
         FOREIGN KEY (staff_id) REFERENCES staff_master(staff_id)
       )`);
@@ -796,6 +800,13 @@ function initializeDatabase() {
             linked_inventory_tx_id TEXT,
             replacement_return_id TEXT,
             dot_number TEXT,
+            return_scenario TEXT DEFAULT 'FULL_REFUND',
+            refund_method TEXT,
+            replacement_item_id TEXT,
+            warranty_sent_at DATETIME,
+            warranty_result TEXT,
+            warranty_ref TEXT,
+            customer_name TEXT,
             notes TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             created_by TEXT,
@@ -843,6 +854,9 @@ function initializeDatabase() {
             total_amount REAL DEFAULT 0,
             notes TEXT,
             supplier_id TEXT,
+            handled_by TEXT,
+            is_void BOOLEAN DEFAULT 0,
+            void_reason TEXT,
             created_by TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)

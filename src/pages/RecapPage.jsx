@@ -157,7 +157,7 @@ function RcToast({ title, sub, onDone }) {
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShopClosed }) {
+function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShopClosed, businessDate }) {
   const [suggestions, setSuggestions] = React.useState([])
   const [showSug, setShowSug] = React.useState(false)
   const [statusFilter, setStatusFilter] = React.useState("");
@@ -171,6 +171,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const [loading, setLoading] = React.useState(false);
   const [toast, setToast] = React.useState(null);
   const [kpiCounts, setKpiCounts] = React.useState(null);
+
+  const today = businessDate || new Date().toISOString().split('T')[0];
 
   const JOBS_PER_PAGE = 10;
 
@@ -457,7 +459,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
           dot_number: item.dot_number || '',
           recap_cost: parseFloat(recapIntakeForm.recap_cost),
           expected_selling_price: parseFloat(recapIntakeForm.expected_selling_price),
-          intake_date: new Date().toISOString().slice(0, 10),
+          intake_date: today,
           created_by: 'SYSTEM',
           // Source item info — backend uses these to compute total cost and maintain margin
           source_item_id: item.item_id,
@@ -507,8 +509,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     }
     setLoading(true);
     setError("");
-    const intakeDate = new Date().toISOString().slice(0, 10);
-    const deadlineDate = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10); })();
+    const intakeDate = today;
+    const deadlineDate = (() => { const d = new Date(today); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10); })();
     try {
       for (const c of casings) {
         const res = await apiFetch(`${API_URL}/recap-jobs`, {

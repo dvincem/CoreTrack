@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
 const { v4: uuidv4 } = require("uuid");
+const { getPHDateStr } = require("../lib/businessDate");
 
 router.get("/staff-kpi/:shop_id", (req, res) => {
   db.get(`
@@ -159,7 +160,7 @@ router.get("/attendance/:shop_id", (req, res) => {
           const attMap = new Map();
           attRows.forEach(row => attMap.set(row.staff_id, row));
 
-          const todayStr = new Date().toISOString().split('T')[0];
+          const todayStr = getPHDateStr();
           const finalRows = [...attRows];
           staffList.forEach(s => {
             if (s.work_status === 'ALWAYS_PRESENT' && !attMap.has(s.staff_id) && attendance_date <= todayStr) {
@@ -207,7 +208,7 @@ router.get("/attendance-history/:shop_id/:staff_id", (req, res) => {
           rows.forEach(r => recordsMap.set(r.attendance_date.split('T')[0], r.status));
           
           const synthesized = [];
-          const todayStr = new Date().toISOString().split('T')[0];
+          const todayStr = getPHDateStr();
           let current = new Date(from);
           const endDate = new Date(to);
           while (current <= endDate) {
@@ -328,7 +329,7 @@ router.post("/payroll/generate", async (req, res) => {
   const { shop_id, business_date, generated_by } = req.body;
   if (!shop_id || !business_date) return res.status(400).json({ error: "Missing shop_id or business_date" });
   
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getPHDateStr();
   if (business_date > todayStr) {
     return res.status(400).json({ error: "Cannot generate payroll for future dates" });
   }
@@ -355,7 +356,7 @@ router.get("/payroll/:shop_id", (req, res) => {
 router.get("/labor-log/:shop_id", (req, res) => {
   const { shop_id } = req.params;
   const { date } = req.query;
-  const business_date = date || new Date().toISOString().split("T")[0];
+  const business_date = date || getPHDateStr();
   db.all(
     `SELECT ll.*, sm.full_name, sm.staff_code
      FROM labor_log ll
@@ -390,7 +391,7 @@ router.get("/labor-summary/:shop_id", (req, res) => {
       }
     );
   } else {
-    const business_date = date || new Date().toISOString().split("T")[0];
+    const business_date = date || getPHDateStr();
     db.all(
       `SELECT sm.staff_id, sm.full_name, sm.staff_code,
           COUNT(ll.log_id) as service_count,
@@ -420,7 +421,7 @@ router.post("/labor-log", (req, res) => {
   const price = parseFloat(unit_price);
   const total = qty * price;
   const commission = parseFloat(commission_amount) || 0;
-  const bdate = business_date || new Date().toISOString().split("T")[0];
+  const bdate = business_date || getPHDateStr();
   db.run(
     `INSERT INTO labor_log (log_id, shop_id, staff_id, service_id, service_name, quantity, unit_price, total_amount, commission_amount, business_date, encoded_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -438,7 +439,7 @@ router.post("/commission-direct", (req, res) => {
   const amt = parseFloat(commission_amount);
   if (isNaN(amt) || amt <= 0) return res.status(400).json({ error: "Invalid amount" });
   const log_id = `LOG-${uuidv4()}`;
-  const bdate = business_date || new Date().toISOString().split("T")[0];
+  const bdate = business_date || getPHDateStr();
   const svcName = notes ? `Direct Commission — ${notes}` : "Direct Commission";
   db.run(
     `INSERT INTO labor_log (log_id, shop_id, staff_id, service_id, service_name, quantity, unit_price, total_amount, commission_amount, business_date, encoded_by)
@@ -485,7 +486,7 @@ router.get("/services-summary/:shop_id", (req, res) => {
   const { shop_id } = req.params;
   const { startDate, endDate, page, perPage } = req.query;
   const paginated = page !== undefined || perPage !== undefined;
-  const today = new Date().toISOString().split("T")[0];
+  const today = getPHDateStr();
   const start = startDate || today;
   const end = endDate || today;
   db.all(

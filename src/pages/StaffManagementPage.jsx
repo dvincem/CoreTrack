@@ -24,8 +24,9 @@ const WS_ICONS = { ACTIVE: '●', ALWAYS_PRESENT: '★', VACATION: '✈', SUSPEN
 const BLANK_FORM = { full_name: '', email: '', role: '' }
 
 /* ════════════ UNIFIED STAFF DETAIL & CALENDAR MODAL ════════════ */
-function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusToggle }) {
-  const today = new Date();
+function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusToggle, businessDate }) {
+  const today = businessDate ? new Date(businessDate) : new Date();
+  const todayStr = businessDate || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [records, setRecords] = useState([]);
   const [calLoading, setCalLoading] = useState(false);
@@ -128,7 +129,7 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
                 if (!dayNum) return <div key={i} className="att-cal-cell empty" />;
                 const dateStr = `${monthStr}-${String(dayNum).padStart(2, '0')}`;
                 const status = statusMap[dateStr];
-                const isToday = dateStr === today.toISOString().split('T')[0];
+                const isToday = dateStr === todayStr;
                 return (
                   <div key={i} className={`att-cal-cell ${status === 'PRESENT' ? 'present' : status === 'ABSENT' ? 'absent' : ''} ${isToday ? 'today' : ''}`}>
                     {dayNum}
@@ -153,8 +154,11 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
 }
 
 /* ════════════ MAIN COMPONENT ════════════ */
-export default function StaffManagementPage({ shopId, setPageContext, userRole, userPower }) {
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
+export default function StaffManagementPage({ shopId, setPageContext, userRole, userPower, businessDate }) {
+  const TODAY = businessDate || new Date().toISOString().split('T')[0];
+  const getTodayStr = () => TODAY;
+
+  const [attendanceDate, setAttendanceDate] = useState(TODAY);
   const [attendance, setAttendance] = useState([]);
   const [statsRange] = useState("month");
   const [staffStats, setStaffStats] = useState({});
@@ -380,7 +384,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
             type="date"
             className="fh-date"
             value={attendanceDate}
-            max={new Date().toISOString().split("T")[0]}
+            max={getTodayStr()}
             onChange={e => setAttendanceDate(e.target.value)}
           />
         }
@@ -514,6 +518,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
           onEdit={() => { setEditTarget(detailTarget); setEditForm(detailTarget); setDetailTarget(null); }}
           onRemove={() => { setRemoveTarget(detailTarget); setDetailTarget(null); }}
           onStatusToggle={() => toggleStatus(detailTarget)}
+          businessDate={businessDate}
         />
       )}
 

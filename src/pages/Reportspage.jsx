@@ -38,32 +38,40 @@ const SVG = (d, extra = {}) => (
   </svg>
 )
 
-function presets() {
-  const today = new Date()
-  const month = today.getMonth()
-  const fmtD = d => d.toISOString().split('T')[0]
-  const ago = n => { const d = new Date(today); d.setDate(d.getDate() - n); return fmtD(d) }
+const getTodayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+function presets(todayStr) {
+  const todayDate = new Date(todayStr || new Date())
+  const month = todayDate.getMonth()
+  const ago = n => {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
   const startOf = unit => {
-    const d = new Date(today)
-    if (unit === 'year') { d.setMonth(0, 1); return fmtD(d) }
-    if (unit === 'quarter') { d.setMonth(Math.floor(month / 3) * 3, 1); return fmtD(d) }
-    if (unit === 'half') { d.setMonth(month < 6 ? 0 : 6, 1); return fmtD(d) }
+    const d = new Date(todayDate)
+    if (unit === 'year') { return `${d.getFullYear()}-01-01` }
+    if (unit === 'quarter') { return `${d.getFullYear()}-${String(Math.floor(month / 3) * 3 + 1).padStart(2, '0')}-01` }
+    if (unit === 'half') { return `${d.getFullYear()}-${String(month < 6 ? 1 : 7).padStart(2, '0')}-01` }
   }
   const qtrNames = ['1st Qtr', '2nd Qtr', '3rd Qtr', '4th Qtr']
   return [
-    { label: 'Today', start: fmtD(today), end: fmtD(today) },
-    { label: '7 Days', start: ago(6), end: fmtD(today) },
-    { label: '30 Days', start: ago(29), end: fmtD(today) },
-    { label: qtrNames[Math.floor(month / 3)], start: startOf('quarter'), end: fmtD(today) },
-    { label: month < 6 ? '1st Half' : '2nd Half', start: startOf('half'), end: fmtD(today) },
-    { label: 'This Yr', start: startOf('year'), end: fmtD(today) },
+    { label: 'Today', start: todayStr, end: todayStr },
+    { label: '7 Days', start: ago(6), end: todayStr },
+    { label: '30 Days', start: ago(29), end: todayStr },
+    { label: qtrNames[Math.floor(month / 3)], start: startOf('quarter'), end: todayStr },
+    { label: month < 6 ? '1st Half' : '2nd Half', start: startOf('half'), end: todayStr },
+    { label: 'This Yr', start: startOf('year'), end: todayStr },
   ]
 }
 
 /* ─────────────────────────────────────────────
    FILTER STRIP (shared across tabs)
 ───────────────────────────────────────────── */
-function FilterStrip({ startDate, endDate, setStartDate, setEndDate, activePreset, applyPreset }) {
+function FilterStrip({ startDate, endDate, setStartDate, setEndDate, activePreset, applyPreset, today }) {
   return (
     <div className="rpt-filter-strip">
       <span className="rpt-filter-label">From</span>
@@ -81,7 +89,7 @@ function FilterStrip({ startDate, endDate, setStartDate, setEndDate, activePrese
         onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }}
       />
       <div className="rpt-filter-presets">
-        {presets().map(p => (
+        {presets(today).map(p => (
           <button
             key={p.label}
             className={`rpt-filter-preset${activePreset === p.label ? ' active' : ''}`}
@@ -959,9 +967,9 @@ function SectionReturns({ shopId, startDate, endDate, isOpen }) {
 /* ─────────────────────────────────────────────
    MAIN INNER COMPONENT
 ───────────────────────────────────────────── */
-function ReportspageInner({ shopId }) {
-  const today = new Date().toISOString().split('T')[0]
-  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
+function ReportspageInner({ shopId, businessDate }) {
+  const today = businessDate || new Date().toISOString().split('T')[0]
+  const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
   const defaultStart = thirtyDaysAgo.toISOString().split('T')[0]
 
   const [startDate, setStartDate] = useState(() => localStorage.getItem('rpt_startDate') || defaultStart)
@@ -1042,6 +1050,7 @@ function ReportspageInner({ shopId }) {
               startDate={startDate} endDate={endDate}
               setStartDate={setStartDate} setEndDate={setEndDate}
               activePreset={activePreset} applyPreset={applyPreset}
+              today={today}
               isOpen
             >
               <SectionCategories shopId={shopId} startDate={startDate} endDate={endDate} isOpen />
@@ -1056,6 +1065,7 @@ function ReportspageInner({ shopId }) {
               startDate={startDate} endDate={endDate}
               setStartDate={setStartDate} setEndDate={setEndDate}
               activePreset={activePreset} applyPreset={applyPreset}
+              today={today}
             />
             <SectionBusinessHealth shopId={shopId} startDate={startDate} endDate={endDate} isOpen />
             <SectionProfit shopId={shopId} startDate={startDate} endDate={endDate} isOpen />
@@ -1071,6 +1081,7 @@ function ReportspageInner({ shopId }) {
               startDate={startDate} endDate={endDate}
               setStartDate={setStartDate} setEndDate={setEndDate}
               activePreset={activePreset} applyPreset={applyPreset}
+              today={today}
             />
             <SectionStaff shopId={shopId} startDate={startDate} endDate={endDate} isOpen />
             <SectionReturns shopId={shopId} startDate={startDate} endDate={endDate} isOpen />

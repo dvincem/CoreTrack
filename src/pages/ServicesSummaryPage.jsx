@@ -8,14 +8,14 @@ import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 
 const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const today = () => new Date().toISOString().split('T')[0]
 
-export default function ServicesSummaryPage({ shopId, isShopClosed }) {
+export default function ServicesSummaryPage({ shopId, isShopClosed, businessDate }) {
+  const TODAY = businessDate || new Date().toISOString().split('T')[0]
   const [activeTab, setActiveTab] = React.useState('summary')
 
   // Shared date state
-  const [startDate, setStartDate] = React.useState(today())
-  const [endDate, setEndDate] = React.useState(today())
+  const [startDate, setStartDate] = React.useState(TODAY)
+  const [endDate, setEndDate] = React.useState(TODAY)
 
   // Summary state
   const [data, setData] = React.useState([])
@@ -24,9 +24,9 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
   const [activeRange, setActiveRange] = React.useState('today')
 
   // History state
-  const historyWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const historyWeekAgo = new Date(new Date(TODAY).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const [histStartDate, setHistStartDate] = React.useState(historyWeekAgo)
-  const [histEndDate, setHistEndDate] = React.useState(today())
+  const [histEndDate, setHistEndDate] = React.useState(TODAY)
   const [histType, setHistType] = React.useState('all')
   const [staffMap, setStaffMap] = React.useState({})
   const PAGE_SIZE = 10

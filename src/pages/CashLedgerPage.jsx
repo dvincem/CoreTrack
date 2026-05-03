@@ -36,19 +36,21 @@ const ENTRY_TYPES = {
   BANK_OUT: { icon: '🏦', label: 'Bank Out', short: 'Bank Out', method: 'BANK', dir: 'OUT' },
 }
 
-const BLANK = {
-  entry_type: 'CASH_IN',
-  amount: '',
-  description: '',
-  entry_date: new Date().toISOString().split('T')[0],
-  entry_time: new Date().toTimeString().slice(0, 5),
-  notes: '',
-}
-
 const PAGE_SIZE = 20
 
-export default function CashLedgerPage({ shopId, isShopClosed }) {
-  const today = new Date().toISOString().split('T')[0]
+export default function CashLedgerPage({ shopId, isShopClosed, businessDate }) {
+  const today = businessDate || new Date().toISOString().split('T')[0]
+
+  const getTodayStr = () => today
+
+  const BLANK = {
+    entry_type: 'CASH_IN',
+    amount: '',
+    description: '',
+    entry_date: today,
+    entry_time: new Date().toTimeString().slice(0, 5),
+    notes: '',
+  }
 
   /* ── Date range state ── */
   const [startDate, setStartDate] = React.useState(today)
@@ -56,23 +58,26 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   const [activePreset, setActivePreset] = React.useState('today')
 
   function applyPreset(key) {
-    const t = new Date()
-    const todayStr = t.toISOString().split('T')[0]
+    const todayStr = getTodayStr()
     if (key === 'today') {
       setStartDate(todayStr); setEndDate(todayStr)
     } else if (key === 'yesterday') {
+      const t = new Date(todayStr)
       t.setDate(t.getDate() - 1)
-      const y = t.toISOString().split('T')[0]
+      const y = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
       setStartDate(y); setEndDate(y)
     } else if (key === '3mo') {
       const d = new Date(todayStr)
       d.setMonth(d.getMonth() - 3)
-      setStartDate(d.toISOString().split('T')[0]); setEndDate(todayStr)
+      const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      setStartDate(start); setEndDate(todayStr)
     } else if (key === '6mo') {
       const d = new Date(todayStr)
       d.setMonth(d.getMonth() - 6)
-      setStartDate(d.toISOString().split('T')[0]); setEndDate(todayStr)
+      const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      setStartDate(start); setEndDate(todayStr)
     } else if (key === 'yr') {
+      const t = new Date(todayStr)
       setStartDate(`${t.getFullYear()}-01-01`); setEndDate(todayStr)
     }
     setActivePreset(key)

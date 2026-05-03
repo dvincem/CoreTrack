@@ -8,8 +8,8 @@ import FilterHeader from '../components/FilterHeader'
 
 const fmt = (n) => `₱${Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`
 
-function PayrollPage({ shopId, setPageContext }) {
-  const [date, setDate] = React.useState(new Date().toISOString().split('T')[0])
+function PayrollPage({ shopId, setPageContext, businessDate }) {
+  const [date, setDate] = React.useState(businessDate || new Date().toISOString().split('T')[0])
   const [search, setSearch] = React.useState('')
   const [staffFilter, setStaffFilter] = React.useState('all')
   const [logs, setLogs] = React.useState([])

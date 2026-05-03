@@ -17,7 +17,7 @@ function yFmt(val) {
 }
 
 // ── MonthlyChart ─────────────────────────────────────────────────────────────
-function MonthlyChart({ shopId }) {
+function MonthlyChart({ shopId, businessDate }) {
   const [chartData, setChartData] = React.useState([])
   const [total, setTotal] = React.useState(0)
   const [isDark, setIsDark] = React.useState(
@@ -34,10 +34,13 @@ function MonthlyChart({ shopId }) {
   }, [])
 
   React.useEffect(() => {
+    const todayStr = businessDate || new Date().toISOString().split('T')[0]
     const days = []
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i)
-      days.push({ date: d.toISOString().split('T')[0], isToday: i === 0 })
+      const d = new Date(todayStr);
+      d.setDate(d.getDate() - i)
+      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      days.push({ date: dStr, isToday: i === 0 })
     }
     const start = days[0].date, end = days[29].date
     if (!shopId) return
@@ -60,7 +63,7 @@ function MonthlyChart({ shopId }) {
         setChartData(mapped)
         setTotal(mapped.reduce((s, d) => s + d.revenue, 0))
       }).catch(() => { })
-  }, [shopId])
+  }, [shopId, businessDate])
 
   // Theme-responsive tokens
   const lineColor = isDark ? '#38bdf8' : '#0284c7'
@@ -481,7 +484,7 @@ function DashboardPage({ shopId, shopName, businessDate }) {
 
       {/* 30-day chart + Recent Sales */}
       <div className="th-mid-row">
-        <MonthlyChart shopId={shopId} />
+        <MonthlyChart shopId={shopId} businessDate={businessDate} />
         <RecentSales shopId={shopId} loading={loading} />
       </div>
 

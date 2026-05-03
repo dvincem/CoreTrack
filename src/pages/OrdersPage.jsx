@@ -3009,7 +3009,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-export default function OrdersPage({ shopId, onRefresh }) {
+export default function OrdersPage({ shopId, onRefresh, businessDate }) {
   const [orderDetails, setOrderDetails] = React.useState(null);
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [supplierFilter, setSupplierFilter] = React.useState("");

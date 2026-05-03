@@ -652,7 +652,7 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function InventoryPage({ shopId, setPageContext }) {
+function InventoryPage({ shopId, setPageContext, businessDate }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 

@@ -17,9 +17,11 @@ const fmtCompact = (n) => {
   return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-function SalesPage({ shopId, isShopClosed }) {
-  const today = new Date().toISOString().split('T')[0]
-  const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0]
+function SalesPage({ shopId, isShopClosed, businessDate }) {
+  const today = businessDate || new Date().toISOString().split('T')[0];
+  const w = new Date()
+  w.setDate(w.getDate() - 7)
+  const weekAgo = `${w.getFullYear()}-${String(w.getMonth() + 1).padStart(2, '0')}-${String(w.getDate()).padStart(2, '0')}`;
 
   const SL_PAGE_SIZE = 20
   const [staffMap, setStaffMap] = React.useState({})

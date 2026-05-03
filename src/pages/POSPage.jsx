@@ -336,7 +336,7 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
 /* ══════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════ */
-function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed }) {
+function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed, businessDate }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
   React.useEffect(() => {
@@ -466,8 +466,7 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
 
   async function loadPOS() {
     try {
-      const tzOffset = (new Date()).getTimezoneOffset() * 60000;
-      const todayLocal = (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
+      const todayLocal = businessDate || new Date().toISOString().split('T')[0];
 
       const [srv, stf, cust, valve, weight, attendanceRes] = await Promise.all([
         apiFetch(`${API_URL}/services`),

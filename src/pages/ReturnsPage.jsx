@@ -57,8 +57,8 @@ const SUPP_REASONS = ["WARRANTY", "WRONG_ITEM", "DEFECTIVE", "OVERSHIPMENT", "OT
 const REFUND_METHODS = ["CASH", "CARD", "STORE_CREDIT", "EXCHANGE"];
 
 /* ─── Component ────────────────────────────────────────────────────────────── */
-export default function ReturnsPage({ shopId, isShopClosed }) {
-
+export default function ReturnsPage({ shopId, isShopClosed, businessDate }) {
+  const TODAY = businessDate || new Date().toISOString().split('T')[0];
   const [tab, setTab] = useState("customer");
 
   /* ── ID lists for autocomplete ──────────────────────────────────── */

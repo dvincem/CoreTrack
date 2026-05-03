@@ -13,24 +13,25 @@ import FilterHeader from '../components/FilterHeader'
 const PAYMENT_METHODS = ['CASH', 'GCASH', 'BANK TRANSFER', 'CHECK', 'CARD', 'OTHER']
 const CAT_COLORS = ['#fb7185', '#f97316', '#fbbf24', '#34d399', '#38bdf8', '#a78bfa', '#e879f9', '#64748b']
 
-const BLANK_FORM = {
-  category_id: '',
-  description: '',
-  amount: '',
-  expense_date: new Date().toISOString().split('T')[0],
-  payment_method: 'CASH',
-  reference_no: '',
-  notes: '',
-}
+export default function ExpensesPage({ shopId, isShopClosed, businessDate }) {
+  const today = businessDate || new Date().toISOString().split('T')[0]
 
-export default function ExpensesPage({ shopId, isShopClosed }) {
+  const BLANK_FORM = {
+    category_id: '',
+    description: '',
+    amount: '',
+    expense_date: today,
+    payment_method: 'CASH',
+    reference_no: '',
+    notes: '',
+  }
+
   const [summary, setSummary] = React.useState({ total: 0, by_method: [], by_category: [], daily: [] })
   const [categories, setCategories] = React.useState([])
   const [error, setError] = React.useState('')
   const [toast, setToast] = React.useState(null)
 
   // Filters
-  const today = new Date().toISOString().split('T')[0]
   const [startDate, setStartDate] = React.useState(today)
   const [endDate, setEndDate] = React.useState(today)
   const [filterCat, setFilterCat] = React.useState('')
@@ -48,13 +49,13 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
     })
 
   function applyRange(key) {
-    const t = new Date().toISOString().split('T')[0]
+    const t = today
     const d = new Date(t)
     let from = t
-    if (key === '7d') { d.setDate(d.getDate() - 6); from = d.toISOString().split('T')[0] }
-    else if (key === '30d') { d.setDate(d.getDate() - 29); from = d.toISOString().split('T')[0] }
-    else if (key === '3mo') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
-    else if (key === '6mo') { d.setMonth(d.getMonth() - 6); from = d.toISOString().split('T')[0] }
+    if (key === '7d') { d.setDate(d.getDate() - 6); from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+    else if (key === '30d') { d.setDate(d.getDate() - 29); from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+    else if (key === '3mo') { d.setMonth(d.getMonth() - 3); from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+    else if (key === '6mo') { d.setMonth(d.getMonth() - 6); from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
     else if (key === 'yr') { from = `${d.getFullYear()}-01-01` }
     setStartDate(from); setEndDate(t); setActiveRange(key)
   }

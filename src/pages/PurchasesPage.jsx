@@ -106,22 +106,10 @@ function buildSKU(form, itemType) {
   return (itemType === 'TIRE' ? 'TIRE' : 'ITEM') + '-' + parts.join('-')
 }
 
-const TODAY = new Date().toISOString().split('T')[0]
-
-const BLANK_INV = (itemType) => ({
-  item_name: '', brand: '', design: '', size: '', rim_size: '',
-  dot_number: '', category: itemType === 'TIRE' ? 'TIRE' : 'VALVE',
-  unit_cost: '', selling_price: '',
-  quantity: '1', reorder_point: '5', notes: '',
-})
-
-const BLANK_SUP = () => ({
-  item_name: '', category: 'Consumable',
-  quantity: '1', unit_cost: '', notes: '',
-})
-
 // ── Component ────────────────────────────────────────────────────────────────
-function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
+function PurchasesPage({ shopId, currentStaffId, isShopClosed, businessDate }) {
+  const today = businessDate || new Date().toISOString().split('T')[0]
+
   const [showModal, setShowModal] = React.useState(false)
   const [modalTab, setModalTab] = React.useState('inv') // 'inv' | 'sup'
 
@@ -138,8 +126,8 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const [supplyCats, setSupplyCats] = React.useState(() => loadCats(LS_KEYS.supply, DEFAULT_SUPPLY_CATS))
 
   // History List
-  const [startDate, setStartDate] = React.useState(TODAY)
-  const [endDate, setEndDate] = React.useState(TODAY)
+  const [startDate, setStartDate] = React.useState(today)
+  const [endDate, setEndDate] = React.useState(today)
   const [histTab, setHistTab] = React.useState('all') // 'all'|'inv'|'sup'
   const [baseRows, setBaseRows] = React.useState([])
   const [loading, setLoading] = React.useState(false)
@@ -497,9 +485,9 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
           leftComponent={
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
               <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-              <input className="fh-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
+              <input className="fh-date" type="date" value={startDate} max={today} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
               <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-              <input className="fh-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
+              <input className="fh-date" type="date" value={endDate} max={today} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
             </div>
           }
           filters={[

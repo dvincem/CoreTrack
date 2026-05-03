@@ -33,7 +33,12 @@ const payCurrency =
 
 const STATUS_OPTS = ["ALL", "OPEN", "OVERDUE", "PAID"];
 const PAY_METHODS = ["CASH", "GCASH", "BPI", "BDO", "CARD", "CHECK"];
-const TODAY = new Date().toISOString().split("T")[0];
+const getTodayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const TODAY = getTodayStr();
 
 const ICONS = {
   total: (
@@ -168,7 +173,9 @@ function getDueDateInfo(p) {
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function PayablesPage({ shopId }) {
+function PayablesPage({ shopId, businessDate }) {
+  const TODAY = businessDate || new Date().toISOString().split("T")[0];
+
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [kpi, setKpi] = React.useState(null);
   const [calPayables, setCalPayables] = React.useState([]);

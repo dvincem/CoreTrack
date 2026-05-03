@@ -21,8 +21,6 @@ const rcvCurrency = typeof currency === "function"
   ? currency
   : (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const TODAY = new Date().toISOString().split("T")[0];
-
 const TYPE_OPTS = ["PRODUCT", "SERVICE", "GENERAL"];
 const PAY_METHODS = ["CASH", "GCASH", "BPI", "BDO", "CARD", "CHECK"];
 const STATUS_OPTS = ["ALL", "OPEN", "PAID"];
@@ -30,7 +28,9 @@ const STATUS_OPTS = ["ALL", "OPEN", "PAID"];
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function ReceivablesPage({ shopId }) {
+function ReceivablesPage({ shopId, businessDate }) {
+  const TODAY = businessDate || new Date().toISOString().split('T')[0];
+
   const [customers, setCustomers] = React.useState([]);
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [kpi, setKpi] = React.useState(null);
@@ -63,7 +63,7 @@ function ReceivablesPage({ shopId }) {
 
   // combined receivable detail modal
   const [rcvDetailTarget, setRcvDetailTarget] = React.useState(null);
-  const [payForm, setPayForm] = React.useState({ amount: "", payment_date: TODAY, payment_method: "CASH", notes: "" });
+  const [payForm, setPayForm] = React.useState({ amount: "", payment_date: today, payment_method: "CASH", notes: "" });
   const [payError, setPayError] = React.useState("");
   const [paying, setPaying] = React.useState(false);
   const [histPayments, setHistPayments] = React.useState([]);
@@ -84,9 +84,9 @@ function ReceivablesPage({ shopId }) {
   const [showBaleForm, setShowBaleForm] = React.useState(false);
   const [baleFormError, setBaleFormError] = React.useState("");
   const [baleSaving, setBaleSaving] = React.useState(false);
-  const [baleForm, setBaleForm] = React.useState({ staff_id: "", amount: "", bale_date: TODAY, due_date: "", notes: "" });
+  const [baleForm, setBaleForm] = React.useState({ staff_id: "", amount: "", bale_date: today, due_date: "", notes: "" });
   const [baleDetailTarget, setBaleDetailTarget] = React.useState(null); // combined detail+pay+history modal
-  const [balePayForm, setBalePayForm] = React.useState({ amount: "", payment_date: TODAY, notes: "" });
+  const [balePayForm, setBalePayForm] = React.useState({ amount: "", payment_date: today, notes: "" });
   const [balePayError, setBalePayError] = React.useState("");
   const [balePaying, setBalePaying] = React.useState(false);
   const [baleHistPayments, setBaleHistPayments] = React.useState([]);
