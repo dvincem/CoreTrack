@@ -54,14 +54,14 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, businessDate
   })
 
   function applyRange(key) {
-    const t = today()
+    const t = TODAY
     const d = new Date(t)
     let from = t
     if (key === 'today') { from = t }
     else if (key === '7d') { d.setDate(d.getDate() - 6); from = d.toISOString().split('T')[0] }
     else if (key === '30d') { d.setDate(d.getDate() - 29); from = d.toISOString().split('T')[0] }
-    else if (key === '3m') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
-    else if (key === '6m') { d.setMonth(d.getMonth() - 6); from = d.toISOString().split('T')[0] }
+    else if (key === '3mo') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
+    else if (key === '6mo') { d.setMonth(d.getMonth() - 6); from = d.toISOString().split('T')[0] }
     else if (key === 'yr') { from = `${d.getFullYear()}-01-01` }
     setStartDate(from)
     setEndDate(t)
@@ -155,8 +155,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, businessDate
                 { value: 'today', label: 'Today', active: activeRange === 'today' },
                 { value: '7d', label: '7 Days', active: activeRange === '7d' },
                 { value: '30d', label: '30 Days', active: activeRange === '30d' },
-                { value: '3m', label: '3 Months', active: activeRange === '3m' },
-                { value: '6m', label: '6 Months', active: activeRange === '6m' },
+                { value: '3mo', label: '3 Months', active: activeRange === '3mo' },
+                { value: '6mo', label: '6 Months', active: activeRange === '6mo' },
                 { value: 'yr', label: 'This Yr', active: activeRange === 'yr' },
               ]}
               onFilterChange={applyRange}
