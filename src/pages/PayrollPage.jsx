@@ -9,7 +9,8 @@ import FilterHeader from '../components/FilterHeader'
 const fmt = (n) => `₱${Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`
 
 function PayrollPage({ shopId, setPageContext, businessDate }) {
-  const [date, setDate] = React.useState(businessDate || new Date().toISOString().split('T')[0])
+  const TODAY = businessDate || new Date().toISOString().split('T')[0]
+  const [date, setDate] = React.useState(TODAY)
   const [search, setSearch] = React.useState('')
   const [staffFilter, setStaffFilter] = React.useState('all')
   const [logs, setLogs] = React.useState([])
@@ -18,6 +19,11 @@ function PayrollPage({ shopId, setPageContext, businessDate }) {
   const [services, setServices] = React.useState([])
   const [loading, setLoading] = React.useState(false)
   const [genSaving, setGenSaving] = React.useState(false)
+
+  // Sync date state when businessDate prop changes
+  React.useEffect(() => {
+    if (businessDate) setDate(businessDate);
+  }, [businessDate]);
 
   // Form state
   const [fStaff, setFStaff] = React.useState('')
@@ -206,9 +212,15 @@ function PayrollPage({ shopId, setPageContext, businessDate }) {
     XLSX.writeFile(wb, `payroll-${date}.xlsx`)
   }
 
+  const summaryArr = Array.isArray(summary) ? summary : []
+
   const filteredSummary = React.useMemo(() => {
-    return summary.filter(s => s.full_name.toLowerCase().includes(search.toLowerCase()))
-  }, [summary, search])
+    return summaryArr.filter(s => {
+      const name = s.full_name || ''
+      const code = s.staff_code || ''
+      return name.toLowerCase().includes(search.toLowerCase()) || code.toLowerCase().includes(search.toLowerCase())
+    })
+  }, [summaryArr, search])
 
   const filteredLogs = React.useMemo(() => {
     let list = [...logs]
@@ -218,11 +230,24 @@ function PayrollPage({ shopId, setPageContext, businessDate }) {
     return list
   }, [logs, staffFilter, logType])
 
-  const totalServiceRevenue = summary.reduce((s, r) => s + (r.service_total || 0), 0)
-  const totalCommission = summary.reduce((s, r) => s + (r.commission_total || 0), 0)
-  const totalBaleDeducted = summary.reduce((s, r) => s + (r.bale_deducted || 0), 0)
-  const totalServicePayout = totalServiceRevenue / 2
-  const netServiceMargin = totalServiceRevenue / 2
+  const totalServiceRevenue = summaryArr.reduce((s, r) => s + (r.service_total || 0), 0)
+  const totalCommission = summaryArr.reduce((s, r) => s + (r.commission_total || 0), 0)
+  const totalBaleDeducted = summaryArr.reduce((s, r) => s + (r.bale_deducted || 0), 0)
+  const totalServicePayout = summaryArr.reduce((s, r) => s + (r.service_total || 0) / 2, 0)
+  const netServiceMargin = totalServiceRevenue - totalServicePayout
+
+  // AI Context
+  React.useEffect(() => {
+    setPageContext({
+      view: "Labor & Payroll",
+      date,
+      metrics: {
+        staff_count: summaryArr.length,
+        total_payout: totalServicePayout + totalCommission - totalBaleDeducted,
+        total_revenue: totalServiceRevenue
+      }
+    })
+  }, [summaryArr, date, setPageContext])
 
   const summaryColumns = React.useMemo(() => [
     { key: 'full_name', label: 'Tireman', render: (r) => (
@@ -342,7 +367,7 @@ function PayrollPage({ shopId, setPageContext, businessDate }) {
 
       {/* KPI cards */}
       <div className="th-kpi-row">
-        <KpiCard label="Service Revenue"       value={fmt(totalServiceRevenue)} accent="sky"    loading={loading} sub={`${summary.reduce((s,r)=>s+r.service_count,0)} services for ${date}`} />
+        <KpiCard label="Service Revenue"       value={fmt(totalServiceRevenue)} accent="sky"    loading={loading} sub={`${summaryArr.reduce((s,r)=>s+(r.service_count||0),0)} services for ${date}`} />
         <KpiCard label="Total Payout"          value={fmt(totalServicePayout + totalCommission - totalBaleDeducted)} accent="amber"  loading={loading} sub={`÷2 + commission${totalBaleDeducted > 0 ? ' − bale' : ''}`} />
         <KpiCard label="Net Service Margin"    value={fmt(netServiceMargin)}   accent="emerald" loading={loading} sub="Shop keeps 50%" />
         <KpiCard label="Commission Paid Out"   value={fmt(totalCommission)}    accent="violet"  loading={loading} sub="Separate cost center" />
@@ -358,7 +383,7 @@ function PayrollPage({ shopId, setPageContext, businessDate }) {
             suggestions: suggestions,
             onSuggestionSelect: s => setSearch(s.text),
             resultCount: search.trim() ? filteredSummary.length : undefined,
-            totalCount: summary.length,
+            totalCount: summaryArr.length,
             resultLabel: "staff",
           }}
           leftComponent={
@@ -404,7 +429,7 @@ function PayrollPage({ shopId, setPageContext, businessDate }) {
               <select className="fh-select" style={{ minWidth: '150px' }}
                 value={staffFilter} onChange={e => setStaffFilter(e.target.value)}>
                 <option value="all">All Tiremen</option>
-                {staffList.filter(s => ['tireman','technician'].includes((s.role||'').toLowerCase())).map(s => <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>)}
+                {staffList.filter(s => ['tireman','technician','vulcanizer','helper','mechanic'].includes((s.role||'').toLowerCase())).map(s => <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>)}
               </select>
             </div>
           }
