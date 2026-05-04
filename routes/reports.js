@@ -143,6 +143,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         { method: 'CARD', total: summary.paymentBreakdown.CARD },
         { method: 'CREDIT', total: summary.paymentBreakdown.CREDIT }
       ],
+      cashPool: summary.cashPool,
       transactions,
     });
 

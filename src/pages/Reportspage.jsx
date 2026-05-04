@@ -218,7 +218,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const [filterMode, setFilterMode] = useState('ALL')
   const [page, setPage] = useState(1)
   const pageSize = 10
-
+  const [showCashBreakdown, setShowCashBreakdown] = useState(false)
 
   const [isClosed, setIsClosed] = useState(false)
 
@@ -254,7 +254,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   )
   if (!data) return null
 
-  const { kpis, paymentSummary, transactions } = data
+  const { kpis, paymentSummary, cashPool = {}, transactions } = data
 
   const filteredTxns = transactions.filter(t => {
     if (filterMode === 'ALL') return true
@@ -287,7 +287,14 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const txnCols = [
     { key: 'timestamp', label: 'Time', width: '80px', render: t => new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
     { key: 'type', label: 'Type', width: '100px', align: 'center', render: t => <span className={`px-2 py-0.5 text-[0.6rem] font-black uppercase rounded border ${typeColors[t.type] || 'bg-gray-500/10 text-gray-500 border-gray-500/20'}`}>{t.type.replace('_', ' ')}</span> },
-    { key: 'invoiceNumber', label: 'Ref/Invoice', width: '120px' },
+    {
+      key: 'id', label: 'Reference', width: '120px',
+      render: t => {
+        if (t.type === 'SALE' || t.type === 'SERVICE') return <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{t.id}</span>
+        if (t.type === 'PURCHASE') return <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{t.id}</span>
+        return <span style={{ color: 'var(--th-text-faint)', fontSize: '0.72rem' }}>—</span>
+      }
+    },
     { key: 'customerName', label: 'Description', render: t => t.customerName || (t.type === 'SALE' || t.type === 'SERVICE' ? 'Walk-in' : 'General') },
     { key: 'paymentMethod', label: 'Method', align: 'center', render: t => <span className="px-2 py-0.5 text-[0.65rem] font-bold rounded bg-gray-500/10 border border-gray-500/20">{t.paymentMethod}</span> },
     {
@@ -372,10 +379,38 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
             </span>
           </div>
           <div className="rpt-card-body">
-            <div className="rpt-recon-row">
-              <span className="rpt-recon-label">Cash on Hand</span>
+            <div className="rpt-recon-row" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowCashBreakdown(v => !v)}>
+              <span className="rpt-recon-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                Cash on Hand
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transition: 'transform 0.2s', transform: showCashBreakdown ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.5 }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
               <span className="rpt-recon-value emerald">{currency(cashOnHand)}</span>
             </div>
+            {showCashBreakdown && (
+              <div style={{ margin: '0 0 0.25rem', padding: '0.65rem 0.75rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                {[
+                  { label: 'Cash Sales / Services', value: cashPool.cashFromSales, sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.manualCashIn   > 0 && { label: 'Manual Cash In',   value: cashPool.manualCashIn,   sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.manualGcashIn  > 0 && { label: 'GCash In',          value: cashPool.manualGcashIn,  sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.expensesDeducted    > 0 && { label: 'Expenses',          value: cashPool.expensesDeducted,    sign: '−', color: 'var(--th-rose)' },
+                  cashPool.commissionsDeducted > 0 && { label: 'Commissions',       value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.manualCashOut  > 0 && { label: 'Manual Cash Out',  value: cashPool.manualCashOut,  sign: '−', color: 'var(--th-rose)' },
+                  cashPool.manualGcashOut > 0 && { label: 'GCash Out',         value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
+                ].filter(Boolean).map((row, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--th-text-faint)' }}>{row.label}</span>
+                    <span style={{ fontWeight: 700, color: row.color, fontVariantNumeric: 'tabular-nums' }}>{row.sign} {currency(row.value)}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px dashed var(--th-border)', marginTop: '0.15rem', paddingTop: '0.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--th-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>=  Cash on Hand</span>
+                  <span style={{ fontWeight: 900, color: 'var(--th-emerald)', fontVariantNumeric: 'tabular-nums' }}>{currency(cashOnHand)}</span>
+                </div>
+              </div>
+            )}
             <div className="rpt-recon-row">
               <span className="rpt-recon-label">Digital Total</span>
               <span className="rpt-recon-value sky">{currency(digitalTotal)}</span>

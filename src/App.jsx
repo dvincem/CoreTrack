@@ -836,6 +836,8 @@ const NAV_SECTIONS = [
       { id: "orders", label: "Orders", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
       { id: "inventory", label: "Inventory", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
       { id: "products", label: "Products", roles: MGR_UP },
+      { id: "expenses", label: "Expenses", roles: MGR_UP },
+      { id: "cashledger", label: "Cash Ledger", roles: MGR_UP },
       { id: "purchases", label: "Purchases", roles: MGR_UP },
       { id: "recap", label: "Recap Tires", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
       { id: "returns", label: "Returns", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
@@ -862,8 +864,6 @@ const NAV_SECTIONS = [
     label: "Finance",
     items: [
       { id: "profits", label: "Profit & Margins", roles: MGR_UP },
-      { id: "expenses", label: "Expenses", roles: MGR_UP },
-      { id: "cashledger", label: "Cash Ledger", roles: MGR_UP },
       { id: "receivables", label: "Receivables", roles: MGR_UP },
       { id: "payables", label: "Payables", roles: MGR_UP },
       { id: "sales-projection", label: "Sales Projection", roles: MGR_UP },
@@ -914,6 +914,13 @@ function TireHub() {
   const [pendingFirstLogin, setPendingFirstLogin] = React.useState(null); // loginData when must_change_pin
   const [showLanding, setShowLanding] = React.useState(() => !localStorage.getItem("th-token") && !sessionStorage.getItem("th-landing-seen"));
   const [showSettings, setShowSettings] = React.useState(false);
+  const settingsRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!showSettings) return;
+    const handler = e => { if (settingsRef.current && !settingsRef.current.contains(e.target)) setShowSettings(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSettings]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [isShopClosed, setIsShopClosed] = React.useState(false);
   const [businessDate, setBusinessDate] = React.useState(new Date().toISOString().split('T')[0]);
@@ -1335,7 +1342,7 @@ function TireHub() {
         </nav>
 
         {/* Settings button + popover */}
-        <div className="th-sidebar-bottom">
+        <div className="th-sidebar-bottom" ref={settingsRef}>
           {showSettings && (
             <div className="th-settings-popover">
               {/* Dark mode */}
@@ -1450,7 +1457,7 @@ function TireHub() {
 
           switch (page) {
             case "dashboard": return <DashboardPage key={refresh} shopId={shop} shopName={currentShopName} businessDate={businessDate} setPageContext={setPageContext} />;
-            case "pos": return <POSPage key={refresh} shopId={shop} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
+            case "pos": return <POSPage key={refresh} shopId={shop} shopName={currentShopName} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
             case "inventory": return <InventoryPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "orders": return <OrdersPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "recap": return <RecapPage key={refresh} shopId={shop} onRefresh={doRefresh} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;

@@ -339,7 +339,7 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
 /* ══════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════ */
-function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed, businessDate }) {
+function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed, businessDate }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
   React.useEffect(() => {
@@ -920,7 +920,16 @@ function POSPage({ shopId, onRefresh, authUser, currentStaffId, currentStaffName
       )}
 
       <div className="pos-page-header">
-        <div className="th-title-format">Point<span style={{ color: 'var(--th-orange)' }}>of Sale</span></div>
+        <div className="th-title-format">
+          {shopName
+            ? (() => {
+                const words = shopName.trim().split(/\s+/)
+                const last = words.pop()
+                return <>{words.join(' ')}{words.length > 0 ? ' ' : ''}<span style={{ color: 'var(--th-orange)' }}>{last}</span></>
+              })()
+            : <>Point<span style={{ color: 'var(--th-orange)' }}>of Sale</span></>
+          }
+        </div>
       </div>
 
       <div className="pos-root">

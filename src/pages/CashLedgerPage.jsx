@@ -1,4 +1,5 @@
 import React from 'react'
+import ReactDOM from 'react-dom'
 import { API_URL, currency, compactCurrency, apiFetch } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import { DataTable } from '../components/DataTable'
@@ -302,7 +303,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   return (
     <div className="cl-root animate-slide-in-right">
       {/* ── Confirm Save Modal ── */}
-      {pendingEntry && (
+      {pendingEntry && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">{pendingEntry.isEdit ? 'Confirm Update Entry' : 'Confirm Record Entry'}</div>
@@ -319,10 +320,10 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* ── Void Modal ── */}
-      {voidTarget && (
+      {voidTarget && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Void Entry?</div>
@@ -341,7 +342,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {toast && <div className="cl-toast"><span>{toast.icon}</span> {toast.msg}</div>}
 
@@ -475,7 +476,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       </div>
 
       {/* ── Entry Form Modal ── */}
-      {showEntryForm && (
+      {showEntryForm && ReactDOM.createPortal(
         <div className="cl-form-overlay" onClick={e => { if (e.target === e.currentTarget) cancelEdit() }}>
           <div className="cl-form-modal">
             <div className="cl-form-modal-header">
@@ -536,7 +537,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
             </form>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* ── Transaction Table ── */}
       <div className="th-section-label">Cash History</div>
