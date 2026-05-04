@@ -147,6 +147,7 @@ router.get("/items/:shop_id", async (req, res) => {
   if (isGrouped) {
     selectCols = `
       group_key as item_id,
+      MAX(item_id) as real_item_id,
       MAX(sku) as sku,
       MAX(item_name) as item_name,
       MAX(category) as category,

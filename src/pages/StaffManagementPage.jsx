@@ -178,6 +178,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
   const [addForm, setAddForm] = useState(BLANK_FORM);
   const [addError, setAddError] = useState('');
   const [addSaving, setAddSaving] = useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm] = useState(BLANK_FORM);
   const [editError, setEditError] = useState('');
@@ -200,6 +201,24 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
     document.addEventListener("click", closeMenu);
     return () => document.removeEventListener("click", closeMenu);
   }, [shopId]);
+
+  // --- Persistence Logic ---
+  useEffect(() => {
+    if (!shopId) return;
+    try {
+      const draft = localStorage.getItem(`th-sm-add-draft-${shopId}`);
+      if (draft) setAddForm(JSON.parse(draft));
+      const open = localStorage.getItem(`th-sm-add-open-${shopId}`);
+      if (open) setShowAdd(open === "true");
+    } catch (e) { console.error("Failed to load Staff draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-sm-add-draft-${shopId}`, JSON.stringify(addForm));
+    localStorage.setItem(`th-sm-add-open-${shopId}`, String(showAdd));
+  }, [addForm, showAdd, shopId, isDraftLoaded]);
 
   useEffect(() => {
     fetchAttendance();
@@ -238,9 +257,20 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
         body: JSON.stringify({ ...addForm, full_name: addForm.full_name.trim(), email: addForm.email.trim() || undefined, role: addForm.role }),
       });
       if (!res.ok) { setAddError('Failed to add staff'); return; }
+      localStorage.removeItem(`th-sm-add-draft-${shopId}`);
+      localStorage.removeItem(`th-sm-add-open-${shopId}`);
       fetchStaff(); setShowAdd(false);
+      setAddForm(BLANK_FORM);
     } catch { setAddError('Connection error'); }
     finally { setAddSaving(false); }
+  }
+
+  function cancelAdd() {
+    setAddForm(BLANK_FORM);
+    setShowAdd(false);
+    setAddError('');
+    localStorage.removeItem(`th-sm-add-draft-${shopId}`);
+    localStorage.removeItem(`th-sm-add-open-${shopId}`);
   }
 
   async function handleEdit() {
@@ -524,7 +554,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
         title="Add New Staff"
         footer={
           <>
-            <button className="th-btn th-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+            <button className="th-btn th-btn-ghost" onClick={cancelAdd}>Cancel</button>
             <button className="th-btn th-btn-orange" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding...' : '✓ Add Staff'}</button>
           </>
         }

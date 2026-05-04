@@ -298,7 +298,11 @@ router.get("/payables-kpi/:shop_id", (req, res) => {
        COALESCE(SUM(ap.balance_amount), 0) AS totalBalance,
        SUM(CASE WHEN ap.status = 'PAID' OR ap.balance_amount = 0 THEN 1 ELSE 0 END) AS paidCount,
        SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND ap.due_date < date('now') THEN 1 ELSE 0 END) AS overdueCount,
-       SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND (ap.due_date IS NULL OR ap.due_date >= date('now')) THEN 1 ELSE 0 END) AS openCount
+       SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND (ap.due_date IS NULL OR ap.due_date >= date('now')) THEN 1 ELSE 0 END) AS openCount,
+       COALESCE(SUM(CASE WHEN strftime('%Y-%m', ap.due_date) = strftime('%Y-%m', 'now') AND ap.status != 'PAID' AND ap.balance_amount > 0 THEN ap.balance_amount ELSE 0 END), 0) AS monthBalance,
+       COALESCE(SUM(CASE WHEN date(ap.due_date) >= date('now', 'weekday 0', '-7 days') AND date(ap.due_date) <= date('now', 'weekday 0', '-1 days') AND ap.status != 'PAID' AND ap.balance_amount > 0 THEN ap.balance_amount ELSE 0 END), 0) AS weekBalance,
+       COALESCE(SUM(CASE WHEN strftime('%Y-%m', ap.due_date) = strftime('%Y-%m', 'now') THEN ap.original_amount ELSE 0 END), 0) AS monthOriginal,
+       COALESCE(SUM(CASE WHEN strftime('%Y-%m', ap.due_date) = strftime('%Y-%m', 'now') THEN ap.amount_paid ELSE 0 END), 0) AS monthPaid
      FROM accounts_payable ap WHERE ap.shop_id = ? AND ap.status != 'VOIDED'`,
     [shop_id],
     (err, row) => res.json(err ? { error: err.message } : (row || {}))
@@ -688,6 +692,23 @@ router.get("/financial-health/:shop_id", (req, res) => {
       AND DATE(ap.due_date) BETWEEN DATE('now') AND DATE('now', '+14 days')
     ORDER BY ap.due_date ASC LIMIT 8`;
 
+  // 10. Period Payables (due in filtered period)
+  const qPeriodPayables = `
+    SELECT COALESCE(SUM(balance_amount), 0) AS period_payables_balance,
+           COUNT(*) AS period_payables_count
+    FROM accounts_payable
+    WHERE shop_id = ? AND status NOT IN ('PAID','VOIDED')
+      AND DATE(due_date) BETWEEN ? AND ?`;
+
+  // 11. Top Expense Category
+  const qTopExpenseCategory = `
+    SELECT ec.name AS category_name, SUM(e.amount) AS total
+    FROM expenses e
+    JOIN expense_categories ec ON e.category_id = ec.category_id
+    WHERE e.shop_id = ? AND e.is_void = 0 AND DATE(e.expense_date) BETWEEN ? AND ?
+    GROUP BY ec.name
+    ORDER BY total DESC LIMIT 1`;
+
   // 6. Previous period comparison (same length, before start)
   const msStart = new Date(start).getTime();
   const msEnd   = new Date(end).getTime();
@@ -706,17 +727,19 @@ router.get("/financial-health/:shop_id", (req, res) => {
   });
 
   Promise.all([
-    run(qSales,            [shop_id, start, end]),
-    run(qPayables,         [shop_id, start, end]),
-    run(qOpenPayables,     [shop_id]),
-    run(qExpenses,         [shop_id, start, end]),
-    run(qPayablesPaid,     [shop_id, start, end]),
-    run(qPrevSales,        [shop_id, prevStart, prevEnd]),
-    run(qRcvCollected,     [shop_id, start, end]),
-    run(qOpenReceivables,  [shop_id]),
-    run(qOverduePayables,  [shop_id]),
-    run(qUpcoming,         [shop_id], true),
-  ]).then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10]) => {
+    run(qSales,              [shop_id, start, end]),
+    run(qPayables,           [shop_id, start, end]),
+    run(qOpenPayables,       [shop_id]),
+    run(qExpenses,           [shop_id, start, end]),
+    run(qPayablesPaid,       [shop_id, start, end]),
+    run(qPrevSales,          [shop_id, prevStart, prevEnd]),
+    run(qRcvCollected,       [shop_id, start, end]),
+    run(qOpenReceivables,    [shop_id]),
+    run(qOverduePayables,    [shop_id]),
+    run(qUpcoming,           [shop_id], true),
+    run(qPeriodPayables,     [shop_id, start, end]),
+    run(qTopExpenseCategory, [shop_id, start, end]),
+  ]).then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12]) => {
     const sales_revenue               = r1.sales_revenue               || 0;
     const sales_count                 = r1.sales_count                 || 0;
     const payables_created            = r2.payables_created            || 0;
@@ -734,6 +757,10 @@ router.get("/financial-health/:shop_id", (req, res) => {
     const overdue_payables            = r9.overdue_payables            || 0;
     const overdue_payables_count      = r9.overdue_payables_count      || 0;
     const upcoming_payables           = r10 || [];
+    const period_payables_balance     = r11.period_payables_balance     || 0;
+    const period_payables_count       = r11.period_payables_count       || 0;
+    const top_category_name           = r12?.category_name              || '—';
+    const top_category_amount         = r12?.total                      || 0;
 
     const cash_out     = payables_paid + expenses_total;
     const net_position = sales_revenue + receivables_collected - payables_created - expenses_total;
@@ -754,7 +781,9 @@ router.get("/financial-health/:shop_id", (req, res) => {
       payables_created, payables_count,
       payables_paid,
       open_payables, open_payables_count,
+      period_payables_balance, period_payables_count,
       expenses_total, expenses_count,
+      top_category_name, top_category_amount,
       receivables_collected, receivables_collected_count,
       open_receivables, open_receivables_count,
       overdue_payables, overdue_payables_count,

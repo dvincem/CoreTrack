@@ -695,6 +695,33 @@
   font-size: 0.82rem;
 }
 
+.rpt-health-breakdown {
+  margin: 0.25rem 0 0.45rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--th-bg-page);
+  border: 1px solid var(--th-border);
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rpt-health-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--th-text-faint);
+  font-weight: 500;
+}
+
+.rpt-health-breakdown-row .val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: var(--th-text-body);
+}
+
 /* ═══════════════════════════════════════════════
    PAYMENT METHOD MINI CARDS (daily activity)
 ═══════════════════════════════════════════════ */

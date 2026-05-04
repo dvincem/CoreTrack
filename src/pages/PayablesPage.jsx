@@ -238,6 +238,15 @@ function PayablesPage({ shopId }) {
   const [voidTarget, setVoidTarget] = React.useState(null);
   const [voidReason, setVoidReason] = React.useState("");
 
+  const [selectedWeekPayableIds, setSelectedWeekPayableIds] = React.useState(new Set());
+  React.useEffect(() => {
+    if (selectedWeek) {
+      setSelectedWeekPayableIds(new Set(selectedWeek.items.map(p => p.payable_id)));
+    } else {
+      setSelectedWeekPayableIds(new Set());
+    }
+  }, [selectedWeek]);
+
   // Toast
   const [toast, setToast] = React.useState(null);
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2800); };
@@ -500,9 +509,15 @@ function PayablesPage({ shopId }) {
 
   /* Stats — from KPI endpoint */
   const totalPayables = kpi?.totalPayables || 0;
+  const monthBalance = kpi?.monthBalance || 0;
+  const weekBalance = kpi?.weekBalance || 0;
+  const monthOriginal = kpi?.monthOriginal || 0;
+  const monthPaid = kpi?.monthPaid || 0;
+  const monthRemaining = monthOriginal - monthPaid;
+
+  const paidPct = monthOriginal > 0 ? Math.round((monthPaid / monthOriginal) * 100) : 0;
   const totalBalance = kpi?.totalBalance || 0;
   const totalPaid = totalPayables - totalBalance;
-  const paidPct = totalPayables > 0 ? Math.round((totalPaid / totalPayables) * 100) : 0;
   const overdueCount = kpi?.overdueCount || 0;
   const pendingCount = kpi?.openCount || 0;
   const paidCount = kpi?.paidCount || 0;
@@ -600,10 +615,10 @@ function PayablesPage({ shopId }) {
       {/* KPI cards */}
       <div className="th-kpi-row">
         <KpiCard label="Total Payables" value={payCompact(totalPayables)} accent="sky" icon={ICONS.total} sub={`${kpi?.total || 0} total`} />
-        <KpiCard label="Amount Due" value={payCompact(totalBalance)} accent="rose" icon={ICONS.balance} sub="still outstanding" />
+        <KpiCard label="This Month" value={payCompact(monthBalance)} accent="rose" icon={ICONS.calendar} sub="due this month" />
+        <KpiCard label="This Week" value={payCompact(weekBalance)} accent="orange" icon={ICONS.calendar} sub="due this week" />
         <KpiCard label="Total Paid" value={payCompact(totalPaid)} accent="emerald" icon={ICONS.paid} sub={`${paidPct}% of total`} />
         <KpiCard label="Overdue" value={overdueCount} accent="orange" icon={ICONS.overdue} sub="suppliers" />
-        <KpiCard label="Pending" value={pendingCount} accent="amber" icon={ICONS.pending} sub="suppliers" />
       </div>
 
       {/* Payment progress */}
@@ -620,7 +635,7 @@ function PayablesPage({ shopId }) {
             >
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
-            Payment Progress
+            This Month's Payment Progress
           </div>
           <div className="pay-progress-pct">{paidPct}%</div>
         </div>
@@ -631,8 +646,8 @@ function PayablesPage({ shopId }) {
           />
         </div>
         <div className="pay-progress-detail">
-          <span>Paid: {payCurrency(totalPaid)}</span>
-          <span>Remaining: {payCurrency(totalBalance)}</span>
+          <span>Paid: {payCurrency(monthPaid)}</span>
+          <span>Remaining: {payCurrency(monthBalance)}</span>
         </div>
       </div>
 
@@ -947,7 +962,8 @@ function PayablesPage({ shopId }) {
 
       {/* ── DAY DETAIL MODAL ── */}
       {expandedCell && (() => {
-        const items = payables.filter(p => (p.due_date || '').slice(0, 10) === expandedCell);
+        const items = calPayables.filter(p => (p.due_date || '').slice(0, 10) === expandedCell);
+        const totalDayBalance = items.reduce((sum, p) => sum + (p.balance_amount || 0), 0);
         const label = new Date(expandedCell + 'T12:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
         return (
@@ -971,6 +987,18 @@ function PayablesPage({ shopId }) {
             }
           >
             <div style={{ padding: '0.2rem' }}>
+              {items.length > 1 && (
+                <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: 'var(--th-rose-bg)', border: '1px solid var(--th-rose)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--th-rose)', opacity: 0.8 }}>Daily Total Balance</div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--th-rose)', fontFamily: 'Barlow Condensed', lineHeight: 1 }}>{payCurrency(totalDayBalance)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', opacity: 0.7 }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }}>Items</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 900 }}>{items.length}</div>
+                  </div>
+                </div>
+              )}
               {items.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--th-text-faint)' }}>
                   <div style={{ fontSize: '2rem', marginBottom: '0.5rem', opacity: 0.5 }}>📅</div>
@@ -1195,17 +1223,24 @@ function PayablesPage({ shopId }) {
         </div>
       )}
 
-      {/* ── WEEKLY SUMMARY MODAL ── */}
       {selectedWeek && (() => {
+        const selectedItems = selectedWeek.items.filter(p => selectedWeekPayableIds.has(p.payable_id));
+        const dynamicTotal = selectedItems.reduce((s, p) => s + (p.balance_amount || 0), 0);
+
         // Group items by date
         const grouped = {};
         selectedWeek.items.forEach(p => {
-          const d = p.due_date.slice(0, 10);
+          const d = (p.due_date || "").slice(0, 10);
           if (!grouped[d]) grouped[d] = [];
           grouped[d].push(p);
         });
         // Sort dates ascending
         const sortedDates = Object.keys(grouped).sort();
+
+        const toggleAll = (select) => {
+          if (select) setSelectedWeekPayableIds(new Set(selectedWeek.items.map(p => p.payable_id)));
+          else setSelectedWeekPayableIds(new Set());
+        };
 
         return (
           <Modal
@@ -1218,11 +1253,15 @@ function PayablesPage({ shopId }) {
               <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'var(--th-rose-bg)', border: '1px solid var(--th-rose)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--th-rose)', opacity: 0.8 }}>Total Weekly Balance</div>
-                  <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--th-rose)', fontFamily: 'Barlow Condensed', lineHeight: 1 }}>{payCurrency(selectedWeek.amount)}</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--th-rose)', fontFamily: 'Barlow Condensed', lineHeight: 1 }}>{payCurrency(dynamicTotal)}</div>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button onClick={() => toggleAll(true)} style={{ background: 'var(--th-rose)', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.62rem', fontWeight: 800, padding: '2px 8px', cursor: 'pointer', textTransform: 'uppercase' }}>Select All</button>
+                    <button onClick={() => toggleAll(false)} style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--th-rose)', border: '1px solid var(--th-rose)', borderRadius: '4px', fontSize: '0.62rem', fontWeight: 800, padding: '2px 8px', cursor: 'pointer', textTransform: 'uppercase' }}>Exclude All</button>
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right', opacity: 0.7 }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>Items Due</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{selectedWeek.items.length}</div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>Items Selected</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{selectedItems.length} <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>/ {selectedWeek.items.length}</span></div>
                 </div>
               </div>
 
@@ -1230,7 +1269,7 @@ function PayablesPage({ shopId }) {
                 {sortedDates.map(dateStr => {
                   const items = grouped[dateStr];
                   const dayLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric' });
-                  const dayTotal = items.reduce((s, i) => s + (i.balance_amount || 0), 0);
+                  const dayTotal = items.filter(p => selectedWeekPayableIds.has(p.payable_id)).reduce((s, i) => s + (i.balance_amount || 0), 0);
 
                   return (
                     <div key={dateStr} className="pay-day-group">
@@ -1240,27 +1279,52 @@ function PayablesPage({ shopId }) {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                         {items.map(p => {
+                          const isSelected = selectedWeekPayableIds.has(p.payable_id);
                           const name = p.payable_type === 'GENERAL' ? (p.payee_name || 'General') : (p.supplier_name || 'Supplier');
+                          
+                          const toggleItem = (e) => {
+                            e.stopPropagation();
+                            setSelectedWeekPayableIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(p.payable_id)) next.delete(p.payable_id);
+                              else next.add(p.payable_id);
+                              return next;
+                            });
+                          };
+
                           return (
-                            <button
-                              key={p.payable_id}
-                              className={`pay-cal-item status-${getPaymentStatus(p)}`}
+                            <div key={p.payable_id} className={`pay-cal-item status-${getPaymentStatus(p)}`}
                               style={{
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                 padding: '0.65rem 1rem', width: '100%', textAlign: 'left',
-                                border: '1px solid var(--th-border)', background: 'rgba(255,255,255,0.02)'
+                                border: '1px solid var(--th-border)', background: isSelected ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.01)',
+                                borderRadius: '10px', cursor: 'pointer',
+                                opacity: isSelected ? 1 : 0.45,
+                                transition: 'all 0.2s'
                               }}
-                              onClick={() => { setSelectedWeek(null); openDetail(p); }}
+                              onClick={toggleItem}
                             >
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--th-text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description || 'No description'}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                <input type="checkbox" checked={isSelected} readOnly style={{ marginRight: '0.85rem', width: '16px', height: '16px', accentColor: 'var(--th-rose)', cursor: 'pointer' }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--th-text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description || 'No description'}</div>
+                                </div>
                               </div>
-                              <div style={{ textAlign: 'right', marginLeft: '1rem' }}>
-                                <div style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--th-rose)' }}>{payCurrency(p.balance_amount)}</div>
-                                <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Balance</div>
+                              <div style={{ textAlign: 'right', marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div>
+                                  <div style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--th-rose)' }}>{payCurrency(p.balance_amount)}</div>
+                                  <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Balance</div>
+                                </div>
+                                <button 
+                                  className="pay-cal-view-btn"
+                                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--th-border)', borderRadius: '6px', color: '#fff', padding: '0.3rem 0.5rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}
+                                  onClick={(e) => { e.stopPropagation(); setSelectedWeek(null); openDetail(p); }}
+                                >
+                                  Details
+                                </button>
                               </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

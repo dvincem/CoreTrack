@@ -39,6 +39,7 @@ function CustomerPage({ shopId }) {
   const [addForm, setAddForm] = React.useState(BLANK_FORM)
   const [addError, setAddError] = React.useState('')
   const [addSaving, setAddSaving] = React.useState(false)
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
 
   // Edit modal
   const [editTarget, setEditTarget] = React.useState(null)
@@ -61,10 +62,27 @@ function CustomerPage({ shopId }) {
   const [detailError, setDetailError] = React.useState('')
 
   React.useEffect(() => {
-    if (!shopId) return
     apiFetch(`${API_URL}/customers-kpi/${shopId}`)
       .then(r => r.json()).then(d => { if (!d.error) setKpi(d) }).catch(() => { })
   }, [shopId])
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const draft = localStorage.getItem(`th-cu-add-draft-${shopId}`);
+      if (draft) setAddForm(JSON.parse(draft));
+      const open = localStorage.getItem(`th-cu-add-open-${shopId}`);
+      if (open) setShowAdd(open === "true");
+    } catch (e) { console.error("Failed to load Customer draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-cu-add-draft-${shopId}`, JSON.stringify(addForm));
+    localStorage.setItem(`th-cu-add-open-${shopId}`, String(showAdd));
+  }, [addForm, showAdd, shopId, isDraftLoaded]);
 
   function openDetail(c) {
     setDetailCustomer(c)
@@ -104,10 +122,20 @@ function CustomerPage({ shopId }) {
           })
         } catch { }
       }
+      localStorage.removeItem(`th-cu-add-draft-${shopId}`);
+      localStorage.removeItem(`th-cu-add-open-${shopId}`);
       setShowAdd(false); setAddForm(BLANK_FORM)
       fetchCustomers()
     } catch { setAddError('Could not connect to server.') }
     finally { setAddSaving(false) }
+  }
+
+  function cancelAdd() {
+    setAddForm(BLANK_FORM);
+    setShowAdd(false);
+    setAddError('');
+    localStorage.removeItem(`th-cu-add-draft-${shopId}`);
+    localStorage.removeItem(`th-cu-add-open-${shopId}`);
   }
 
   async function handleEdit() {
@@ -313,43 +341,9 @@ function CustomerPage({ shopId }) {
                 New Customer
                 <button className="cp-modal-close" onClick={() => setShowAdd(false)}>✕</button>
               </div>
-              {/* Row 1: Name + Company */}
-              <div className="cp-modal-grid">
-                <div className="cp-modal-field">
-                  <label className="cp-modal-label">Customer/Company Name *</label>
-                  <input className="cp-modal-input" placeholder="Full name" value={addForm.customer_name} onChange={e => setAddForm(f => ({ ...f, customer_name: e.target.value }))} autoFocus />
-                </div>
-                <div className="cp-modal-field">
-                  <label className="cp-modal-label">Contact person</label>
-                  <input className="cp-modal-input" placeholder="Optional" value={addForm.company} onChange={e => setAddForm(f => ({ ...f, company: e.target.value }))} />
-                </div>
-              </div>
-              {/* Row 2: Contact + Car Plate */}
-              <div className="cp-modal-grid">
-                <div className="cp-modal-field">
-                  <label className="cp-modal-label">Contact Number</label>
-                  <input className="cp-modal-input" type="tel" placeholder="Optional" value={addForm.contact_number} onChange={e => setAddForm(f => ({ ...f, contact_number: e.target.value }))} />
-                </div>
-                <div className="cp-modal-field">
-                  <label className="cp-modal-label">Car Plate</label>
-                  <input className="cp-modal-input" placeholder="e.g. ABC-1234" value={addForm.car_plate_number} onChange={e => setAddForm(f => ({ ...f, car_plate_number: e.target.value }))} />
-                </div>
-              </div>
-              {/* Row 3: TIN Number + Address */}
-              <div className="cp-modal-grid">
-                <div className="cp-modal-field">
-                  <label className="cp-modal-label">TIN Number</label>
-                  <input className="cp-modal-input" placeholder="Optional" value={addForm.tin_number} onChange={e => setAddForm(f => ({ ...f, tin_number: e.target.value }))} />
-                </div>
-                <div className="cp-modal-field">
-                  <label className="cp-modal-label">Address</label>
-                  <input className="cp-modal-input" placeholder="Optional" value={addForm.address} onChange={e => setAddForm(f => ({ ...f, address: e.target.value }))} />
-                </div>
-              </div>
-              {addError && <div className="cp-modal-error">{addError}</div>}
-              {/* Row 4: Actions footer */}
+...
               <div className="cp-modal-actions">
-                <button className="cp-modal-cancel" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button className="cp-modal-cancel" onClick={cancelAdd}>Cancel</button>
                 <button className="cp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Customer'}</button>
               </div>
             </div>

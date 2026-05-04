@@ -87,6 +87,38 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       [shop_id, targetDate]
     );
 
+    const receivableTransactions = await dbAll(
+      `SELECT
+        rp.payment_id as id,
+        COALESCE(ar.sale_id, 'Manual AR') as invoiceNumber,
+        cm.customer_name as customerName,
+        rp.amount as amount,
+        rp.payment_method as paymentMethod,
+        rp.payment_date as timestamp,
+        'COLLECTION' as type
+      FROM receivable_payments rp
+      JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
+      JOIN customer_master cm ON ar.customer_id = cm.customer_id
+      WHERE rp.shop_id = ? AND rp.is_void = 0 AND rp.payment_date = ?`,
+      [shop_id, targetDate]
+    );
+
+    const payableTransactions = await dbAll(
+      `SELECT
+        pp.payment_id as id,
+        ap.payable_id as invoiceNumber,
+        COALESCE(ap.payee_name, sm.supplier_name, 'General') as customerName,
+        pp.amount as amount,
+        pp.payment_method as paymentMethod,
+        pp.payment_date as timestamp,
+        'PAYMENT' as type
+      FROM payable_payments pp
+      JOIN accounts_payable ap ON pp.payable_id = ap.payable_id
+      LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
+      WHERE pp.shop_id = ? AND pp.is_void = 0 AND pp.payment_date = ?`,
+      [shop_id, targetDate]
+    );
+
     const manualCashTransactions = await dbAll(
       `SELECT
         entry_id as id,
@@ -95,7 +127,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         amount as amount,
         entry_type as paymentMethod,
         created_at as timestamp,
-        CASE WHEN entry_type LIKE '%_IN' THEN 'MANUAL_IN' ELSE 'MANUAL_OUT' END as type
+        entry_type as type
       FROM cash_ledger
       WHERE shop_id = ? AND is_void = 0 AND entry_date = ?`,
       [shop_id, targetDate]
@@ -103,7 +135,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
 
     const formattedManualCash = manualCashTransactions.map(t => {
       let method = 'CASH';
-      if (t.paymentMethod.startsWith('GCASH')) method = 'GCASH';
+      // GCash In/Out in this shop are physical cash services (Customer gives/receives cash)
+      if (t.paymentMethod.startsWith('GCASH')) method = 'CASH';
       else if (t.paymentMethod.startsWith('CARD')) method = 'CARD';
       else if (t.paymentMethod.startsWith('BANK')) {
         const desc = (t.customerName || '').toUpperCase();
@@ -119,6 +152,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       ...expenseTransactions, 
       ...purchaseTransactions, 
       ...commissionTransactions,
+      ...receivableTransactions,
+      ...payableTransactions,
       ...formattedManualCash
     ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 

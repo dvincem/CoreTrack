@@ -374,6 +374,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [hasInvoice, setHasInvoice] = React.useState(true);
   const [paymentSplits, setPaymentSplits] = React.useState([{ method: "CASH", amount: "" }]);
   const [splitMode, setSplitMode] = React.useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
   const [creditDueDate, setCreditDueDate] = React.useState("");
   const [creditDownPayment, setCreditDownPayment] = React.useState("");
   const [customers, setCustomers] = React.useState([]);
@@ -382,6 +383,8 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
   const [category, setCategory] = React.useState("");
   const [brandLogos, setBrandLogos] = React.useState({});
+  const [custSearch, setCustSearch] = React.useState("");
+  const [showCustDrop, setShowCustDrop] = React.useState(false);
 
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -392,6 +395,43 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [dotModal, setDotModal] = React.useState(null); // array of DOT variants to pick from
   const [showCommission, setShowCommission] = React.useState(true); // collapsible commission section
   const cartColRef = React.useRef(null);
+  const isResettingPersistence = React.useRef(false);
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const savedCart = localStorage.getItem(`th-pos-cart-${shopId}`);
+      if (savedCart) setCart(JSON.parse(savedCart));
+      const savedCust = localStorage.getItem(`th-pos-cust-${shopId}`);
+      if (savedCust) setSelectedCustomer(savedCust);
+      const savedNotes = localStorage.getItem(`th-pos-notes-${shopId}`);
+      if (savedNotes) setSaleNotes(savedNotes);
+      const savedInv = localStorage.getItem(`th-pos-inv-${shopId}`);
+      if (savedInv) setInvoiceNumber(savedInv);
+      const savedTiremen = localStorage.getItem(`th-pos-tiremen-${shopId}`);
+      if (savedTiremen) setSelectedTiremen(JSON.parse(savedTiremen));
+      const savedSplits = localStorage.getItem(`th-pos-splits-${shopId}`);
+      if (savedSplits) setPaymentSplits(JSON.parse(savedSplits));
+      const savedSplitMode = localStorage.getItem(`th-pos-splitmode-${shopId}`);
+      if (savedSplitMode) setSplitMode(savedSplitMode === 'true');
+    } catch (e) { console.error("Failed to load POS draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded || isResettingPersistence.current) return;
+    const save = () => {
+      localStorage.setItem(`th-pos-cart-${shopId}`, JSON.stringify(cart));
+      localStorage.setItem(`th-pos-cust-${shopId}`, selectedCustomer);
+      localStorage.setItem(`th-pos-notes-${shopId}`, saleNotes);
+      localStorage.setItem(`th-pos-inv-${shopId}`, invoiceNumber);
+      localStorage.setItem(`th-pos-tiremen-${shopId}`, JSON.stringify(selectedTiremen));
+      localStorage.setItem(`th-pos-splits-${shopId}`, JSON.stringify(paymentSplits));
+      localStorage.setItem(`th-pos-splitmode-${shopId}`, String(splitMode));
+    };
+    save();
+  }, [cart, selectedCustomer, saleNotes, invoiceNumber, selectedTiremen, paymentSplits, splitMode, shopId, isDraftLoaded]);
 
   // Scroll to cart on mobile
   const scrollToCart = () => {
@@ -630,7 +670,26 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     setCart(cart.filter((c) => c.cart_id !== id));
   }
   function clearCart() {
+    isResettingPersistence.current = true;
+    localStorage.removeItem(`th-pos-cart-${shopId}`);
+    localStorage.removeItem(`th-pos-cust-${shopId}`);
+    localStorage.removeItem(`th-pos-notes-${shopId}`);
+    localStorage.removeItem(`th-pos-inv-${shopId}`);
+    localStorage.removeItem(`th-pos-tiremen-${shopId}`);
+    localStorage.removeItem(`th-pos-splits-${shopId}`);
+    localStorage.removeItem(`th-pos-splitmode-${shopId}`);
     setCart([]);
+    setSelectedCustomer("");
+    setSaleNotes("");
+    setInvoiceNumber("");
+    setSelectedTiremen([]);
+    setPaymentSplits([{ method: "CASH", amount: "" }]);
+    setSplitMode(false);
+    setSelectedHandlerId(currentStaffId || "");
+    setCommissionOverride(null);
+    setCreditDueDate("");
+    setCreditDownPayment("");
+    setTimeout(() => { isResettingPersistence.current = false; }, 100);
   }
 
   function updateCartItem(cartId, patch) {
@@ -760,16 +819,6 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
       const saleTotal = total;
       clearCart();
-      setSelectedTiremen([]);
-      setSelectedCustomer("");
-      setSelectedHandlerId(currentStaffId || "");
-      setSaleNotes("");
-      setInvoiceNumber("");
-      setCommissionOverride(null);
-      setPaymentSplits([{ method: "CASH", amount: "" }]);
-      setSplitMode(false);
-      setCreditDueDate("");
-      setCreditDownPayment("");
       setToast({ amount: saleTotal });
       onRefresh();
     } catch (e) {
@@ -923,10 +972,10 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         <div className="th-title-format">
           {shopName
             ? (() => {
-                const words = shopName.trim().split(/\s+/)
-                const last = words.pop()
-                return <>{words.join(' ')}{words.length > 0 ? ' ' : ''}<span style={{ color: 'var(--th-orange)' }}>{last}</span></>
-              })()
+              const words = shopName.trim().split(/\s+/)
+              const last = words.pop()
+              return <>{words.join(' ')}{words.length > 0 ? ' ' : ''}<span style={{ color: 'var(--th-orange)' }}>{last}</span></>
+            })()
             : <>Point<span style={{ color: 'var(--th-orange)' }}>of Sale</span></>
           }
         </div>
@@ -1014,16 +1063,16 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                   </div>
                 </div>
                 {miscForm.price && miscForm.cost && parseFloat(miscForm.price) > 0 && (
-                    <div style={{ background: "var(--th-emerald-bg)", border: "1px solid var(--th-emerald)", borderRadius: 7, padding: "0.4rem 0.65rem", fontSize: "0.82rem", color: "var(--th-text-muted)" }}>
-                      Margin: <strong style={{ color: "var(--th-emerald)", fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.95rem" }}>
-                        ₱{((parseFloat(miscForm.price) - parseFloat(miscForm.cost || 0)) * (parseInt(miscForm.qty) || 1)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                      </strong>
-                      <span style={{ color: "var(--th-text-faint)", marginLeft: "0.4rem" }}>
-                        ({(((parseFloat(miscForm.price) - parseFloat(miscForm.cost || 0)) / parseFloat(miscForm.price)) * 100).toFixed(1)}% margin)
-                      </span>
-                    </div>
-                  )}
-                  <div style={{ padding: "0.75rem 1.1rem", borderTop: "1px solid var(--th-border)", display: "flex", gap: "0.6rem" }}>
+                  <div style={{ background: "var(--th-emerald-bg)", border: "1px solid var(--th-emerald)", borderRadius: 7, padding: "0.4rem 0.65rem", fontSize: "0.82rem", color: "var(--th-text-muted)" }}>
+                    Margin: <strong style={{ color: "var(--th-emerald)", fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.95rem" }}>
+                      ₱{((parseFloat(miscForm.price) - parseFloat(miscForm.cost || 0)) * (parseInt(miscForm.qty) || 1)).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                    </strong>
+                    <span style={{ color: "var(--th-text-faint)", marginLeft: "0.4rem" }}>
+                      ({(((parseFloat(miscForm.price) - parseFloat(miscForm.cost || 0)) / parseFloat(miscForm.price)) * 100).toFixed(1)}% margin)
+                    </span>
+                  </div>
+                )}
+                <div style={{ padding: "0.75rem 1.1rem", borderTop: "1px solid var(--th-border)", display: "flex", gap: "0.6rem" }}>
                   <button onClick={() => setShowMiscModal(false)}
                     style={{ padding: "0.55rem 1rem", borderRadius: 8, background: "var(--th-bg-input)", color: "var(--th-text-muted)", border: "1px solid var(--th-border-strong)", cursor: "pointer", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.88rem", textTransform: "uppercase" }}>
                     Cancel
@@ -1174,35 +1223,63 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         {/* ── RIGHT: Cart ── */}
         <div className="pos-cart-col" ref={cartColRef}>
           {/* Cart header */}
-          <div className="pos-cart-header">
-            <div className="pos-cart-title">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-              </svg>
-              Cart
-              {cart.length > 0 && (
-                <span className="pos-cart-badge">{cart.length}</span>
-              )}
-
-              {/* Header Title */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {isShopClosed && (
-                  <div className="pos-closed-badge">
-                    <span className="pulse"></span>
-                    NEXT DAY MODE
-                  </div>
-                )}
+          <div className="pos-cart-header" style={{ padding: "0.4rem 1rem" }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
+              <div className="pos-cart-title" style={{ fontSize: '1.1rem' }}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                Cart
               </div>
+
+              {/* Handled By - Moved to Header */}
+              <div style={{ position: 'relative', flex: '0 1 180px' }}>
+                <select
+                  value={selectedHandlerId}
+                  onChange={e => setSelectedHandlerId(e.target.value)}
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid var(--th-border-strong)",
+                    borderRadius: 6,
+                    padding: "0.2rem 1.8rem 0.2rem 0.5rem",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: "var(--th-text-muted)",
+                    width: "100%",
+                    outline: "none",
+                    appearance: "none",
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.03em"
+                  }}
+                >
+                  <option value="" disabled>Handled By</option>
+                  {staff
+                    .filter(s => MANAGEMENT_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()) && (presentStaffIds.includes(s.staff_id) || s.staff_id === currentStaffId))
+                    .map(s => (
+                      <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>
+                    ))
+                  }
+                </select>
+                <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--th-text-faint)', fontSize: '0.6rem' }}>▼</div>
+              </div>
+
+              {isShopClosed && (
+                <div className="pos-closed-badge" style={{ padding: '0.1rem 0.4rem', fontSize: '0.55rem' }}>
+                  NEXT DAY
+                </div>
+              )}
             </div>
+
             {cart.length > 0 && (
               <button className="pos-cart-clear" onClick={() => setShowClearCartModal(true)}>
                 Clear
@@ -1210,44 +1287,6 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             )}
           </div>
 
-          {/* Staff row: Processed By + Handled By */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem", padding: "0.3rem 0.85rem 0" }}>
-            <div>
-              <div className="pos-staff-label">Processed By</div>
-              <div style={{
-                background: "var(--th-bg-input)", border: "1px solid var(--th-border-mid)",
-                borderRadius: 7, padding: "0.3rem 0.5rem",
-                fontSize: "0.8rem", fontWeight: 600, color: "var(--th-text-primary)",
-                display: "flex", alignItems: "center", gap: "0.3rem",
-              }}>
-                <span style={{ color: "var(--th-orange)", fontSize: "0.6rem" }}>●</span>
-                {authUser || "System"}
-              </div>
-            </div>
-            <div>
-              <div className="pos-staff-label">Handled By</div>
-              <select
-                value={selectedHandlerId}
-                onChange={e => setSelectedHandlerId(e.target.value)}
-                style={{
-                  background: "var(--th-bg-input)", border: "1px solid var(--th-border-mid)",
-                  borderRadius: 7, padding: "0.3rem 0.5rem",
-                  fontSize: "0.8rem", fontWeight: 600, color: "var(--th-text-primary)",
-                  width: "100%", outline: "none", appearance: "auto"
-                }}
-              >
-                {staff
-                  .filter(s => MANAGEMENT_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()) && (presentStaffIds.includes(s.staff_id) || s.staff_id === currentStaffId))
-                  .map(s => (
-                    <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>
-                  ))
-                }
-                {!staff.some(s => s.staff_id === currentStaffId && MANAGEMENT_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase())) && currentStaffId && (
-                  <option value={currentStaffId}>{currentStaffName || "—"}</option>
-                )}
-              </select>
-            </div>
-          </div>
 
           {/* Form fields — compact grid */}
           <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", padding: "0.25rem 0.85rem 0" }}>
@@ -1256,17 +1295,47 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
               <div>
                 <div className="pos-staff-label">Customer</div>
-                <select
-                  className="pos-staff-select"
-                  style={{ padding: "0.3rem 0.45rem", fontSize: "0.8rem", borderRadius: 7 }}
-                  value={selectedCustomer}
-                  onChange={e => setSelectedCustomer(e.target.value)}
-                >
-                  <option value="">— Walk-in —</option>
-                  {customers.map(c => (
-                    <option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>
-                  ))}
-                </select>
+                <div className="pos-cust-search-wrap">
+                  <input
+                    type="text"
+                    className="pos-staff-select"
+                    style={{ padding: "0.3rem 0.45rem", fontSize: "0.8rem", borderRadius: 7, width: "100%", boxSizing: "border-box" }}
+                    placeholder="Search Customer / Walk-in"
+                    value={custSearch || (customers.find(c => c.customer_id === selectedCustomer)?.customer_name || "")}
+                    onFocus={() => setShowCustDrop(true)}
+                    onBlur={() => setTimeout(() => setShowCustDrop(false), 200)}
+                    onChange={e => {
+                      setCustSearch(e.target.value);
+                      if (!e.target.value) setSelectedCustomer("");
+                    }}
+                  />
+                  {selectedCustomer && (
+                    <button className="pos-cust-clear" onClick={() => { setSelectedCustomer(""); setCustSearch(""); }}>×</button>
+                  )}
+                  {showCustDrop && (
+                    <div className="pos-cust-dropdown">
+                      <div className="pos-cust-item" onClick={() => { setSelectedCustomer(""); setCustSearch(""); }}>
+                        — Walk-in —
+                      </div>
+                      {customers
+                        .filter(c => !custSearch || c.customer_name?.toLowerCase().includes(custSearch.toLowerCase()) || c.phone?.includes(custSearch))
+                        .slice(0, 15)
+                        .map(c => (
+                          <div
+                            key={c.customer_id}
+                            className={`pos-cust-item${selectedCustomer === c.customer_id ? ' active' : ''}`}
+                            onClick={() => {
+                              setSelectedCustomer(c.customer_id);
+                              setCustSearch(c.customer_name);
+                            }}
+                          >
+                            <div className="pos-cust-item-name">{c.customer_name}</div>
+                            {c.phone && <div className="pos-cust-item-phone">{c.phone}</div>}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <div className="pos-staff-label">Invoice #{hasInvoice && <span style={{ color: "var(--th-rose)", fontWeight: 600, marginLeft: 3 }}>*</span>}</div>

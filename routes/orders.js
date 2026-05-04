@@ -3,10 +3,9 @@ const router = express.Router();
 const { db } = require("../Database");
 const itemsRouter = require("./items");
 const findOrCreateDotVariant = itemsRouter.findOrCreateDotVariant;
-const { syncCurrentStock } = require("../lib/db");
+const { dbRun, dbGet, dbSerialize } = require("../lib/db");
 
-
-router.post("/orders", (req, res) => {
+router.post("/orders", async (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;
   if (!shop_id || (items.length === 0 && new_items.length === 0)) {
     return res.status(400).json({ error: "Shop ID and at least one item are required" });
@@ -21,67 +20,64 @@ router.post("/orders", (req, res) => {
     return `${cat}-${brand}-${design}-${size}-${Date.now().toString().slice(-4)}`;
   }
 
-  // Create new items in item_master first, then build the full items list
-  const createNewItems = (callback) => {
-    if (new_items.length === 0) return callback(null, []);
-    let created = [];
-    let pending = new_items.length;
+  try {
+    const createdItems = [];
     for (const ni of new_items) {
-      const item_id = `ITEM-NEW-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+      const item_id = `ITEM-NEW-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const sku = buildSku(ni);
       const upperBrand = ni.brand ? ni.brand.toUpperCase() : null;
       const upperDesign = ni.design ? ni.design.toUpperCase() : null;
       const item_name = [upperBrand, upperDesign, ni.size].filter(Boolean).join(' ');
-      db.run(
+      
+      await dbRun(
         `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, unit_cost, selling_price, supplier_id, reorder_point, is_active, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
         [item_id, sku, item_name, ni.category || 'MISC', upperBrand, upperDesign, ni.size || null,
          parseFloat(ni.unit_cost) || 0, parseFloat(ni.selling_price) || 0, ni.supplier_id || null,
-         parseInt(ni.reorder_point) || 0],
-        function(err) {
-          if (err) {
-            console.error("item_master insert error:", err.message, { item_id, sku, item_name });
-          } else {
-            created.push({ item_id, sku, item_name, quantity: ni.quantity, unit_cost: ni.unit_cost, selling_price: ni.selling_price, supplier_id: ni.supplier_id, reorder_point: ni.reorder_point || 0, is_new_item: 1 });
-          }
-          pending--;
-          if (pending === 0) callback(null, created);
-        }
+         parseInt(ni.reorder_point) || 0]
       );
+      
+      createdItems.push({
+        item_id, sku, item_name,
+        quantity: ni.quantity,
+        unit_cost: ni.unit_cost,
+        selling_price: ni.selling_price,
+        supplier_id: ni.supplier_id,
+        reorder_point: ni.reorder_point || 0,
+        is_new_item: 1
+      });
     }
-  };
 
-  createNewItems((err, createdItems) => {
-    if (err) return res.status(500).json({ error: err.message });
     const allItems = [...items, ...createdItems];
     const order_id = `ORD-${Date.now()}`;
     const total_amount = allItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
+    const now = new Date().toISOString();
 
-    db.serialize(() => {
-      db.run("BEGIN TRANSACTION");
-      db.run(
+    await dbRun("BEGIN TRANSACTION");
+    try {
+      await dbRun(
         `INSERT INTO orders (order_id, shop_id, total_amount, order_notes, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-        [order_id, shop_id, total_amount, order_notes || null, "INVENTORY", new Date().toISOString()]
+        [order_id, shop_id, total_amount, order_notes || null, "INVENTORY", now]
       );
+
       for (const item of allItems) {
         const order_item_id = `ORDITEM-${Date.now()}-${Math.random()}`;
-        db.run(
+        await dbRun(
           `INSERT INTO order_items (order_item_id, order_id, item_id, quantity, unit_cost, line_total, supplier_id, is_new_item) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [order_item_id, order_id, item.item_id, item.quantity, item.unit_cost, item.quantity * item.unit_cost, item.supplier_id || null, item.is_new_item || 0],
-          function(itemErr) {
-            if (itemErr) console.error("order_item insert error:", itemErr.message, "item_id:", item.item_id);
-          }
+          [order_item_id, order_id, item.item_id, item.quantity, item.unit_cost, item.quantity * item.unit_cost, item.supplier_id || null, item.is_new_item || 0]
         );
       }
-      db.run("COMMIT", function(commitErr) {
-        if (commitErr) {
-          db.run("ROLLBACK");
-          return res.status(500).json({ error: commitErr.message });
-        }
-        res.json({ order_id, shop_id, total_amount, status: "PENDING", items_count: allItems.length, new_items_created: createdItems.length, created_at: new Date().toISOString() });
-      });
-    });
-  });
+
+      await dbRun("COMMIT");
+      res.json({ order_id, shop_id, total_amount, status: "PENDING", items_count: allItems.length, new_items_created: createdItems.length, created_at: now });
+    } catch (txErr) {
+      await dbRun("ROLLBACK");
+      throw txErr;
+    }
+  } catch (err) {
+    console.error("Order creation failed:", err.message);
+    res.status(500).json({ error: "Order creation failed: " + err.message });
+  }
 });
 
 router.get("/orders/:shop_id", (req, res) => {

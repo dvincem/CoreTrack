@@ -18,6 +18,7 @@ const BLANK_FORM = {
   description: '',
   amount: '',
   expense_date: new Date().toISOString().split('T')[0],
+  expense_time: new Date().toTimeString().slice(0, 5),
   payment_method: 'CASH',
   reference_no: '',
   notes: '',
@@ -65,6 +66,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
   const [editingId, setEditingId] = React.useState(null)
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
 
   // Selected expense for detail modal
   const [selectedExpense, setSelectedExpense] = React.useState(null)
@@ -86,6 +88,27 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
     fetchCategories()
     return () => obs.disconnect()
   }, [shopId])
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const draft = localStorage.getItem(`th-exp-draft-${shopId}`);
+      if (draft) setForm(JSON.parse(draft));
+      const open = localStorage.getItem(`th-exp-open-${shopId}`);
+      if (open) setShowExpForm(open === "true");
+      const editId = localStorage.getItem(`th-exp-editing-${shopId}`);
+      if (editId) setEditingId(editId === "null" ? null : editId);
+    } catch (e) { console.error("Failed to load Expense draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-exp-draft-${shopId}`, JSON.stringify(form));
+    localStorage.setItem(`th-exp-open-${shopId}`, String(showExpForm));
+    localStorage.setItem(`th-exp-editing-${shopId}`, String(editingId));
+  }, [form, showExpForm, editingId, shopId, isDraftLoaded]);
 
   React.useEffect(() => { fetchSummary() }, [shopId, startDate, endDate])
 
@@ -137,6 +160,9 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
       }
       const d = await r.json()
       if (!r.ok) return setFormError(d.error || 'Failed to save')
+      localStorage.removeItem(`th-exp-draft-${shopId}`);
+      localStorage.removeItem(`th-exp-open-${shopId}`);
+      localStorage.removeItem(`th-exp-editing-${shopId}`);
       setForm(BLANK_FORM)
       setEditingId(null)
       setShowExpForm(false)
@@ -154,6 +180,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
       description: exp.description,
       amount: exp.amount,
       expense_date: exp.expense_date,
+      expense_time: exp.expense_time || (exp.created_at ? new Date(exp.created_at).toTimeString().slice(0, 5) : new Date().toTimeString().slice(0, 5)),
       payment_method: exp.payment_method || 'CASH',
       reference_no: exp.reference_no || '',
       notes: exp.notes || '',
@@ -162,7 +189,17 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
     setShowExpForm(true)
   }
 
-  function cancelEdit() { setForm(BLANK_FORM); setEditingId(null); setFormError(''); setShowExpForm(false) }
+  function hideForm() { setShowExpForm(false) }
+
+  function cancelEdit() { 
+    setForm(BLANK_FORM); 
+    setEditingId(null); 
+    setFormError(''); 
+    setShowExpForm(false);
+    localStorage.removeItem(`th-exp-draft-${shopId}`);
+    localStorage.removeItem(`th-exp-open-${shopId}`);
+    localStorage.removeItem(`th-exp-editing-${shopId}`);
+  }
 
   async function confirmVoid() {
     if (!voidTarget) return
@@ -230,8 +267,21 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
 
   const expColumns = React.useMemo(() => [
     {
-      key: 'expense_date', label: 'Date', width: '95px',
-      render: row => <span style={{ color: 'var(--th-text-muted)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.expense_date}</span>
+      key: 'expense_date', label: 'Date/Time', width: '130px',
+      render: row => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <span style={{ color: 'var(--th-text-muted)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.expense_date}</span>
+          {row.expense_time && (
+            <span style={{ color: 'var(--th-text-faint)', fontSize: '0.72rem', fontWeight: 600 }}>
+              {(() => {
+                const [h, m] = row.expense_time.split(':');
+                const hh = parseInt(h);
+                return `${hh % 12 || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+              })()}
+            </span>
+          )}
+        </div>
+      )
     },
     {
       key: 'description', label: 'Description',
@@ -277,7 +327,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
               <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(pendingExpense.amount)}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Category</span><span className="confirm-detail-val">{pendingExpense.catName}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Payment</span><span className="confirm-detail-val">{pendingExpense.payment_method}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{pendingExpense.expense_date}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{pendingExpense.expense_date} {pendingExpense.expense_time}</span></div>
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingExpense(null)}>Cancel</button>
@@ -295,7 +345,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
             <div className="confirm-details">
               <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{voidTarget.description}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(voidTarget.amount)}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{voidTarget.expense_date}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{voidTarget.expense_date} {voidTarget.expense_time || ''}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{ color: 'var(--th-rose)' }}>Cannot be undone</span></div>
             </div>
             <div className="exp-field" style={{ marginBottom: '1rem' }}>
@@ -380,11 +430,11 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
 
       {/* Expense Form Modal */}
       {showExpForm && (
-        <div className="exp-form-overlay" onClick={e => { if (e.target === e.currentTarget) cancelEdit(); }}>
+        <div className="exp-form-overlay" onClick={e => { if (e.target === e.currentTarget) hideForm(); }}>
           <div className="exp-form-modal">
             <div className="exp-form-modal-header">
               <div className="exp-form-modal-title">{editingId ? '✏ Edit Expense' : '+ New Expense'}</div>
-              <button className="exp-form-modal-close" onClick={cancelEdit}>✕</button>
+              <button className="exp-form-modal-close" onClick={hideForm}>✕</button>
             </div>
             <form onSubmit={saveExpense} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               <div className="exp-form-grid">
@@ -401,6 +451,10 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
                 <div>
                   <label className="exp-label">Date *</label>
                   <input type="date" className="exp-input" value={form.expense_date} onChange={e => setForm(f => ({ ...f, expense_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="exp-label">Time *</label>
+                  <input type="time" className="exp-input" value={form.expense_time} onChange={e => setForm(f => ({ ...f, expense_time: e.target.value }))} />
                 </div>
                 <div>
                   <label className="exp-label">Payment Method</label>
@@ -469,8 +523,18 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
                   <div className="inv-hist-stat-val" style={{ color: 'var(--th-rose)', fontSize: '1.1rem' }}>{currency(selectedExpense.amount)}</div>
                 </div>
                 <div className="inv-hist-stat">
-                  <div className="inv-hist-stat-label">Date</div>
-                  <div className="inv-hist-stat-val" style={{ fontSize: '0.92rem' }}>{selectedExpense.expense_date}</div>
+                  <div className="inv-hist-stat-label">Date / Time</div>
+                  <div className="inv-hist-stat-val" style={{ fontSize: '0.92rem' }}>
+                    {selectedExpense.expense_date} {selectedExpense.expense_time && (
+                      <span style={{ opacity: 0.7, marginLeft: '0.2rem' }}>
+                        {(() => {
+                          const [h, m] = selectedExpense.expense_time.split(':');
+                          const hh = parseInt(h);
+                          return `${hh % 12 || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+                        })()}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="inv-hist-stat">
                   <div className="inv-hist-stat-label">Payment</div>

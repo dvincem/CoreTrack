@@ -41,8 +41,15 @@ const SVG = (d, extra = {}) => (
 function presets() {
   const today = new Date()
   const month = today.getMonth()
-  const fmtD = d => d.toISOString().split('T')[0]
+  const year = today.getFullYear()
+  const fmtD = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const ago = n => { const d = new Date(today); d.setDate(d.getDate() - n); return fmtD(d) }
+
+  const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay())
+  const weekEnd   = new Date(today); weekEnd.setDate(today.getDate() + (6 - today.getDay()))
+  const monthStart = new Date(year, month, 1)
+  const monthEnd   = new Date(year, month + 1, 0)
+
   const startOf = unit => {
     const d = new Date(today)
     if (unit === 'year') { d.setMonth(0, 1); return fmtD(d) }
@@ -52,8 +59,8 @@ function presets() {
   const qtrNames = ['1st Qtr', '2nd Qtr', '3rd Qtr', '4th Qtr']
   return [
     { label: 'Today', start: fmtD(today), end: fmtD(today) },
-    { label: '7 Days', start: ago(6), end: fmtD(today) },
-    { label: '30 Days', start: ago(29), end: fmtD(today) },
+    { label: 'This Week', start: fmtD(weekStart), end: fmtD(weekEnd) },
+    { label: 'This Month', start: fmtD(monthStart), end: fmtD(monthEnd) },
     { label: qtrNames[Math.floor(month / 3)], start: startOf('quarter'), end: fmtD(today) },
     { label: month < 6 ? '1st Half' : '2nd Half', start: startOf('half'), end: fmtD(today) },
     { label: 'This Yr', start: startOf('year'), end: fmtD(today) },
@@ -282,6 +289,14 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
     COMMISSION: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
     MANUAL_IN: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     MANUAL_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
+    COLLECTION: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+    PAYMENT: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
+    CASH_IN: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+    CASH_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
+    GCASH_IN: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+    GCASH_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
+    GCASH_IN: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+    GCASH_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
   }
 
   const txnCols = [
@@ -292,6 +307,8 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
       render: t => {
         if (t.type === 'SALE' || t.type === 'SERVICE') return <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{t.id}</span>
         if (t.type === 'PURCHASE') return <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{t.id}</span>
+        if (t.type === 'COLLECTION' || t.type === 'PAYMENT') return <span style={{ fontFamily: 'monospace', fontSize: '0.72rem' }}>{t.invoiceNumber || '—'}</span>
+        if (t.type.includes('_IN') || t.type.includes('_OUT')) return <span style={{ color: 'var(--th-text-faint)', fontSize: '0.72rem' }}>{t.id?.slice(-6) || 'Manual'}</span>
         return <span style={{ color: 'var(--th-text-faint)', fontSize: '0.72rem' }}>—</span>
       }
     },
@@ -299,7 +316,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
     { key: 'paymentMethod', label: 'Method', align: 'center', render: t => <span className="px-2 py-0.5 text-[0.65rem] font-bold rounded bg-gray-500/10 border border-gray-500/20">{t.paymentMethod}</span> },
     {
       key: 'amount', label: 'Amount', align: 'right', render: t => {
-        const inflow = t.type === 'SALE' || t.type === 'SERVICE' || t.type === 'MANUAL_IN'
+        const inflow = t.type === 'SALE' || t.type === 'SERVICE' || t.type === 'COLLECTION' || t.type.endsWith('_IN')
         return <span className={`font-bold ${inflow ? 'text-emerald-500' : 'text-rose-500'}`}>{inflow ? '+' : '-'}{currency(t.amount)}</span>
       }
     },
@@ -395,8 +412,10 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                   { label: 'Cash Sales / Services', value: cashPool.cashFromSales, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualCashIn   > 0 && { label: 'Manual Cash In',   value: cashPool.manualCashIn,   sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualGcashIn  > 0 && { label: 'GCash In',          value: cashPool.manualGcashIn,  sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.collectionsTotal > 0 && { label: 'Receivable Collections', value: cashPool.collectionsTotal, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.expensesDeducted    > 0 && { label: 'Expenses',          value: cashPool.expensesDeducted,    sign: '−', color: 'var(--th-rose)' },
                   cashPool.commissionsDeducted > 0 && { label: 'Commissions',       value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.payablePaymentsTotal > 0 && { label: 'Payable Payments', value: cashPool.payablePaymentsTotal, sign: '−', color: 'var(--th-rose)' },
                   cashPool.manualCashOut  > 0 && { label: 'Manual Cash Out',  value: cashPool.manualCashOut,  sign: '−', color: 'var(--th-rose)' },
                   cashPool.manualGcashOut > 0 && { label: 'GCash Out',         value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
                 ].filter(Boolean).map((row, i) => (
@@ -712,19 +731,43 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
 function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [showInBreakdown, setShowInBreakdown] = useState(false)
+  const [showOutBreakdown, setShowOutBreakdown] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
     let active = true
-    setLoading(true)
+    setLoading(true); setError(null)
     apiFetch(`${API_URL}/financial-health/${shopId}?start=${startDate}&end=${endDate}`)
       .then(r => r.json())
-      .then(res => { if (!active) return; if (!res.error) setData(res); setLoading(false) })
-      .catch(() => { if (active) setLoading(false) })
+      .then(res => {
+        if (!active) return
+        if (res.error) {
+          setError(res.error)
+        } else {
+          setData(res)
+        }
+        setLoading(false)
+      })
+      .catch(err => {
+        if (active) {
+          setError(err.message || 'Failed to fetch financial data')
+          setLoading(false)
+        }
+      })
     return () => { active = false }
   }, [shopId, startDate, endDate, isOpen])
 
-  if (loading || !data) return <div className="rpt-loading">Digesting Financial Data…</div>
+  if (loading) return <div className="rpt-loading">Digesting Financial Data…</div>
+  if (error) return (
+    <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--th-rose-bg)', border: '1px solid var(--th-rose)', borderRadius: 12, color: 'var(--th-rose)' }}>
+      <div style={{ fontWeight: 900, fontSize: '1.1rem', marginBottom: '0.5rem' }}>⚠ Analysis Error</div>
+      <div style={{ fontSize: '0.85rem' }}>{error}</div>
+      <button onClick={() => window.location.reload()} style={{ marginTop: '1rem', padding: '0.45rem 1rem', background: 'var(--th-rose)', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 700 }}>Retry</button>
+    </div>
+  )
+  if (!data) return null
 
   const { net_position: net, sales_revenue: rev, receivables_collected: coll, payables_created: pay, expenses_total: exp } = data
   const isGreen = net >= 0
@@ -746,26 +789,75 @@ function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
           <div className="rpt-health-sub">Net Business Position for this period</div>
         </div>
         <div className="rpt-health-flows">
-          <div className="rpt-health-flow-row">
-            <span style={{ color: 'var(--th-text-faint)', fontWeight: 600 }}>Money In (Revenue + Collections)</span>
+          <div
+            className="rpt-health-flow-row"
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setShowInBreakdown(v => !v)}
+          >
+            <span style={{ color: 'var(--th-text-faint)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              Money In (Revenue + Collections)
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transition: 'transform 0.2s', transform: showInBreakdown ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.5 }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
             <span style={{ color: 'var(--th-emerald)', fontWeight: 800 }}>+{fmtK(totalIn)}</span>
           </div>
-          <div className="pm-bar-track" style={{ height: 8, marginTop: 0 }}>
+          <div className="pm-bar-track" style={{ height: 8, marginTop: '0.25rem' }}>
             <div className="pm-bar-fill" style={{ height: '100%', background: 'var(--th-emerald)', width: `${Math.min(100, (totalIn / totalBoth) * 100)}%` }} />
           </div>
-          <div className="rpt-health-flow-row" style={{ marginTop: '0.4rem' }}>
-            <span style={{ color: 'var(--th-text-faint)', fontWeight: 600 }}>Money Out (Payables + Expenses)</span>
+
+          {showInBreakdown && (
+            <div className="rpt-health-breakdown">
+              <div className="rpt-health-breakdown-row">
+                <span>Sales Revenue</span>
+                <span className="val">+{fmtK(rev)}</span>
+              </div>
+              <div className="rpt-health-breakdown-row">
+                <span>Receivable Collections</span>
+                <span className="val">+{fmtK(coll)}</span>
+              </div>
+            </div>
+          )}
+
+          <div
+            className="rpt-health-flow-row"
+            style={{ marginTop: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setShowOutBreakdown(v => !v)}
+          >
+            <span style={{ color: 'var(--th-text-faint)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              Money Out (Payables + Expenses)
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transition: 'transform 0.2s', transform: showOutBreakdown ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.5 }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
             <span style={{ color: 'var(--th-rose)', fontWeight: 800 }}>−{fmtK(totalOut)}</span>
           </div>
-          <div className="pm-bar-track" style={{ height: 8, marginTop: 0 }}>
+          <div className="pm-bar-track" style={{ height: 8, marginTop: '0.25rem' }}>
             <div className="pm-bar-fill" style={{ height: '100%', background: 'var(--th-rose)', width: `${Math.min(100, (totalOut / totalBoth) * 100)}%` }} />
           </div>
+
+          {showOutBreakdown && (
+            <div className="rpt-health-breakdown">
+              <div className="rpt-health-breakdown-row">
+                <span>New Obligations Created</span>
+                <span className="val">−{fmtK(pay)}</span>
+              </div>
+              <div className="rpt-health-breakdown-row">
+                <span>Direct Operating Expenses</span>
+                <span className="val">−{fmtK(exp)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="th-kpi-grid">
         <KpiCard label="Receivables" value={fmtK(data.open_receivables)} accent="sky" sub={`${data.open_receivables_count} accounts`} icon={SVG(<><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></>)} />
-        <KpiCard label="Payables" value={fmtK(data.open_payables)} accent="rose" sub={`${data.open_payables_count} bills`} icon={SVG(<><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></>)} />
+        <KpiCard label="Payables" value={fmtK(data.period_payables_balance)} accent="rose" sub={`${data.period_payables_count} due in period`} icon={SVG(<><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></>)} />
+        <KpiCard label="Total Expenses" value={fmtK(data.expenses_total)} accent="rose" icon={SVG(<><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></>)} />
+        <KpiCard label="Top Category" value={data.top_category_name} accent="amber" sub={data.top_category_amount ? fmtK(data.top_category_amount) : ''} icon={SVG(<><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></>)} />
         <KpiCard label="Collection Rate" value={`${data.collection_rate || 0}%`} accent="emerald" sub="Efficiency" icon={SVG(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></>)} />
         <KpiCard label="Overdue" value={fmtK(data.overdue_payables)} accent="amber" sub={`${data.overdue_payables_count} past due`} icon={SVG(<><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>)} />
       </div>
@@ -871,10 +963,6 @@ function SectionExpenses({ shopId, startDate, endDate, isOpen, children }) {
   return (
     <>
       <div className="rpt-section-label">Expense Overview</div>
-      <div className="th-kpi-grid">
-        <KpiCard label="Total Expenses" value={fmtK(data.total)} accent="rose" icon={SVG(<><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></>)} />
-        <KpiCard label="Top Category" value={topCategory ? topCategory.category_name : '—'} accent="amber" sub={topCategory ? fmtK(topCategory.total) : ''} icon={SVG(<><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></>)} />
-      </div>
       <div className={children ? 'rpt-grid-3' : ''}>
         <div className="rpt-card" style={{ minHeight: 340 }}>
           <div className="rpt-card-head"><span className="rpt-card-title">Daily Expense Trend</span></div>

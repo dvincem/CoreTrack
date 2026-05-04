@@ -690,6 +690,7 @@ function initializeDatabase() {
             description TEXT NOT NULL,
             amount REAL NOT NULL,
             expense_date DATE NOT NULL,
+            expense_time TEXT,
             payment_method TEXT DEFAULT 'CASH',
             reference_no TEXT,
             notes TEXT,
@@ -701,6 +702,7 @@ function initializeDatabase() {
             FOREIGN KEY (category_id) REFERENCES expense_categories(category_id)
           )`);
 
+          db.run(`ALTER TABLE expenses ADD COLUMN expense_time TEXT`, () => { });
           db.run(`CREATE INDEX IF NOT EXISTS idx_expenses_shop_date ON expenses(shop_id, expense_date)`, () => { });
 
           db.run(`CREATE TABLE IF NOT EXISTS cash_ledger (

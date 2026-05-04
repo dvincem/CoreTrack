@@ -171,6 +171,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const [loading, setLoading] = React.useState(false);
   const [toast, setToast] = React.useState(null);
   const [kpiCounts, setKpiCounts] = React.useState(null);
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
 
   const JOBS_PER_PAGE = 10;
 
@@ -254,6 +255,34 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
       .then(d => setRecappingItems(Array.isArray(d) ? d.filter(i => i.current_quantity > 0) : []))
       .catch(() => { })
   }, [shopId])
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const jDraft = localStorage.getItem(`th-rcp-job-draft-${shopId}`);
+      if (jDraft) setNewJob(JSON.parse(jDraft));
+      const cDraft = localStorage.getItem(`th-rcp-casings-draft-${shopId}`);
+      if (cDraft) setCasings(JSON.parse(cDraft));
+      const jOpen = localStorage.getItem(`th-rcp-job-open-${shopId}`);
+      if (jOpen) setShowNewJobForm(jOpen === "true");
+
+      const iDraft = localStorage.getItem(`th-rcp-intake-draft-${shopId}`);
+      if (iDraft) setRecapIntakeForm(JSON.parse(iDraft));
+      const iItem = localStorage.getItem(`th-rcp-intake-item-${shopId}`);
+      if (iItem) setSelectedRecapItem(JSON.parse(iItem));
+    } catch (e) { console.error("Failed to load Recap drafts", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-rcp-job-draft-${shopId}`, JSON.stringify(newJob));
+    localStorage.setItem(`th-rcp-casings-draft-${shopId}`, JSON.stringify(casings));
+    localStorage.setItem(`th-rcp-job-open-${shopId}`, String(showNewJobForm));
+    localStorage.setItem(`th-rcp-intake-draft-${shopId}`, JSON.stringify(recapIntakeForm));
+    localStorage.setItem(`th-rcp-intake-item-${shopId}`, JSON.stringify(selectedRecapItem));
+  }, [newJob, casings, showNewJobForm, recapIntakeForm, selectedRecapItem, shopId, isDraftLoaded]);
 
   // Pricing defaults
   const [priceDefaults, setPriceDefaults] = React.useState({}); // key: `${size}|${type}` -> { recap_cost, selling_price }
@@ -473,6 +502,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
       apiFetch(`${API_URL}/items/${shopId}?category=RECAPPING`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setRecappingItems(d.filter(i => (i.current_quantity || 0) > 0));
       });
+      localStorage.removeItem(`th-rcp-intake-draft-${shopId}`);
+      localStorage.removeItem(`th-rcp-intake-item-${shopId}`);
     } catch (e) {
       setError(e.message || 'Failed to create intake');
     } finally {
@@ -493,6 +524,13 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     setCasings([blankCasing()]);
     setShowQuickAddCustomer(false);
     setQuickCustForm({ customer_name: '', company: '', contact_number: '', address: '' });
+    localStorage.removeItem(`th-rcp-job-draft-${shopId}`);
+    localStorage.removeItem(`th-rcp-casings-draft-${shopId}`);
+    localStorage.removeItem(`th-rcp-job-open-${shopId}`);
+  }
+
+  function hideNewJobForm() {
+    setShowNewJobForm(false);
   }
 
   async function createJob() {
@@ -532,6 +570,9 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
         }).then(r => r.json().then(d => ({ ok: r.ok, data: d })));
         if (!res.ok) throw new Error(res.data.error || "Failed to create job");
       }
+      localStorage.removeItem(`th-rcp-job-draft-${shopId}`);
+      localStorage.removeItem(`th-rcp-casings-draft-${shopId}`);
+      localStorage.removeItem(`th-rcp-job-open-${shopId}`);
       resetForm();
       setShowNewJobForm(false);
       setToast({ title: "Jobs Created", sub: `${casings.length} casing${casings.length > 1 ? 's' : ''} added` });

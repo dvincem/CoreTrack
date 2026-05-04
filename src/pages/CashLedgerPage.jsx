@@ -29,12 +29,8 @@ const SOURCE_META = {
 const ENTRY_TYPES = {
   CASH_IN: { icon: '💵', label: 'Cash In', short: 'Cash In', method: 'CASH', dir: 'IN' },
   CASH_OUT: { icon: '💸', label: 'Cash Out', short: 'Cash Out', method: 'CASH', dir: 'OUT' },
-  GCASH_IN: { icon: '📲', label: 'GCash In', short: 'GCash In', method: 'GCASH', dir: 'IN' },
-  GCASH_OUT: { icon: '📤', label: 'GCash Out', short: 'GCash Out', method: 'GCASH', dir: 'OUT' },
-  CARD_IN: { icon: '💳', label: 'Card In', short: 'Card In', method: 'CARD', dir: 'IN' },
-  CARD_OUT: { icon: '💳', label: 'Card Out', short: 'Card Out', method: 'CARD', dir: 'OUT' },
-  BANK_IN: { icon: '🏦', label: 'Bank In', short: 'Bank In', method: 'BANK', dir: 'IN' },
-  BANK_OUT: { icon: '🏦', label: 'Bank Out', short: 'Bank Out', method: 'BANK', dir: 'OUT' },
+  GCASH_IN: { icon: '📲', label: 'GCash In', short: 'GCash In', method: 'CASH', dir: 'IN' },
+  GCASH_OUT: { icon: '📤', label: 'GCash Out', short: 'GCash Out', method: 'CASH', dir: 'OUT' },
 }
 
 const BLANK = {
@@ -95,6 +91,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
   const [showEntryForm, setShowEntryForm] = React.useState(false)
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
 
   /* ── Selected entry for detail modal ── */
   const [selectedEntry, setSelectedEntry] = React.useState(null)
@@ -107,6 +104,24 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
 
   /* ── Fetch unified cash flow ── */
   React.useEffect(() => { fetchFlow() }, [shopId, startDate, endDate])
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const draft = localStorage.getItem(`th-cl-draft-${shopId}`);
+      if (draft) setForm(JSON.parse(draft));
+      const open = localStorage.getItem(`th-cl-open-${shopId}`);
+      if (open) setShowEntryForm(open === "true");
+    } catch (e) { console.error("Failed to load CashLedger draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-cl-draft-${shopId}`, JSON.stringify(form));
+    localStorage.setItem(`th-cl-open-${shopId}`, String(showEntryForm));
+  }, [form, showEntryForm, shopId, isDraftLoaded]);
 
   async function fetchFlow() {
     setLoading(true)
@@ -152,6 +167,8 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       }
       const d = await r.json()
       if (!r.ok) { setSaving(false); return setFormError(d.error || 'Failed to save') }
+      localStorage.removeItem(`th-cl-draft-${shopId}`);
+      localStorage.removeItem(`th-cl-open-${shopId}`);
       setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
       setEditingId(null)
       setShowEntryForm(false)
@@ -182,6 +199,8 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
     setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
     setFormError('')
     setShowEntryForm(false)
+    localStorage.removeItem(`th-cl-draft-${shopId}`);
+    localStorage.removeItem(`th-cl-open-${shopId}`);
   }
 
   async function confirmVoid() {
@@ -261,11 +280,14 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
     { key: 'time', label: 'Time', width: '70px', render: r => r.time || '—' },
     {
       key: 'source', label: 'Source', width: '140px',
-      render: r => (
-        <span className={`cl-source-badge cl-src-${r.source.toLowerCase()}`}>
-          {SOURCE_META[r.source]?.icon || '📝'} {r.source_label}
-        </span>
-      )
+      render: r => {
+        const icon = r.source === 'MANUAL' ? (ENTRY_TYPES[r.original?.entry_type]?.icon || '📝') : (SOURCE_META[r.source]?.icon || '📝');
+        return (
+          <span className={`cl-source-badge cl-src-${r.source.toLowerCase()}`}>
+            {icon} {r.source_label}
+          </span>
+        )
+      }
     },
     {
       key: 'description', label: 'Description',

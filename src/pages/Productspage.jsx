@@ -148,25 +148,8 @@ function Productspage({ shopId }) {
   const [detailsSaving, setDetailsSaving] = React.useState(false);
   const [detailsVisible, setDetailsVisible] = React.useState(false);
 
-  const [itemsToAdd, setItemsToAdd] = React.useState([
-    {
-      id: Date.now() + Math.random(),
-      itemType: "TIRE",
-      sku: "",
-      item_name: "",
-      category: "PCR",
-      brand: "",
-      design: "",
-      size: "",
-      rim_size: "",
-      dot_number: "",
-      unit_cost: "",
-      selling_price: "",
-      quantity: "",
-      reorder_point: "5",
-      supplier_id: "",
-    }
-  ]);
+  const [itemsToAdd, setItemsToAdd] = React.useState([]);
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
 
   const [tireCats, setTireCats] = React.useState(() =>
     prodLoadCats(PROD_LS.tire, DEFAULT_TIRE_CATS),
@@ -246,6 +229,44 @@ function Productspage({ shopId }) {
     fetchLiveCats();
     return () => obs.disconnect();
   }, [shopId]);
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const draft = localStorage.getItem(`th-prod-add-items-${shopId}`);
+      if (draft) setItemsToAdd(JSON.parse(draft));
+      else {
+        // Default first item if no draft
+        setItemsToAdd([{
+          id: Date.now() + Math.random(),
+          itemType: "TIRE",
+          sku: "",
+          item_name: "",
+          category: "PCR",
+          brand: "",
+          design: "",
+          size: "",
+          rim_size: "",
+          dot_number: "",
+          unit_cost: "",
+          selling_price: "",
+          quantity: "",
+          reorder_point: "5",
+          supplier_id: "",
+        }]);
+      }
+      const open = localStorage.getItem(`th-prod-add-open-${shopId}`);
+      if (open) setFormOpen(open === "true");
+    } catch (e) { console.error("Failed to load Product draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-prod-add-items-${shopId}`, JSON.stringify(itemsToAdd));
+    localStorage.setItem(`th-prod-add-open-${shopId}`, String(formOpen));
+  }, [itemsToAdd, formOpen, shopId, isDraftLoaded]);
 
   async function fetchLiveCats() {
     if (!shopId) return;
@@ -407,25 +428,27 @@ function Productspage({ shopId }) {
   }
 
   function openAddModal() {
-    setItemsToAdd([
-      {
-        id: Date.now() + Math.random(),
-        itemType: "TIRE",
-        sku: "",
-        item_name: "",
-        category: "PCR",
-        brand: "",
-        design: "",
-        size: "",
-        rim_size: "",
-        dot_number: "",
-        unit_cost: "",
-        selling_price: "",
-        quantity: "",
-        reorder_point: "5",
-        supplier_id: "",
-      }
-    ]);
+    if (itemsToAdd.length === 0) {
+      setItemsToAdd([
+        {
+          id: Date.now() + Math.random(),
+          itemType: "TIRE",
+          sku: "",
+          item_name: "",
+          category: "PCR",
+          brand: "",
+          design: "",
+          size: "",
+          rim_size: "",
+          dot_number: "",
+          unit_cost: "",
+          selling_price: "",
+          quantity: "",
+          reorder_point: "5",
+          supplier_id: "",
+        }
+      ]);
+    }
     setFormOpen(true);
   }
 
@@ -506,6 +529,8 @@ function Productspage({ shopId }) {
         console.error("Bulk partial failures:", data.errors);
       } else {
         toast(`Successfully added ${payload.length} product(s)!`);
+        localStorage.removeItem(`th-prod-add-items-${shopId}`);
+        localStorage.removeItem(`th-prod-add-open-${shopId}`);
         setItemsToAdd([
           {
             id: Date.now(),

@@ -262,7 +262,7 @@ function ProfitsPage({ shopId, setPageContext }) {
       </div>
 
       <div className="pf-sub">
-        Revenue = total sales collected. Net Profit = Revenue − Cost of Goods − Commission − Material Costs − Operating Expenses.
+        Revenue = total sales collected. Net Profit = (Gross Tire Profit − Commission) + Service Margin − Material Costs − Operating Expenses.
       </div>
 
       {/* KPI cards */}
@@ -272,7 +272,7 @@ function ProfitsPage({ shopId, setPageContext }) {
         <KpiCard label="Cost of Goods"      value={fmtK(sv.product_cogs)}      accent="amber"   loading={loading} sub="Unit cost × qty sold" />
         <KpiCard label="Gross Tire Profit"  value={fmtK(sv.product_gross)}     accent="violet"  loading={loading} sub={`${sv.product_margin_pct ?? '—'}% margin`} />
         <KpiCard label="Commission Paid"    value={fmtK(sv.total_commission)}  accent="rose"    loading={loading} sub="Staff commissions" />
-        <KpiCard label="Material Costs"     value={fmtK(sv.material_costs)}    accent="amber"   loading={loading} sub="Consumables & materials" />
+        <KpiCard label="Service Margin"     value={fmtK(sv.service_margin)}    accent="sky"     loading={loading} sub="Net income from services" />
         <KpiCard label="Expenses"           value={fmtK(sv.total_expenses)}    accent="rose"    loading={loading} sub="Rent, utilities & overhead" />
         <KpiCard label="Net Profit"         value={fmtK(sv.net_profit)}        accent={(sv.net_profit||0) >= 0 ? 'emerald' : 'rose'} loading={loading} sub={`${sv.overall_margin_pct ?? '—'}% net margin`} />
       </div>

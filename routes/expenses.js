@@ -115,9 +115,9 @@ router.post('/expenses', async (req, res) => {
 
   const expense_id = `EXP-${uuidv4()}`;
   db.run(
-    `INSERT INTO expenses (expense_id, shop_id, category_id, description, amount, expense_date, payment_method, reference_no, notes, recorded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [expense_id, shop_id, category_id || null, description.trim(), parseFloat(amount), final_expense_date, payment_method || 'CASH', reference_no || null, notes || null, recorded_by || null],
+    `INSERT INTO expenses (expense_id, shop_id, category_id, description, amount, expense_date, expense_time, payment_method, reference_no, notes, recorded_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [expense_id, shop_id, category_id || null, description.trim(), parseFloat(amount), final_expense_date, req.body.expense_time || null, payment_method || 'CASH', reference_no || null, notes || null, recorded_by || null],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       res.status(201).json({ expense_id, message: 'Expense recorded' });
@@ -127,10 +127,10 @@ router.post('/expenses', async (req, res) => {
 
 router.put('/expenses/:expense_id', (req, res) => {
   const { expense_id } = req.params;
-  const { category_id, description, amount, expense_date, payment_method, reference_no, notes } = req.body;
+  const { category_id, description, amount, expense_date, expense_time, payment_method, reference_no, notes } = req.body;
   db.run(
-    `UPDATE expenses SET category_id=?, description=?, amount=?, expense_date=?, payment_method=?, reference_no=?, notes=? WHERE expense_id=? AND is_void=0`,
-    [category_id || null, description, parseFloat(amount), expense_date, payment_method || 'CASH', reference_no || null, notes || null, expense_id],
+    `UPDATE expenses SET category_id=?, description=?, amount=?, expense_date=?, expense_time=?, payment_method=?, reference_no=?, notes=? WHERE expense_id=? AND is_void=0`,
+    [category_id || null, description, parseFloat(amount), expense_date, expense_time || null, payment_method || 'CASH', reference_no || null, notes || null, expense_id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: 'Expense not found or already voided' });

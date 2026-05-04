@@ -27,6 +27,7 @@ function SuppliersPage({ shopId }) {
   const [addForm, setAddForm] = React.useState(BLANK_FORM)
   const [addError, setAddError] = React.useState('')
   const [addSaving, setAddSaving] = React.useState(false)
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
 
   // Edit modal
   const [editTarget, setEditTarget] = React.useState(null)
@@ -63,6 +64,31 @@ function SuppliersPage({ shopId }) {
   }, [openTypeIdx])
 
   React.useEffect(() => { fetchSuppliers() }, [shopId])
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const sDraft = localStorage.getItem(`th-su-add-draft-${shopId}`);
+      if (sDraft) setAddForm(JSON.parse(sDraft));
+      const sOpen = localStorage.getItem(`th-su-add-open-${shopId}`);
+      if (sOpen) setShowAdd(sOpen === "true");
+
+      const bDraft = localStorage.getItem(`th-su-brand-draft-${shopId}`);
+      if (bDraft) setBrandInputs(JSON.parse(bDraft));
+      const bOpen = localStorage.getItem(`th-su-brand-open-${shopId}`);
+      if (bOpen) setShowBrandForm(bOpen === "true");
+    } catch (e) { console.error("Failed to load Supplier drafts", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-su-add-draft-${shopId}`, JSON.stringify(addForm));
+    localStorage.setItem(`th-su-add-open-${shopId}`, String(showAdd));
+    localStorage.setItem(`th-su-brand-draft-${shopId}`, JSON.stringify(brandInputs));
+    localStorage.setItem(`th-su-brand-open-${shopId}`, String(showBrandForm));
+  }, [addForm, showAdd, brandInputs, showBrandForm, shopId, isDraftLoaded]);
   React.useEffect(() => { setSuppPage(1) }, [search, filter])
 
   async function fetchSuppliers() {
@@ -113,10 +139,20 @@ function SuppliersPage({ shopId }) {
       })
       const data = await r.json()
       if (!r.ok) { setAddError(data.error || 'Failed to add'); return }
+      localStorage.removeItem(`th-su-add-draft-${shopId}`);
+      localStorage.removeItem(`th-su-add-open-${shopId}`);
       setShowAdd(false); setAddForm(BLANK_FORM)
       fetchSuppliers()
     } catch { setAddError('Could not connect to server.') }
     finally { setAddSaving(false) }
+  }
+
+  function cancelAdd() {
+    setAddForm(BLANK_FORM);
+    setShowAdd(false);
+    setAddError('');
+    localStorage.removeItem(`th-su-add-draft-${shopId}`);
+    localStorage.removeItem(`th-su-add-open-${shopId}`);
   }
 
   async function handleEdit() {
@@ -176,11 +212,21 @@ function SuppliersPage({ shopId }) {
       const updated = { ...detail, supplier_brands: [...(detail.supplier_brands || []), ...newItems] }
       setDetail(updated)
       setSuppliers(prev => prev.map(s => s.supplier_id === updated.supplier_id ? updated : s))
+      localStorage.removeItem(`th-su-brand-draft-${shopId}`);
+      localStorage.removeItem(`th-su-brand-open-${shopId}`);
       setBrandInputs([BLANK_BRAND()])
       setShowBrandForm(false)
       setOpenTypeIdx(null)
     } catch { setDetailError('Could not connect to server.') }
     finally { setBrandSaving(false) }
+  }
+
+  function cancelBrandAdd() {
+    setBrandInputs([BLANK_BRAND()]);
+    setShowBrandForm(false);
+    setOpenTypeIdx(null);
+    localStorage.removeItem(`th-su-brand-draft-${shopId}`);
+    localStorage.removeItem(`th-su-brand-open-${shopId}`);
   }
 
   async function confirmDeleteBrand() {
@@ -431,7 +477,7 @@ function SuppliersPage({ shopId }) {
               {addError && <div className="supp-modal-error">{addError}</div>}
               {/* Row 4: Actions */}
               <div className="supp-modal-actions">
-                <button className="supp-modal-cancel" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button className="supp-modal-cancel" onClick={cancelAdd}>Cancel</button>
                 <button className="supp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Supplier'}</button>
               </div>
             </div>
@@ -684,6 +730,7 @@ function SuppliersPage({ shopId }) {
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                           <button style={{ background: 'var(--th-bg-card-alt)', border: '1px solid var(--th-border-strong)', color: 'var(--th-text-muted)', borderRadius: 7, padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }} onClick={() => setBrandInputs(prev => [...prev, BLANK_BRAND()])}>+ Add Row</button>
                           <button className="supp-modal-ok" style={{ flex: '0 0 auto', padding: '0.4rem 1.1rem' }} onClick={handleAddBrands} disabled={brandSaving}>{brandSaving ? <span className="supp-spinner" /> : '✓ Save Brands'}</button>
+                          <button className="supp-btn-view" style={{ background: 'var(--th-bg-card-alt)', color: 'var(--th-text-muted)' }} onClick={cancelBrandAdd}>Cancel</button>
                         </div>
                       </div>
                     )}

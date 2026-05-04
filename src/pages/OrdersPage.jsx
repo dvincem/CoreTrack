@@ -143,7 +143,8 @@ function DetailItem({ item, orderStatus }) {
     badgeLabel = "Pending";
   }
 
-  const showAmounts = orderStatus === "RECEIVED" && isReceived;
+  const showAmounts =
+    orderStatus !== "RECEIVED" || item.received_status !== "NOT_RECEIVED";
 
   return (
     <div
@@ -1510,17 +1511,33 @@ const TIRE_CATS_QR = [
 ];
 
 function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
-  const [dr, setDr] = React.useState("");
-  const [paymentMode, setPaymentMode] = React.useState("TERMS");
-  const [checkInfo, setCheckInfo] = React.useState({
-    check_number: "",
-    bank: "",
-    check_date: "",
+  const [dr, setDr] = React.useState(() => localStorage.getItem(`th-qr-dr-${shopId}`) || "");
+  const [paymentMode, setPaymentMode] = React.useState(() => localStorage.getItem(`th-qr-paymode-${shopId}`) || "TERMS");
+  const [checkInfo, setCheckInfo] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem(`th-qr-check-${shopId}`);
+      return saved ? JSON.parse(saved) : { check_number: "", bank: "", check_date: "" };
+    } catch { return { check_number: "", bank: "", check_date: "" }; }
   });
-  const [notes, setNotes] = React.useState("");
-  const [lines, setLines] = React.useState([]);
+  const [notes, setNotes] = React.useState(() => localStorage.getItem(`th-qr-notes-${shopId}`) || "");
+  const [lines, setLines] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem(`th-qr-lines-${shopId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [submitting, setSubmitting] = React.useState(false);
   const [err, setErr] = React.useState("");
+
+  // --- Quick Receive Persistence ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    localStorage.setItem(`th-qr-dr-${shopId}`, dr);
+    localStorage.setItem(`th-qr-paymode-${shopId}`, paymentMode);
+    localStorage.setItem(`th-qr-check-${shopId}`, JSON.stringify(checkInfo));
+    localStorage.setItem(`th-qr-notes-${shopId}`, notes);
+    localStorage.setItem(`th-qr-lines-${shopId}`, JSON.stringify(lines));
+  }, [dr, paymentMode, checkInfo, notes, lines, shopId]);
 
   // Item search state
   const [itemSearch, setItemSearch] = React.useState("");
@@ -1807,6 +1824,12 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Quick Receive failed");
+      // Clear drafts upon success
+      localStorage.removeItem(`th-qr-dr-${shopId}`);
+      localStorage.removeItem(`th-qr-paymode-${shopId}`);
+      localStorage.removeItem(`th-qr-check-${shopId}`);
+      localStorage.removeItem(`th-qr-notes-${shopId}`);
+      localStorage.removeItem(`th-qr-lines-${shopId}`);
       onSuccess(data);
     } catch (e) {
       setErr(e.message);
@@ -3071,6 +3094,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
   const [createOrderNotes, setCreateOrderNotes] = React.useState("");
   const [createOrderSearch, setCreateOrderSearch] = React.useState("");
   const [createOrderPage, setCreateOrderPage] = React.useState(1);
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
   const CREATE_ORDER_PER_PAGE = 10;
 
   // Re-render on theme change
@@ -3084,6 +3108,24 @@ export default function OrdersPage({ shopId, onRefresh }) {
     });
     return () => obs.disconnect();
   }, []);
+
+  // --- Create Order Persistence ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const items = localStorage.getItem(`th-ord-create-items-${shopId}`);
+      if (items) setCreateOrderItems(JSON.parse(items));
+      const notes = localStorage.getItem(`th-ord-create-notes-${shopId}`);
+      if (notes) setCreateOrderNotes(notes);
+    } catch (e) { console.error("Failed to load Order draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-ord-create-items-${shopId}`, JSON.stringify(createOrderItems));
+    localStorage.setItem(`th-ord-create-notes-${shopId}`, createOrderNotes);
+  }, [createOrderItems, createOrderNotes, shopId, isDraftLoaded]);
 
   React.useEffect(() => {
     fetchItems();
@@ -3273,6 +3315,8 @@ export default function OrdersPage({ shopId, onRefresh }) {
             });
         }),
       );
+      localStorage.removeItem(`th-ord-create-items-${shopId}`);
+      localStorage.removeItem(`th-ord-create-notes-${shopId}`);
       setCreateOrderItems([]);
       setCreateOrderNotes("");
       setShowCreateOrderModal(false);
@@ -3748,8 +3792,6 @@ export default function OrdersPage({ shopId, onRefresh }) {
               error={error}
               onClose={() => {
                 setShowCreateOrderModal(false);
-                setCreateOrderItems([]);
-                setCreateOrderNotes("");
                 setError("");
               }}
               onAddItem={addItemToCreateOrder}
@@ -4320,6 +4362,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                     {ordCurrency(
                       orderDetails.items?.reduce(
                         (s, i) =>
+                          orderDetails.status === "RECEIVED" &&
                           i.received_status === "NOT_RECEIVED"
                             ? s
                             : s + (i.line_total || 0),

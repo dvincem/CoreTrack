@@ -57,6 +57,7 @@ function Servicespage() {
   const [editTarget, setEditTarget] = React.useState(null);
   const [form, setForm] = React.useState(BLANK_FORM);
   const [saving, setSaving] = React.useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
 
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -86,6 +87,26 @@ function Servicespage() {
     fetchServices();
     return () => obs.disconnect();
   }, []);
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    // Only persist if NOT editing an existing service
+    if (!editTarget) {
+      try {
+        const draft = localStorage.getItem('th-svc-add-draft');
+        if (draft) setForm(JSON.parse(draft));
+        const open = localStorage.getItem('th-svc-add-open');
+        if (open) setFormOpen(open === "true");
+      } catch (e) { console.error("Failed to load Service draft", e); }
+    }
+    setIsDraftLoaded(true);
+  }, [editTarget]);
+
+  React.useEffect(() => {
+    if (!isDraftLoaded || editTarget) return;
+    localStorage.setItem('th-svc-add-draft', JSON.stringify(form));
+    localStorage.setItem('th-svc-add-open', String(formOpen));
+  }, [form, formOpen, isDraftLoaded, editTarget]);
 
   function toast(msg, type = "success") {
     const id = Date.now();
@@ -149,6 +170,13 @@ function Servicespage() {
     setFormOpen(false);
     setEditTarget(null);
     setForm(BLANK_FORM);
+    localStorage.removeItem('th-svc-add-draft');
+    localStorage.removeItem('th-svc-add-open');
+  }
+
+  function hideForm() {
+    setFormOpen(false);
+    setEditTarget(null);
   }
 
   function autoCode(name) {
@@ -203,6 +231,8 @@ function Servicespage() {
         toast(data.error, "error");
       } else {
         toast(isEdit ? "Service updated!" : "Service added!");
+        localStorage.removeItem('th-svc-add-draft');
+        localStorage.removeItem('th-svc-add-open');
         cancelForm();
         fetchServices();
       }
@@ -307,11 +337,11 @@ function Servicespage() {
 
         {/* Add / Edit Service Modal */}
         {formOpen && crudAvailable && (
-          <div className="svc-form-overlay" onClick={e => { if (e.target === e.currentTarget) cancelForm(); }}>
+          <div className="svc-form-overlay" onClick={e => { if (e.target === e.currentTarget) hideForm(); }}>
             <div className="svc-form-modal">
               <div className="svc-form-modal-header">
                 <div className="svc-form-modal-title">{editTarget ? "Edit Service" : "Add New Service"}</div>
-                <button className="svc-form-modal-close" onClick={cancelForm}>✕</button>
+                <button className="svc-form-modal-close" onClick={hideForm}>✕</button>
               </div>
               <div className="svc-form-grid">
                 <div className="svc-field" style={{ gridColumn: "span 2" }}>

@@ -75,12 +75,26 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
     manual.forEach(e => {
       const isIn = e.entry_type.endsWith('_IN');
       let method = 'CASH';
-      if (e.entry_type.startsWith('GCASH')) method = 'GCASH';
-      else if (e.entry_type.startsWith('CARD')) method = 'CARD';
-      else if (e.entry_type.startsWith('BANK')) method = 'BANK';
+      
+      // GCash In/Out manual entries involve physical cash at the shop (Customer gives/receives cash)
+      // So they are categorized under the 'CASH' method to affect Cash on Hand correctly.
+      if (e.entry_type.startsWith('GCASH')) {
+        method = 'CASH';
+      } else if (e.entry_type.startsWith('CARD')) {
+        method = 'CARD';
+      } else if (e.entry_type.startsWith('BANK')) {
+        method = 'BANK';
+      }
+
+      // Format Source Label specifically from entry_type (e.g. "GCASH_IN" -> "Gcash In")
+      const formattedLabel = e.entry_type
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
       unified.push({
         id: e.entry_id, date: e.entry_date, time: e.entry_time || '',
-        source: 'MANUAL', source_label: 'Manual Entry',
+        source: 'MANUAL', source_label: formattedLabel,
         payment_method: method, direction: isIn ? 'IN' : 'OUT',
         amount: e.amount, description: e.description,
         notes: e.notes, recorded_by: e.recorded_by,

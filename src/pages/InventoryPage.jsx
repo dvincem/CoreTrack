@@ -705,6 +705,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   const [orderModalTotalCount, setOrderModalTotalCount] = React.useState(0);
   const [orderModalTotalPagesSrv, setOrderModalTotalPagesSrv] = React.useState(1);
   const [orderModalLoading, setOrderModalLoading] = React.useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
 
   const [suppliers, setSuppliers] = React.useState([]);
   const [kpi, setKpi] = React.useState(null);
@@ -717,6 +718,30 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     fetchSuppliers();
     fetchKpi();
   }, [shopId]);
+
+  // --- Persistence Logic ---
+  React.useEffect(() => {
+    if (!shopId) return;
+    try {
+      const items = localStorage.getItem(`th-inv-ord-items-${shopId}`);
+      if (items) setOrderItems(JSON.parse(items));
+      const notes = localStorage.getItem(`th-inv-ord-notes-${shopId}`);
+      if (notes) setOrderNotes(notes);
+      const mode = localStorage.getItem(`th-inv-quick-mode-${shopId}`);
+      if (mode) setQuickOrderMode(mode === "true");
+      const selected = localStorage.getItem(`th-inv-quick-selected-${shopId}`);
+      if (selected) setQuickSelected(new Set(JSON.parse(selected)));
+    } catch (e) { console.error("Failed to load Inventory draft", e); }
+    setIsDraftLoaded(true);
+  }, [shopId]);
+
+  React.useEffect(() => {
+    if (!shopId || !isDraftLoaded) return;
+    localStorage.setItem(`th-inv-ord-items-${shopId}`, JSON.stringify(orderItems));
+    localStorage.setItem(`th-inv-ord-notes-${shopId}`, orderNotes);
+    localStorage.setItem(`th-inv-quick-mode-${shopId}`, String(quickOrderMode));
+    localStorage.setItem(`th-inv-quick-selected-${shopId}`, JSON.stringify(Array.from(quickSelected)));
+  }, [orderItems, orderNotes, quickOrderMode, quickSelected, shopId, isDraftLoaded]);
 
   React.useEffect(() => {
     if (!showCreateOrderModal) return;
@@ -934,8 +959,10 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
         (s.supplier_brands || []).some(b => b.brand_name.trim().toUpperCase() === brandUpper)
       );
       const autoSupplier = brandSuppliers.length === 1 ? brandSuppliers[0] : null;
+      const realItemId = item.real_item_id || (parseVariantInfo(item.variant_info)[0]?.item_id) || item.item_id;
       const newEntry = {
         ...item,
+        item_id: realItemId,
         order_item_id: `TEMP-${Date.now()}-${Math.random()}`,
         quantity: 1,
         line_total: item.unit_cost,
@@ -1003,6 +1030,10 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
           }),
         }).then(r => r.json()).then(res => { if (res.error) throw new Error(res.error); return res; });
       }));
+      localStorage.removeItem(`th-inv-ord-items-${shopId}`);
+      localStorage.removeItem(`th-inv-ord-notes-${shopId}`);
+      localStorage.removeItem(`th-inv-quick-mode-${shopId}`);
+      localStorage.removeItem(`th-inv-quick-selected-${shopId}`);
       setOrderItems([]);
       setOrderNotes("");
       setShowCreateOrderModal(false);
@@ -1238,9 +1269,6 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
           ORDER_MODAL_ITEMS_PER_PAGE={ORDER_MODAL_ITEMS_PER_PAGE}
           onClose={() => {
             setShowCreateOrderModal(false);
-            setOrderItems([]);
-            setOrderNotes("");
-            setOrderSearchQuery("");
             setError("");
           }}
           onAddItem={addItemToOrder}
@@ -1294,7 +1322,6 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
                 }}
                 onClick={() => {
                   setQuickOrderMode(m => !m);
-                  setQuickSelected(new Set());
                 }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1376,7 +1403,6 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
               }}
               onClick={() => {
                 setQuickOrderMode(m => !m);
-                setQuickSelected(new Set());
               }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
