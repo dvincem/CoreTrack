@@ -280,7 +280,9 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                               ) : tireman.services.map(s => (
                                 <tr key={s.log_id}>
                                   <td>
-                                    <div className="ss-svc-name">{s.service_name}</div>
+                                    <div className="ss-svc-name">
+                                      {s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim()}
+                                    </div>
                                     {s.quantity !== 1 && <div className="ss-svc-qty">× {s.quantity}</div>}
                                   </td>
                                   <td><div className="ss-money sky">{fmt(s.amount)}</div></td>
@@ -317,7 +319,9 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                               ) : tireman.commissions.map(c => (
                                 <tr key={c.log_id}>
                                   <td>
-                                    <div className="ss-svc-name">{c.service_name}</div>
+                                    <div className="ss-svc-name">
+                                      {c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim()}
+                                    </div>
                                     {c.quantity !== 1 && <div className="ss-svc-qty">× {c.quantity}</div>}
                                   </td>
                                   <td><div className="ss-money emerald">{fmt(c.amount)}</div></td>
@@ -411,7 +415,15 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                                 <tr><td colSpan={2} className="ss-empty-cell">No services recorded</td></tr>
                               ) : tireman.services.map(s => (
                                 <tr key={s.log_id} onClick={e => { e.stopPropagation(); toggleRow('svc-' + s.log_id) }} style={{ cursor: 'pointer' }}>
-                                  <td><div className={`ss-svc-name${expandedRows.has('svc-' + s.log_id) ? ' ss-svc-expanded' : ''}`}>{s.service_name}</div>{s.quantity !== 1 && <div className="ss-svc-qty">× {s.quantity}</div>}</td>
+                                  <td>
+                                    <div className={`ss-svc-name${expandedRows.has('svc-' + s.log_id) ? ' ss-svc-expanded' : ''}`}>
+                                      {s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim()}
+                                      {s.sale_id && expandedRows.has('svc-' + s.log_id) && (
+                                        <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82em', marginLeft: '0.45rem', fontWeight: 400 }}>(Sale {s.sale_id})</span>
+                                      )}
+                                    </div>
+                                    {s.quantity !== 1 && <div className="ss-svc-qty">× {s.quantity}</div>}
+                                  </td>
                                   <td><div className="ss-money sky">{fmt(s.amount)}</div></td>
                                 </tr>
                               ))}
@@ -434,7 +446,15 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                                 <tr><td colSpan={2} className="ss-empty-cell">No commissions recorded</td></tr>
                               ) : tireman.commissions.map(c => (
                                 <tr key={c.log_id} onClick={e => { e.stopPropagation(); toggleRow('com-' + c.log_id) }} style={{ cursor: 'pointer' }}>
-                                  <td><div className={`ss-svc-name${expandedRows.has('com-' + c.log_id) ? ' ss-svc-expanded' : ''}`}>{c.service_name}</div>{c.quantity !== 1 && <div className="ss-svc-qty">× {c.quantity}</div>}</td>
+                                  <td>
+                                    <div className={`ss-svc-name${expandedRows.has('com-' + c.log_id) ? ' ss-svc-expanded' : ''}`}>
+                                      {c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim()}
+                                      {c.sale_id && expandedRows.has('com-' + c.log_id) && (
+                                        <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82em', marginLeft: '0.45rem', fontWeight: 400 }}>(Sale {c.sale_id})</span>
+                                      )}
+                                    </div>
+                                    {c.quantity !== 1 && <div className="ss-svc-qty">× {c.quantity}</div>}
+                                  </td>
                                   <td><div className="ss-money emerald">{fmt(c.amount)}</div></td>
                                 </tr>
                               ))}
@@ -546,7 +566,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
               {
                 key: 'tiremen', label: 'Tiremen', render: r => {
                   const names = (r.tireman_ids || []).map(id => staffMap[id] || id).filter(Boolean)
-                  return names.length > 0 ? names.map((n, i) => <span key={i} className="sh-tireman-pill">{n}</span>) : <span style={{ color: 'var(--th-text-faint)', fontSize: '0.78rem' }}>—</span>
+                  return names.length > 0 ? names.map((n, i) => <span key={i} className="sh-tireman-pill">{n}</span>) : <span style={{ color: 'var(--th-orange)', fontSize: '0.78rem', fontWeight: 600 }}>Picked Up</span>
                 }
               },
               { key: 'amount', label: 'Service Amt', align: 'right', render: r => <div className="sh-amount">{fmt(r.total_amount)}</div> },
@@ -611,14 +631,15 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                   </div>
                 </div>
                 <div className="inv-hist-list">
-                  {tiremanNames.length > 0 && (
-                    <div style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid var(--th-border)' }}>
-                      <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--th-text-muted)', marginBottom: '0.35rem' }}>Tiremen</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        {tiremanNames.map((n, i) => <span key={i} className="sh-tireman-pill">{n}</span>)}
-                      </div>
+                  <div style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid var(--th-border)' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--th-text-muted)', marginBottom: '0.35rem' }}>Tiremen</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                      {tiremanNames.length > 0
+                        ? tiremanNames.map((n, i) => <span key={i} className="sh-tireman-pill">{n}</span>)
+                        : <span style={{ color: 'var(--th-orange)', fontWeight: 600, fontSize: '0.85rem' }}>Picked Up</span>
+                      }
                     </div>
-                  )}
+                  </div>
                   {r.sale_notes && (
                     <div style={{ padding: '0.6rem 0.75rem', borderBottom: '1px solid var(--th-border)' }}>
                       <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--th-text-muted)', marginBottom: '0.3rem' }}>Notes</div>

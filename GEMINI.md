@@ -68,7 +68,7 @@ This file provides project-specific context and instructions for the Gemini CLI 
 
 ### Intelligence & Reliability
 - **TireHub AI Assistant:** `chatbot.js`, `src/components/TireHubBot.jsx`. Local Llama 3.2 engine with grounded DB-access (zero hallucination design).
-- **Auto-Backup Engine:** `routes/backup.js`, `server.js`. 30-minute automated Excel-based snapshots of all 34 database tables.
+- **Auto-Backup Engine:** `routes/backup.js`, `server.js`. 30-minute automated Excel-based snapshots of all 42 database tables.
 - **Advanced Reporting:** `src/pages/Reportspage.jsx`. Interactive daily activity reports with collapsible cash breakdown and audit-ready transaction references.
 - **Theme Engine:** Fully reactive OLED Midnight Glass interface supporting dynamic Dark/Light mode transitions.
 

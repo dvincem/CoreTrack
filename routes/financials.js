@@ -15,14 +15,19 @@ router.get("/dashboard/:shop_id", (req, res) => {
       (SELECT COUNT(*) FROM sale_header WHERE shop_id = ? AND DATE(sale_datetime) = ? AND is_void = 0) as today_transactions,
       (SELECT COALESCE(SUM(total_amount),0) FROM sale_header WHERE shop_id = ? AND strftime('%Y-%m', sale_datetime) = ? AND is_void = 0) as month_sales,
       (SELECT COUNT(*) FROM sale_header WHERE shop_id = ? AND strftime('%Y-%m', sale_datetime) = ? AND is_void = 0) as month_transactions,
-      (SELECT COUNT(DISTINCT staff_id) FROM staff_attendance WHERE shop_id = ? AND attendance_date = ? AND status = 'PRESENT') as present_staff,
+      (SELECT 
+         (SELECT COUNT(DISTINCT staff_id) FROM staff_attendance WHERE shop_id = ? AND attendance_date = ? AND status = 'PRESENT')
+         +
+         (SELECT COUNT(*) FROM staff_master WHERE is_active = 1 AND work_status = 'ALWAYS_PRESENT'
+           AND staff_id NOT IN (SELECT staff_id FROM staff_attendance WHERE shop_id = ? AND attendance_date = ?))
+       ) as present_staff,
       (SELECT COUNT(*) FROM customer_master WHERE shop_id = ?) as total_customers,
       (SELECT COALESCE(SUM(balance_amount),0) FROM accounts_receivable WHERE shop_id = ? AND status = 'OPEN') as total_receivables,
       (SELECT COALESCE(SUM(balance_amount),0) FROM accounts_payable WHERE shop_id = ? AND status = 'OPEN') as total_payables,
       (SELECT COUNT(*) FROM accounts_receivable WHERE shop_id = ? AND status = 'OPEN') as open_receivables_count,
       (SELECT COALESCE(SUM(commission_amount),0) FROM labor_log WHERE shop_id = ? AND business_date = ? AND is_void = 0) as today_commission,
       (SELECT COALESCE(SUM(total_amount),0) FROM labor_log WHERE shop_id = ? AND business_date = ? AND is_void = 0 AND commission_amount = 0) as today_labor`,
-    [shop_id, shop_id, today, shop_id, today, shop_id, yearMonth, shop_id, yearMonth, shop_id, today, shop_id, shop_id, shop_id, shop_id, today, shop_id, today],
+    [shop_id, shop_id, today, shop_id, today, shop_id, yearMonth, shop_id, yearMonth, shop_id, today, shop_id, today, shop_id, shop_id, shop_id, shop_id, today, shop_id, today],
     (err, row) => res.json(err ? { error: err.message } : row || {}),
   );
 });
@@ -394,7 +399,7 @@ router.post("/payables", (req, res) => {
     for (let i = 0; i < total; i++) {
       const d = new Date(startYear, startMonth + i, day);
       if (d.getMonth() !== (startMonth + i) % 12) d.setDate(0);
-      const dueStr = d.toISOString().split("T")[0];
+      const dueStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const pid = `PAY-${uuidv4()}`;
       const installDesc = `${description || payee_name} — Installment ${i + 1}${isIndefinite ? "" : ` of ${total}`}`;
       stmt.run([pid, shop_id, type, supplier_id || null, payee_name || null, installDesc, notes || null,
@@ -615,6 +620,29 @@ router.put("/payables/:payable_id/void", (req, res) => {
         );
       }
     );
+  });
+});
+
+router.delete("/payables/:payable_id", (req, res) => {
+  const { payable_id } = req.params;
+  // Only allow deletion of GENERAL type payables
+  db.get("SELECT payable_type FROM accounts_payable WHERE payable_id = ?", [payable_id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: "Payable not found" });
+    if (row.payable_type !== "GENERAL") return res.status(403).json({ error: "Only GENERAL payables can be deleted." });
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+      db.run("DELETE FROM payable_payments WHERE payable_id = ?", [payable_id], (err1) => {
+        if (err1) { db.run("ROLLBACK"); return res.status(500).json({ error: err1.message }); }
+        db.run("DELETE FROM accounts_payable WHERE payable_id = ?", [payable_id], (err2) => {
+          if (err2) { db.run("ROLLBACK"); return res.status(500).json({ error: err2.message }); }
+          db.run("COMMIT", (errC) => {
+            if (errC) return res.status(500).json({ error: errC.message });
+            res.json({ message: "Payable deleted successfully" });
+          });
+        });
+      });
+    });
   });
 });
 

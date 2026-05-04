@@ -235,6 +235,14 @@ function SalesPage({ shopId, isShopClosed }) {
       )
     },
     {
+      key: 'tireman',
+      label: 'Tireman',
+      render: (r) => {
+        if (!r.tiremanNames) return <span style={{ color: 'var(--th-orange)', fontSize: '0.78rem', fontWeight: 600 }}>Picked Up</span>
+        return <div style={{ fontSize: '0.78rem', color: 'var(--th-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{r.tiremanNames}</div>
+      }
+    },
+    {
       key: 'items',
       label: 'Items',
       render: (r) => {
@@ -461,9 +469,15 @@ function SalesPage({ shopId, isShopClosed }) {
                     <div className="sl-meta-label">Payment Method</div>
                     <div className="sl-meta-val sky" style={{ textTransform: 'uppercase' }}>{modal.sale.payment_method?.replace('_', ' ')}</div>
                   </div>
-                  <div className="sl-meta-card span3">
+                  <div className="sl-meta-card span2">
                     <div className="sl-meta-label">Handled By</div>
                     <div className="sl-meta-val">{modal.sale.staff_name}</div>
+                  </div>
+                  <div className="sl-meta-card">
+                    <div className="sl-meta-label">Tireman(s)</div>
+                    <div className="sl-meta-val">
+                      {modal.sale.tiremanNames ? modal.sale.tiremanNames : <span style={{ color: 'var(--th-orange)' }}>Picked Up</span>}
+                    </div>
                   </div>
                 </div>
               )}

@@ -1,108 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
-const { dbGet, dbAll, syncCurrentStock } = require("../lib/db");
-const { v4: uuidv4 } = require("uuid");
-
-// ── Helper: log a price change to item_price_history ─────────────────────────
-function logPriceHistory(item_id, price_type, old_price, new_price, changed_by, notes, ts) {
-  const history_id = `PH-${uuidv4()}`;
-  db.run(
-    `INSERT INTO item_price_history (history_id, item_id, price_type, old_price, new_price, changed_at, changed_by, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [history_id, item_id, price_type, old_price ?? null, new_price, ts || new Date().toISOString(), changed_by || null, notes || null]
-  );
-}
-
-// ── Helper: find or create a DOT variant of a parent item ────────────────────
-// DOT format: WWYR — first 2 digits = week, last 2 digits = year (e.g. "2226" = week 22, year 2026)
-// Always updates the parent item in place — never creates new items.
-// Logs DOT, cost, and price changes to history.
-function findOrCreateDotVariant(parent_item_id, dot_number, unit_cost, selling_price, created_by) {
-  const dotLabel = dot_number.toString().trim();
-
-  return new Promise((resolve, reject) => {
-    // First, resolve to the true parent (in case parent_item_id is itself a child)
-    db.get(`SELECT * FROM item_master WHERE item_id = ?`, [parent_item_id], (err, item) => {
-      if (err || !item) return reject(err || new Error("Item not found"));
-
-      const trueParentId = item.parent_item_id || parent_item_id;
-
-      // Look for an existing child variant with this DOT number
-      db.get(
-        `SELECT * FROM item_master WHERE parent_item_id = ? AND dot_number = ? AND is_active = 1`,
-        [trueParentId, dotLabel],
-        (err2, existingChild) => {
-          if (err2) return reject(err2);
-
-          if (existingChild) {
-            // Found existing child — update cost/price if needed
-            const newCost = unit_cost != null ? parseFloat(unit_cost) : existingChild.unit_cost;
-            const costDelta = newCost - (existingChild.unit_cost || 0);
-            const newPrice = selling_price != null
-              ? parseFloat(selling_price)
-              : (Math.abs(costDelta) > 0.001 ? (existingChild.selling_price || 0) + costDelta : existingChild.selling_price);
-
-            const costChanged = Math.abs((existingChild.unit_cost || 0) - newCost) > 0.001;
-            const priceChanged = Math.abs((existingChild.selling_price || 0) - newPrice) > 0.001;
-
-            if (costChanged || priceChanged) {
-              db.run(
-                `UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`,
-                [newCost, newPrice, existingChild.item_id],
-                (err3) => {
-                  if (err3) return reject(err3);
-                  const ts = new Date().toISOString();
-                  if (costChanged) logPriceHistory(existingChild.item_id, 'UNIT_COST', existingChild.unit_cost, newCost, created_by, null, ts);
-                  if (priceChanged) logPriceHistory(existingChild.item_id, 'SELLING_PRICE', existingChild.selling_price, newPrice, created_by, null, ts);
-                  resolve({ item_id: existingChild.item_id, is_new: false });
-                }
-              );
-            } else {
-              resolve({ item_id: existingChild.item_id, is_new: false });
-            }
-          } else {
-            // No existing child — fetch the true parent to copy fields and create a new child
-            db.get(`SELECT * FROM item_master WHERE item_id = ?`, [trueParentId], (err3, parent) => {
-              if (err3 || !parent) return reject(err3 || new Error("Parent item not found"));
-
-              const newCost = unit_cost != null ? parseFloat(unit_cost) : parent.unit_cost;
-              const costDelta = newCost - (parent.unit_cost || 0);
-              const newPrice = selling_price != null
-                ? parseFloat(selling_price)
-                : (Math.abs(costDelta) > 0.001 ? (parent.selling_price || 0) + costDelta : parent.selling_price);
-
-              const variantId = `${trueParentId}-DOT${dotLabel}`;
-              const variantSku = `${parent.sku}-DOT${dotLabel}`;
-              const variantName = parent.item_name.replace(/\s*\[DOT\s+\S+\]/i, '') + ` [DOT ${dotLabel}]`;
-
-              db.run(
-                `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, unit, supplier_id, reorder_point, dot_number, parent_item_id, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-                [variantId, variantSku, variantName, parent.category, parent.brand, parent.design, parent.size, parent.rim_size, newCost, newPrice, parent.unit || 'PCS', parent.supplier_id, parent.reorder_point || 5, dotLabel, trueParentId],
-                function (err4) {
-                  if (err4) {
-                    // If duplicate key (variant already exists with different casing etc), try fetching it
-                    if (err4.message && err4.message.includes('UNIQUE')) {
-                      return db.get(`SELECT item_id FROM item_master WHERE item_id = ?`, [variantId], (_, row) => {
-                        resolve({ item_id: row ? row.item_id : trueParentId, is_new: false });
-                      });
-                    }
-                    return reject(err4);
-                  }
-                  const ts = new Date().toISOString();
-                  logPriceHistory(variantId, 'UNIT_COST', null, newCost, created_by, `Initial cost — DOT ${dotLabel}`, ts);
-                  logPriceHistory(variantId, 'SELLING_PRICE', null, newPrice, created_by, `Initial price — DOT ${dotLabel}`, ts);
-                  resolve({ item_id: variantId, is_new: true });
-                }
-              );
-            });
-          }
-        }
-      );
-    });
-  });
-}
+const { dbGet, dbAll, syncCurrentStock, findOrCreateDotVariant, logPriceHistory } = require("../lib/db");
 
 router.get("/items/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
@@ -168,12 +67,20 @@ router.get("/items/:shop_id", async (req, res) => {
     fromClause = `
       FROM (
         SELECT *,
-          CASE 
-            WHEN category IN ('PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAP') 
+          CASE
+            WHEN brand IS NOT NULL AND dot_number IS NOT NULL
             THEN COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
-            ELSE item_id 
+            ELSE item_id
           END as group_key
         FROM raw_items
+        WHERE NOT (
+          parent_item_id IS NULL
+          AND dot_number IS NULL
+          AND EXISTS (
+            SELECT 1 FROM item_master child
+            WHERE child.parent_item_id = raw_items.item_id AND child.is_active = 1
+          )
+        )
       )
       GROUP BY group_key
     `;
@@ -637,7 +544,7 @@ router.get("/inventory-ledger/:shop_id", (req, res) => {
   const parsedPerPage = Math.min(200, Math.max(1, parseInt(perPage, 10) || 50));
   const offset = (parsedPage - 1) * parsedPerPage;
 
-  const countSql = `SELECT COUNT(*) as total FROM inventory_ledger il WHERE il.shop_id = ?${item_id ? ' AND il.item_id = ?' : ''}`;
+  const countSql = `SELECT COUNT(*) as total FROM inventory_ledger il WHERE il.shop_id = ?${whereExtra}`;
   db.get(countSql, params, (cErr, cRow) => {
     if (cErr) return res.status(500).json({ error: cErr.message });
     const total = cRow?.total || 0;

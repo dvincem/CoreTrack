@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
 const { v4: uuidv4 } = require("uuid");
+const { syncCurrentStock } = require("../lib/db");
 const { getEffectiveISO, getEffectiveYYYYMMDD } = require("../lib/businessDate");
 
 // ── List purchases ────────────────────────────────────────────────────────────
@@ -118,6 +119,7 @@ router.get("/purchases/:shop_id/summary", async (req, res) => {
 });
 
 // ── Create purchase ───────────────────────────────────────────────────────────
+// ── Create purchase ───────────────────────────────────────────────────────────
 router.post("/purchases/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
   const { notes, created_by, handled_by, items } = req.body;
@@ -125,107 +127,149 @@ router.post("/purchases/:shop_id", async (req, res) => {
   if (!Array.isArray(items) || items.length === 0)
     return res.status(400).json({ error: "At least one item is required" });
 
+  const { dbGet, dbRun, dbSerialize, findOrCreateDotVariant } = require("../lib/db");
   const purchase_id = `PUR-${uuidv4().split("-")[0].toUpperCase()}`;
   const total_amount = items.reduce((s, i) => s + (parseFloat(i.unit_cost) * parseFloat(i.quantity) || 0), 0);
   const business_date = await getEffectiveYYYYMMDD(shop_id);
   const now = new Date().toISOString();
 
-  db.run(
-    `INSERT INTO purchase_header (purchase_id, shop_id, purchase_date, total_amount, notes, created_by, handled_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [purchase_id, shop_id, business_date, total_amount, notes || null, created_by || null, handled_by || null, now],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+  try {
+    const result = await dbSerialize(async ({ dbRun, dbGet }) => {
+      // 1. Insert header
+      await dbRun(
+        `INSERT INTO purchase_header (purchase_id, shop_id, purchase_date, total_amount, notes, created_by, handled_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [purchase_id, shop_id, business_date, total_amount, notes || null, created_by || null, handled_by || null, now]
+      );
 
-      let pending = items.length;
-      let hasError = null;
       const insertedItems = [];
+      const itemIdsToSync = [];
 
-      items.forEach((item) => {
+      // 2. Process items
+      for (const item of items) {
         const purchase_item_id = `PITEM-${uuidv4().split("-")[0].toUpperCase()}`;
-        const qty    = parseFloat(item.quantity) || 1;
-        const cost   = parseFloat(item.unit_cost) || 0;
-        const line   = qty * cost;
-        const cat    = item.category || "OTHER";
+        const qty = parseFloat(item.quantity) || 1;
+        const cost = parseFloat(item.unit_cost) || 0;
+        const line = qty * cost;
+        const cat = item.category || "OTHER";
+        const sellPrice = parseFloat(item.selling_price) || cost * 1.3;
+        const itemName = item.item_name || (item.brand + " " + item.design);
 
-        // Optionally create/update item_master for resellable items
-        const doInsertItem = (item_master_id) => {
-          db.run(
-            `INSERT INTO purchase_items (purchase_item_id, purchase_id, shop_id, item_name, category, quantity, unit_cost, line_total, item_master_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [purchase_item_id, purchase_id, shop_id, item.item_name, cat, qty, cost, line, item_master_id || null],
-            (err2) => {
-              if (err2) hasError = err2.message;
-              else insertedItems.push({ purchase_item_id, item_name: item.item_name, category: cat, quantity: qty, unit_cost: cost, line_total: line, item_master_id });
-              pending--;
-              if (pending === 0) {
-                if (hasError) return res.status(500).json({ error: hasError });
+        let item_master_id = item.item_master_id || null;
 
-                // Also add to inventory_ledger if resellable
-                insertedItems
-                  .filter(i => !!i.item_master_id)
-                  .forEach(i => {
-                    const inv_id = `INVTXN-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
-                    db.run(
-                      `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, created_by, created_at)
-                       VALUES (?, ?, ?, 'PURCHASE', ?, ?, ?, ?, ?)`,
-                      [inv_id, shop_id, i.item_master_id, i.quantity, i.unit_cost, purchase_id, created_by || "PURCHASE", now]
-                    );
-                  });
-
-                res.json({ purchase_id, total_amount, items: insertedItems });
-              }
+        // If not provided, try to find or create
+        if (!item_master_id) {
+          const isSupply = ["Consumable", "Maintenance", "Repair Material", "Other Supply"].includes(cat);
+          if (!isSupply) {
+            let existing = null;
+            // Prioritize SKU match
+            if (item.sku) {
+              existing = await dbGet(`SELECT item_id FROM item_master WHERE sku = ? LIMIT 1`, [item.sku]);
             }
-          );
-        };
+            // Fallback to Name + Category
+            if (!existing) {
+              existing = await dbGet(`SELECT item_id FROM item_master WHERE item_name = ? AND category = ? LIMIT 1`, [itemName, cat]);
+            }
 
-        if (item.item_master_id) {
-          doInsertItem(item.item_master_id);
-          return;
-        }
-
-        // Logic for inventory items (all non-supply categories)
-        const isSupply = ["Consumable", "Maintenance", "Repair Material", "Other Supply"].includes(cat);
-
-        if (!isSupply) {
-          const sellPrice = parseFloat(item.selling_price) || cost * 1.3;
-          // Find existing item by SKU or name/cat
-          const findSql = item.sku 
-            ? `SELECT item_id FROM item_master WHERE shop_id = ? AND (sku = ? OR (item_name = ? AND category = ?)) LIMIT 1`
-            : `SELECT item_id FROM item_master WHERE shop_id = ? AND item_name = ? AND category = ? LIMIT 1`;
-          const findParams = item.sku 
-            ? [shop_id, item.sku, item.item_name, cat]
-            : [shop_id, item.item_name, cat];
-
-          db.get(findSql, findParams, (findErr, existing) => {
             if (existing) {
-              db.run(
-                `UPDATE item_master SET unit_cost = ?, selling_price = ?, dot_number = ? WHERE item_id = ?`,
-                [cost, sellPrice, item.dot_number || null, existing.item_id],
-                () => doInsertItem(existing.item_id)
-              );
+              if (item.dot_number) {
+                // Use variant logic for any item with a DOT number, regardless of category
+                const { item_id: variantId } = await findOrCreateDotVariant(
+                  existing.item_id, 
+                  item.dot_number, 
+                  cost, 
+                  sellPrice, 
+                  created_by || "PURCHASE"
+                );
+                item_master_id = variantId;
+              } else {
+                item_master_id = existing.item_id;
+                await dbRun(
+                  `UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`,
+                  [cost, sellPrice, item_master_id]
+                );
+              }
             } else {
-              const item_id = `ITM-${uuidv4().split("-")[0].toUpperCase()}`;
+              // Create new record
+              const new_id = `ITM-${uuidv4().split("-")[0].toUpperCase()}`;
               const sku = item.sku || `SKU-${uuidv4().split("-")[0].toUpperCase()}`;
               const upperBrand = item.brand ? item.brand.toUpperCase() : null;
               const upperDesign = item.design ? item.design.toUpperCase() : null;
-              db.run(
-                `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, dot_number, is_active, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-                [item_id, sku, item.item_name, cat, upperBrand, upperDesign, item.size || null, item.rim_size || null, cost, sellPrice, item.dot_number || null, now],
-                (err2) => {
-                  if (err2) doInsertItem(null);
-                  else doInsertItem(item_id);
+              try {
+                await dbRun(
+                  `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, dot_number, is_active, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+                  [new_id, sku, itemName, cat, upperBrand, upperDesign, item.size || null, item.rim_size || null, cost, sellPrice, item.dot_number || null, now]
+                );
+                item_master_id = new_id;
+              } catch (err) {
+                // If insertion failed, it's likely a SKU collision not caught by our initial find (e.g. concurrent request or case diff)
+                if (item.sku) {
+                  const collided = await dbGet(`SELECT item_id FROM item_master WHERE sku = ? LIMIT 1`, [item.sku]);
+                  if (collided) {
+                    if (item.dot_number) {
+                      const { item_id: variantId } = await findOrCreateDotVariant(
+                        collided.item_id, 
+                        item.dot_number, 
+                        cost, 
+                        sellPrice, 
+                        created_by || "PURCHASE"
+                      );
+                      item_master_id = variantId;
+                    } else {
+                      item_master_id = collided.item_id;
+                      await dbRun(
+                        `UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`,
+                        [cost, sellPrice, item_master_id]
+                      );
+                    }
+                  }
                 }
-              );
+              }
             }
-          });
-        } else {
-          doInsertItem(null);
+          }
         }
-      });
-    }
-  );
+
+        // Insert purchase item record
+        await dbRun(
+          `INSERT INTO purchase_items (purchase_item_id, purchase_id, shop_id, item_name, category, quantity, unit_cost, selling_price, line_total, item_master_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [purchase_item_id, purchase_id, shop_id, itemName, cat, qty, cost, sellPrice, line, item_master_id]
+        );
+
+        insertedItems.push({ 
+          ...item, 
+          purchase_item_id, 
+          item_master_id, 
+          line_total: line,
+          selling_price: sellPrice
+        });
+
+        // Add to inventory ledger if it's an inventory item
+        if (item_master_id) {
+          const inv_id = `INVTXN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          await dbRun(
+            `INSERT INTO inventory_ledger (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, dot_number, supplier_id, created_by, created_at)
+             VALUES (?, ?, ?, 'PURCHASE', ?, ?, ?, ?, ?, ?, ?)`,
+            [inv_id, shop_id, item_master_id, qty, cost, purchase_id, item.dot_number || null, item.supplier_id || null, created_by || "PURCHASE", now]
+          );
+          itemIdsToSync.push(item_master_id);
+        }
+      }
+
+      // Final stock sync
+      if (itemIdsToSync.length > 0) {
+        await syncCurrentStock(shop_id, itemIdsToSync);
+      }
+
+      return insertedItems;
+    });
+
+    res.json({ purchase_id, total_amount, items: result });
+  } catch (err) {
+    console.error("Purchase creation error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Void purchase ────────────────────────────────────────────────────────────
@@ -260,8 +304,17 @@ router.patch("/purchases/:purchase_id/void", async (req, res) => {
           }
         }
 
-        db.run("COMMIT", (err3) => {
+        db.run("COMMIT", async (err3) => {
           if (err3) return res.status(500).json({ error: err3.message });
+          
+          // Re-sync current stock for all items involved
+          const itemIds = [...new Set(items.map(i => i.item_master_id))];
+          try {
+            await syncCurrentStock(header.shop_id, itemIds);
+          } catch (syncErr) {
+            console.error("Stock sync error after void:", syncErr);
+          }
+          
           res.json({ ok: true, message: "Purchase voided and stock reverted" });
         });
       });
@@ -364,8 +417,18 @@ router.put("/purchase-items/:purchase_item_id", (req, res) => {
               }
             }
 
-            db.run("COMMIT", (err4) => {
+            db.run("COMMIT", async (err4) => {
               if (err4) return res.status(500).json({ error: err4.message });
+              
+              // Re-sync current stock if it's an inventory item
+              if (oldItem.item_master_id) {
+                try {
+                  await syncCurrentStock(oldItem.shop_id, [oldItem.item_master_id]);
+                } catch (syncErr) {
+                  console.error("Stock sync error after edit:", syncErr);
+                }
+              }
+              
               res.json({ ok: true, message: "Purchase updated successfully" });
             });
           });

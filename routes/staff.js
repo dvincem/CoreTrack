@@ -489,7 +489,7 @@ router.get("/services-summary/:shop_id", (req, res) => {
   const start = startDate || today;
   const end = endDate || today;
   db.all(
-    `SELECT ll.log_id, ll.staff_id, ll.service_id, ll.service_name,
+    `SELECT ll.log_id, ll.staff_id, ll.service_id, ll.service_name, ll.sale_id,
             ll.quantity, ll.unit_price, ll.total_amount, ll.commission_amount,
             ll.business_date, sm.full_name, sm.staff_code,
             (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ?) as bale_deducted
@@ -512,8 +512,8 @@ router.get("/services-summary/:shop_id", (req, res) => {
             commissions: [] 
           };
         }
-        if (r.commission_amount > 0) map[r.staff_id].commissions.push({ log_id: r.log_id, service_name: r.service_name, quantity: r.quantity, amount: r.commission_amount, business_date: r.business_date });
-        else map[r.staff_id].services.push({ log_id: r.log_id, service_name: r.service_name, quantity: r.quantity, amount: r.total_amount, business_date: r.business_date });
+        if (r.commission_amount > 0) map[r.staff_id].commissions.push({ log_id: r.log_id, service_name: r.service_name, sale_id: r.sale_id, quantity: r.quantity, amount: r.commission_amount, business_date: r.business_date });
+        else map[r.staff_id].services.push({ log_id: r.log_id, service_name: r.service_name, sale_id: r.sale_id, quantity: r.quantity, amount: r.total_amount, business_date: r.business_date });
       }
       const all = Object.values(map);
       if (!paginated) return res.json(all);

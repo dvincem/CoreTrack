@@ -64,7 +64,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         'PURCHASE' as type
       FROM purchase_header ph
       LEFT JOIN supplier_master sm ON ph.supplier_id = sm.supplier_id
-      WHERE ph.shop_id = ? AND DATE(ph.purchase_date) = ?`,
+      WHERE ph.shop_id = ? AND ph.is_void = 0 AND DATE(ph.purchase_date) = ?`,
       [shop_id, targetDate]
     );
 

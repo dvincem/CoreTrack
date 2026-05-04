@@ -409,15 +409,19 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
             {showCashBreakdown && (
               <div style={{ margin: '0 0 0.25rem', padding: '0.65rem 0.75rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 {[
-                  { label: 'Cash Sales / Services', value: cashPool.cashFromSales, sign: '+', color: 'var(--th-emerald)' },
+                  kpis.grossSales      > 0 && { label: 'Gross Sales',        value: kpis.grossSales,               sign: '+', color: 'var(--th-emerald)' },
+                  kpis.serviceIncome   > 0 && { label: 'Net Services',       value: kpis.serviceIncome,            sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualCashIn   > 0 && { label: 'Manual Cash In',   value: cashPool.manualCashIn,   sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualGcashIn  > 0 && { label: 'GCash In',          value: cashPool.manualGcashIn,  sign: '+', color: 'var(--th-emerald)' },
                   cashPool.collectionsTotal > 0 && { label: 'Receivable Collections', value: cashPool.collectionsTotal, sign: '+', color: 'var(--th-emerald)' },
-                  cashPool.expensesDeducted    > 0 && { label: 'Expenses',          value: cashPool.expensesDeducted,    sign: '−', color: 'var(--th-rose)' },
+                  cashPool.baleRepaymentsTotal > 0 && { label: 'Bale Repayments', value: cashPool.baleRepaymentsTotal, sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.digitalFromSales > 0 && { label: 'Non-Cash Sales (GCash/Card)', value: cashPool.digitalFromSales, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.manualGcashOut > 0 && { label: 'GCash Out',         value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.purchasesDeducted   > 0 && { label: 'Purchases',         value: cashPool.purchasesDeducted,   sign: '−', color: 'var(--th-rose)' },
                   cashPool.commissionsDeducted > 0 && { label: 'Commissions',       value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.expensesDeducted    > 0 && { label: 'Expenses',          value: cashPool.expensesDeducted,    sign: '−', color: 'var(--th-rose)' },
                   cashPool.payablePaymentsTotal > 0 && { label: 'Payable Payments', value: cashPool.payablePaymentsTotal, sign: '−', color: 'var(--th-rose)' },
                   cashPool.manualCashOut  > 0 && { label: 'Manual Cash Out',  value: cashPool.manualCashOut,  sign: '−', color: 'var(--th-rose)' },
-                  cashPool.manualGcashOut > 0 && { label: 'GCash Out',         value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
                 ].filter(Boolean).map((row, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: 'var(--th-text-faint)' }}>{row.label}</span>

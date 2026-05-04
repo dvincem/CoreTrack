@@ -341,7 +341,43 @@ function CustomerPage({ shopId }) {
                 New Customer
                 <button className="cp-modal-close" onClick={() => setShowAdd(false)}>✕</button>
               </div>
-...
+              {/* Row 1: Name + Company */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Customer Name *</label>
+                  <input className="cp-modal-input" placeholder="Full name or company name" value={addForm.customer_name} onChange={e => setAddForm(f => ({ ...f, customer_name: e.target.value }))} autoFocus />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Company</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={addForm.company} onChange={e => setAddForm(f => ({ ...f, company: e.target.value }))} />
+                </div>
+              </div>
+
+              {/* Row 2: Contact Number + TIN Number */}
+              <div className="cp-modal-grid">
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">Contact Number</label>
+                  <input className="cp-modal-input" type="tel" placeholder="Optional" value={addForm.contact_number} onChange={e => setAddForm(f => ({ ...f, contact_number: e.target.value }))} />
+                </div>
+                <div className="cp-modal-field">
+                  <label className="cp-modal-label">TIN Number</label>
+                  <input className="cp-modal-input" placeholder="Optional" value={addForm.tin_number} onChange={e => setAddForm(f => ({ ...f, tin_number: e.target.value }))} />
+                </div>
+              </div>
+
+              {/* Row 3: Address */}
+              <div className="cp-modal-field">
+                <label className="cp-modal-label">Address</label>
+                <input className="cp-modal-input" placeholder="Optional" value={addForm.address} onChange={e => setAddForm(f => ({ ...f, address: e.target.value }))} />
+              </div>
+
+              {/* Row 4: Initial Plate */}
+              <div className="cp-modal-field">
+                <label className="cp-modal-label">Initial Vehicle Plate (Optional)</label>
+                <input className="cp-modal-input" placeholder="e.g. ABC-1234" value={addForm.car_plate_number} onChange={e => setAddForm(f => ({ ...f, car_plate_number: e.target.value }))} />
+              </div>
+
+              {addError && <div className="cp-modal-error">{addError}</div>}
               <div className="cp-modal-actions">
                 <button className="cp-modal-cancel" onClick={cancelAdd}>Cancel</button>
                 <button className="cp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Customer'}</button>

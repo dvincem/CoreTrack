@@ -121,10 +121,11 @@ function recordServiceLabor(shop_id, tireman_ids, service_items, encoded_by) {
       const perTireman = item.line_total / tireman_ids.length;
       for (const staff_id of tireman_ids) {
         const log_id = `LOG-${uuidv4()}`;
+        const svcDisplayName = `${item.item_name} (Sale ${item.sale_id})`;
         db.run(
           `INSERT INTO labor_log (log_id, shop_id, staff_id, service_id, service_name, quantity, unit_price, total_amount, commission_amount, business_date, encoded_by, sale_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
-          [log_id, shop_id, staff_id, item.item_or_service_id, item.item_name, item.quantity, item.unit_price, perTireman, business_date, encoded_by || 'POS', item.sale_id || null],
+          [log_id, shop_id, staff_id, item.item_or_service_id, svcDisplayName, item.quantity, item.unit_price, perTireman, business_date, encoded_by || 'POS', item.sale_id],
           (err) => { if (err) console.error('service labor_log insert error:', err.message); }
         );
       }

@@ -237,8 +237,13 @@ function PayablesPage({ shopId }) {
   const [pendingMarkPaid, setPendingMarkPaid] = React.useState(null);
   const [voidTarget, setVoidTarget] = React.useState(null);
   const [voidReason, setVoidReason] = React.useState("");
+  const [deleteTarget, setDeleteTarget] = React.useState(null);
 
   const [selectedWeekPayableIds, setSelectedWeekPayableIds] = React.useState(new Set());
+  const [weekBulkPending, setWeekBulkPending] = React.useState(null); // { items, total, method, date }
+  const [weekBulkMethod, setWeekBulkMethod] = React.useState("CASH");
+  const [weekBulkPaying, setWeekBulkPaying] = React.useState(false);
+
   React.useEffect(() => {
     if (selectedWeek) {
       setSelectedWeekPayableIds(new Set(selectedWeek.items.map(p => p.payable_id)));
@@ -295,6 +300,9 @@ function PayablesPage({ shopId }) {
     for (const p of payables) {
       if (p.supplier_name && p.supplier_name.toLowerCase().startsWith(q) && !seen.has(p.supplier_name)) {
         seen.add(p.supplier_name); sugs.push({ text: p.supplier_name, type: "Supplier" });
+      }
+      if (p.payee_name && p.payee_name.toLowerCase().startsWith(q) && !seen.has(p.payee_name)) {
+        seen.add(p.payee_name); sugs.push({ text: p.payee_name, type: "General" });
       }
       if (p.contact_person && p.contact_person.toLowerCase().startsWith(q) && !seen.has(p.contact_person)) {
         seen.add(p.contact_person); sugs.push({ text: p.contact_person, type: "Contact" });
@@ -486,8 +494,30 @@ function PayablesPage({ shopId }) {
     setPaying(false);
   };
 
+  const confirmWeekBulkPay = async () => {
+    if (!weekBulkPending) return;
+    const { items, method, date } = weekBulkPending;
+    setWeekBulkPending(null);
+    setWeekBulkPaying(true);
+    let successCount = 0;
+    for (const p of items) {
+      try {
+        const res = await apiFetch(`${API_URL}/payables/${p.payable_id}/payment`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shop_id: shopId, amount: p.balance_amount, payment_date: date, payment_method: method, notes: "Bulk weekly payment", recorded_by: "POS" })
+        });
+        const data = await res.json();
+        if (!data.error) successCount++;
+      } catch { /* continue */ }
+    }
+    setWeekBulkPaying(false);
+    setSelectedWeek(null);
+    loadPayables();
+    refetch();
+    showToast(`✓ ${successCount} of ${items.length} payment(s) recorded!`);
+  };
+
   const handleVoid = async () => {
-    if (!voidTarget) return;
     setSaving(true);
     try {
       const res = await apiFetch(`${API_URL}/payables/${voidTarget.payable_id}/void`, {
@@ -506,6 +536,22 @@ function PayablesPage({ shopId }) {
     setSaving(false);
   };
 
+
+  const handleDeletePayable = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      const res = await apiFetch(`${API_URL}/payables/${deleteTarget.payable_id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.error) { showToast(data.error); setSaving(false); return; }
+      showToast('Payable deleted!');
+      setDeleteTarget(null);
+      setDetailTarget(null);
+      loadPayables();
+      refetch();
+    } catch (e) { showToast(e.message); }
+    setSaving(false);
+  };
 
   /* Stats — from KPI endpoint */
   const totalPayables = kpi?.totalPayables || 0;
@@ -1203,21 +1249,37 @@ function PayablesPage({ shopId }) {
               ))}
             </div>
             <div className="pay-modal-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {detailTarget.status !== 'VOIDED' && (
-                <button 
-                  onClick={() => setVoidTarget(detailTarget)}
-                  style={{ 
-                    background: 'none', border: 'none', color: 'var(--th-text-faint)', 
-                    fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5, 
-                    textDecoration: 'underline', transition: 'opacity 0.2s' 
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                  onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
-                >
-                  Void this payable
-                </button>
-              )}
-              <button className="pay-btn-cancel" onClick={closeDetail} style={{ flex: detailTarget.status === 'VOIDED' ? 1 : 0, minWidth: 80 }}>Close</button>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                {detailTarget.status !== 'VOIDED' && (
+                  <button 
+                    onClick={() => setVoidTarget(detailTarget)}
+                    style={{ 
+                      background: 'none', border: 'none', color: 'var(--th-text-faint)', 
+                      fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5, 
+                      textDecoration: 'underline', transition: 'opacity 0.2s' 
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                  >
+                    Void this payable
+                  </button>
+                )}
+                {detailTarget.payable_type === 'GENERAL' && (
+                  <button
+                    onClick={() => setDeleteTarget(detailTarget)}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--th-rose)',
+                      fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5,
+                      textDecoration: 'underline', transition: 'opacity 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+              <button className="pay-btn-cancel" onClick={closeDetail} style={{ minWidth: 80 }}>Close</button>
             </div>
           </div>
         </div>
@@ -1333,9 +1395,64 @@ function PayablesPage({ shopId }) {
                 })}
               </div>
             </div>
+
+            {/* ── Bulk payment footer ── */}
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--th-border)', borderRadius: '12px', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--th-text-dim)', textTransform: 'uppercase' }}>Pay via</span>
+                {PAY_METHODS.map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setWeekBulkMethod(m)}
+                    style={{
+                      padding: '3px 10px', borderRadius: '5px', fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase',
+                      background: weekBulkMethod === m ? 'var(--th-rose)' : 'rgba(255,255,255,0.07)',
+                      color: weekBulkMethod === m ? '#fff' : 'var(--th-text-dim)',
+                      border: weekBulkMethod === m ? '1px solid var(--th-rose)' : '1px solid var(--th-border)',
+                      transition: 'all 0.15s'
+                    }}
+                  >{m}</button>
+                ))}
+              </div>
+              <button
+                disabled={selectedItems.length === 0 || weekBulkPaying}
+                onClick={() => setWeekBulkPending({ items: selectedItems, total: dynamicTotal, method: weekBulkMethod, date: TODAY })}
+                style={{
+                  background: selectedItems.length === 0 ? 'rgba(255,255,255,0.08)' : 'var(--th-rose)',
+                  color: selectedItems.length === 0 ? 'var(--th-text-faint)' : '#fff',
+                  border: 'none', borderRadius: '8px', padding: '0.55rem 1.25rem',
+                  fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', cursor: selectedItems.length === 0 ? 'not-allowed' : 'pointer',
+                  letterSpacing: '0.04em', transition: 'background 0.15s'
+                }}
+              >
+                {weekBulkPaying ? 'Processing…' : `Confirm Payment · ${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
           </Modal>
         );
       })()}
+
+      {/* Confirm: Bulk Weekly Payment */}
+      {weekBulkPending && (
+        <div className="confirm-overlay">
+          <div className="confirm-box">
+            <div className="confirm-title">Confirm Bulk Payment</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Items</span><span className="confirm-detail-val">{weekBulkPending.items.length} payable{weekBulkPending.items.length !== 1 ? 's' : ''}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Total Amount</span><span className="confirm-detail-val" style={{ color: 'var(--th-rose)', fontWeight: 900 }}>{payCurrency(weekBulkPending.total)}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Method</span><span className="confirm-detail-val">{weekBulkPending.method}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{weekBulkPending.date}</span></div>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--th-text-faint)', marginBottom: '0.75rem', textAlign: 'center' }}>
+              Each selected payable will be paid in full for its remaining balance.
+            </div>
+            <div className="confirm-actions">
+              <button className="pay-btn-cancel" onClick={() => setWeekBulkPending(null)}>Cancel</button>
+              <button className="pay-btn-primary" onClick={confirmWeekBulkPay}>Confirm Payment</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm: Add Payable */}
       {pendingPayable && (
@@ -1432,6 +1549,26 @@ function PayablesPage({ shopId }) {
               <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>
               <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving}>
                 {saving ? 'Voiding...' : 'Yes, Void Payable'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete confirmation — GENERAL payables only */}
+      {deleteTarget && (
+        <div className="confirm-overlay">
+          <div className="confirm-box">
+            <div className="confirm-title">Delete Payable?</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Payee</span><span className="confirm-detail-val">{deleteTarget.payee_name || '—'}</span></div>
+              {deleteTarget.description && <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{deleteTarget.description}</span></div>}
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{payCurrency(deleteTarget.original_amount)}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Warning</span><span className="confirm-detail-val" style={{ color: 'var(--th-rose)' }}>This permanently deletes the payable and all its payments. This cannot be undone.</span></div>
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="confirm-btn-ok danger" onClick={handleDeletePayable} disabled={saving}>
+                {saving ? 'Deleting...' : 'Yes, Delete Permanently'}
               </button>
             </div>
           </div>

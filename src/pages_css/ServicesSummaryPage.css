@@ -531,6 +531,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 180px;
+  transition: all 0.2s;
 }
 
 .ss-svc-name.ss-svc-expanded {
@@ -659,9 +660,7 @@
 }
 
 .ss-modal-body .ss-svc-name {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
+  max-width: none;
 }
 
 .ss-modal-body .ss-empty-cell {

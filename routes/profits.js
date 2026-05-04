@@ -46,6 +46,7 @@ router.get('/profits/summary/:shop_id', (req, res) => {
     FROM purchase_items pi
     JOIN purchase_header ph ON pi.purchase_id = ph.purchase_id
     WHERE ph.shop_id = ? AND pi.category IN ('MATERIAL','OTHER')
+      AND ph.is_void = 0
       AND ph.purchase_date BETWEEN ? AND ?`
 
   const q5 = `
@@ -61,6 +62,7 @@ router.get('/profits/summary/:shop_id', (req, res) => {
            COUNT(DISTINCT ph.purchase_id)    AS purchase_orders
     FROM purchase_header ph
     WHERE ph.shop_id = ?
+      AND ph.is_void = 0
       AND ph.purchase_date BETWEEN ? AND ?`
 
   db.get(q1, [shop_id, start, end], (e1, r1) => {

@@ -521,9 +521,19 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
         <DataTable
           columns={[
             {
+              key: 'purchase_id',
+              label: 'Ref #',
+              width: '100px',
+              render: (r) => (
+                <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--th-orange)', fontWeight: 700 }}>
+                  {r.purchase_id}
+                </span>
+              ),
+            },
+            {
               key: 'purchase_datetime',
               label: 'Date',
-              width: '130px',
+              width: '120px',
               render: (r) => (
                 <span style={{ whiteSpace: 'nowrap', color: 'var(--th-text-dim)', fontSize: '0.78rem' }}>
                   {fmtDateTime(r.purchase_datetime || r.purchase_date)}
@@ -926,6 +936,10 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               <button className="pur-modal-close" onClick={() => setDetailRow(null)}>✕</button>
             </div>
             <div className="confirm-details">
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Purchase ID</span>
+                <span className="confirm-detail-val" style={{ fontFamily: 'monospace', color: 'var(--th-orange)', fontWeight: 700 }}>{detailRow.purchase_id}</span>
+              </div>
               <div className="confirm-detail-row">
                 <span className="confirm-detail-label">Item</span>
                 <span className="confirm-detail-val">{detailRow.item_name}</span>

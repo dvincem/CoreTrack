@@ -50,44 +50,38 @@ export default function ItemHistoryModal({
         {/* ── Scrollable body ── */}
         <div className="inv-hist-body">
 
-          {/* ── DOT variant tabs (only for grouped items) ── */}
+          {/* ── DOT variant dropdown (only for grouped items) ── */}
           {isGrouped && (
             <div style={{
-              display: 'flex', gap: '0.35rem', flexWrap: 'wrap',
-              padding: '0.65rem 1rem 0.65rem', borderBottom: '1px solid var(--th-border,#283245)',
+              padding: '0.65rem 1rem', borderBottom: '1px solid var(--th-border,#283245)',
               marginBottom: '0.5rem',
             }}>
-              <button
-                onClick={() => onVariantChange && onVariantChange(null)}
+              <select
+                value={activeVariantId || ''}
+                onChange={e => onVariantChange && onVariantChange(e.target.value || null)}
                 style={{
-                  padding: '0.5rem 0.7rem', borderRadius: 20, border: 'none', cursor: 'pointer',
-                  fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: '0.75rem',
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  background: !activeVariantId ? 'var(--th-amber,#fbbf24)' : 'transparent',
-                  color: !activeVariantId ? '#000' : 'var(--th-text-dim,#94a3b8)',
-                  border: !activeVariantId ? '1px solid var(--th-amber,#fbbf24)' : '1px solid var(--th-border,#283245)',
-                  transition: 'all 0.15s',
+                  width: '100%',
+                  background: 'var(--th-bg-input,#1a2132)',
+                  border: '1px solid var(--th-amber,#fbbf24)',
+                  borderRadius: 8,
+                  color: 'var(--th-amber,#fbbf24)',
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  padding: '0.45rem 0.75rem',
+                  cursor: 'pointer',
+                  outline: 'none',
                 }}
               >
-                All ({variants.reduce((s, v) => s + (v.qty || 0), 0)})
-              </button>
-              {variants.map(v => (
-                <button
-                  key={v.item_id}
-                  onClick={() => onVariantChange && onVariantChange(v.item_id)}
-                  style={{
-                    padding: '0.5rem 0.7rem', borderRadius: 20, cursor: 'pointer',
-                    fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: '0.75rem',
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                    background: activeVariantId === v.item_id ? 'var(--th-amber,#fbbf24)' : 'transparent',
-                    color: activeVariantId === v.item_id ? '#000' : 'var(--th-text-dim,#94a3b8)',
-                    border: activeVariantId === v.item_id ? '1px solid var(--th-amber,#fbbf24)' : '1px solid var(--th-border,#283245)',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  DOT {v.dot_number || '—'} <span style={{ opacity: 0.75, fontWeight: 600 }}>({v.qty})</span>
-                </button>
-              ))}
+                <option value="">ALL ({variants.reduce((s, v) => s + (v.qty || 0), 0)})</option>
+                {variants.map(v => (
+                  <option key={v.item_id} value={v.item_id}>
+                    DOT {v.dot_number || '—'} ({v.qty})
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
