@@ -2,6 +2,11 @@
 
 This file provides project-specific context and instructions for the Gemini CLI agent to ensure consistent and idiomatic development within the `tire-shop-management` codebase.
 
+## CRITICAL: Production Environment
+- **Live Data:** This system is currently used for **real day-to-day shop transactions**. 
+- **Database Safety:** Extreme caution is required for any database schema modifications (`Database.js`). Schema changes must be non-breaking and thoroughly validated to prevent data loss or system downtime.
+- **Backups:** Rely on the automated 30-minute Excel-based snapshots for recovery.
+
 ## Technical Stack
 - **Frontend:** React 19, Vite 8, Recharts.
 - **Backend:** Node.js, Express.
@@ -17,16 +22,14 @@ This file provides project-specific context and instructions for the Gemini CLI 
   - Use promisified helpers in `lib/db.js` (`dbAll`, `dbGet`, `dbRun`, `dbSerialize`) for all database operations.
   - Avoid using the raw `sqlite3` API directly in route handlers.
   - Database schema and initialization logic are located in `Database.js`.
-- **API Routes:** 
-  - All API routes are prefixed with `/api`.
-  - Route handlers are organized in the `routes/` directory.
-  - Authentication is handled via `middleware/auth.js`.
+- **Reporting Logic:** `lib/reporting.js` manages complex aggregations. Recent updates include a "Cash Pool" breakdown that distinguishes between sales-driven cash and manual ledger adjustments.
 
 ### Frontend
 - **Structure:**
   - Components are in `src/components/`.
   - Pages are in `src/pages/`.
   - Configuration (like KPI settings) is in `src/lib/`.
+- **Modals:** Use `ReactDOM.createPortal` for all global-style modals (e.g., in `CashLedgerPage.jsx`) to ensure they render above all other elements without layout interference.
 - **State Management:** Local React state and hooks are preferred.
 - **Visualization:** Use `recharts` for dashboards and reports.
 
@@ -48,11 +51,11 @@ This file provides project-specific context and instructions for the Gemini CLI 
 - After frontend changes, verify the build: `npm run build`.
 - Always check that API endpoints match the expected `/api` prefix and are protected by `authMiddleware` where appropriate.
 
-## System Feature Index (v2.0)
+## System Feature Index (v2.1)
 
 ### Core Business Logic
 - **Inventory Management:** `routes/items.js`, `src/pages/InventoryPage.jsx`. Handles stock levels, reorder points, and DOT tracking.
-- **Point of Sale (POS):** `routes/sales.js`, `src/pages/POSPage.jsx`. Hybrid cart supporting both products and services.
+- **Point of Sale (POS):** `routes/sales.js`, `src/pages/POSPage.jsx`. Hybrid cart supporting both products and services. Header dynamically displays the shop name.
 - **Customer Directory:** `routes/customers.js`, `src/pages/CustomerPage.jsx`. CRM with purchase history and vehicle plate tracking.
 - **Supplier Relations:** `routes/suppliers.js`, `src/pages/SuppliersPage.jsx`. Vendor management and stock source tracking.
 - **Financial Tracking:** `routes/financials.js`, `src/pages/FinancialHealthPage.jsx`. Deep analysis of revenue, expenses, and net position.
@@ -61,10 +64,11 @@ This file provides project-specific context and instructions for the Gemini CLI 
 - **Recap/Retreading:** `routes/recap.js`, `src/pages/RecapPage.jsx`. Full lifecycle tracking for customer-owned and shop-owned casing jobs.
 - **Staff & Payroll:** `routes/staff.js`, `src/pages/StaffPage.jsx`, `src/pages/PayrollPage.jsx`. Role-based access, attendance tracking, and commission calculations.
 - **Accounts Receivable/Payable:** `routes/financials.js`, `src/pages/ReceivablesPage.jsx`, `src/pages/PayablesPage.jsx`. Debt and credit tracking for clients and suppliers.
+- **Cash Ledger:** `routes/cashledger.js`, `src/pages/CashLedgerPage.jsx`. Real-time tracking of physical cash flow with manual entry support.
 
 ### Intelligence & Reliability
 - **TireHub AI Assistant:** `chatbot.js`, `src/components/TireHubBot.jsx`. Local Llama 3.2 engine with grounded DB-access (zero hallucination design).
 - **Auto-Backup Engine:** `routes/backup.js`, `server.js`. 30-minute automated Excel-based snapshots of all 34 database tables.
-- **Performance Layer:** In-memory inventory indexing for instantaneous product lookups and AI-assisted search.
+- **Advanced Reporting:** `src/pages/Reportspage.jsx`. Interactive daily activity reports with collapsible cash breakdown and audit-ready transaction references.
 - **Theme Engine:** Fully reactive OLED Midnight Glass interface supporting dynamic Dark/Light mode transitions.
 
