@@ -256,6 +256,19 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
       .catch(() => { })
   }, [shopId])
 
+  // Pricing defaults
+  const [priceDefaults, setPriceDefaults] = React.useState({}); // key: `${size}|${type}` -> { recap_cost, selling_price }
+  const [showPricingModal, setShowPricingModal] = React.useState(false);
+  const [pricingDraft, setPricingDraft] = React.useState({});
+  const [pricingSaving, setPricingSaving] = React.useState(false);
+
+  const RECAP_SIZES = ['700-15', '750-15', '700-16', '750-16', '825-16'];
+  const RECAP_TYPES = ['Fullcap', 'Topcap', 'Cold Process'];
+
+  const blankCasing = () => ({ brand: "", design: "Topcap", size: "", dot_number: "", recap_cost: "", expected_selling_price: "" });
+  const [newJob, setNewJob] = React.useState({ ownership_type: "CUSTOMER_OWNED", customer_id: "", supplier_id: "" });
+  const [casings, setCasings] = React.useState([blankCasing()]);
+
   // --- Persistence Logic ---
   React.useEffect(() => {
     if (!shopId) return;
@@ -283,19 +296,6 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     localStorage.setItem(`th-rcp-intake-draft-${shopId}`, JSON.stringify(recapIntakeForm));
     localStorage.setItem(`th-rcp-intake-item-${shopId}`, JSON.stringify(selectedRecapItem));
   }, [newJob, casings, showNewJobForm, recapIntakeForm, selectedRecapItem, shopId, isDraftLoaded]);
-
-  // Pricing defaults
-  const [priceDefaults, setPriceDefaults] = React.useState({}); // key: `${size}|${type}` -> { recap_cost, selling_price }
-  const [showPricingModal, setShowPricingModal] = React.useState(false);
-  const [pricingDraft, setPricingDraft] = React.useState({});
-  const [pricingSaving, setPricingSaving] = React.useState(false);
-
-  const RECAP_SIZES = ['700-15', '750-15', '700-16', '750-16', '825-16'];
-  const RECAP_TYPES = ['Fullcap', 'Topcap', 'Cold Process'];
-
-  const blankCasing = () => ({ brand: "", design: "Topcap", size: "", dot_number: "", recap_cost: "", expected_selling_price: "" });
-  const [newJob, setNewJob] = React.useState({ ownership_type: "CUSTOMER_OWNED", customer_id: "", supplier_id: "" });
-  const [casings, setCasings] = React.useState([blankCasing()]);
 
   const updateCasing = (idx, patch) => {
     setCasings(prev => prev.map((c, i) => {
