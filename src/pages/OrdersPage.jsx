@@ -3034,6 +3034,15 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
 ════════════════════════════════════════ */
 export default function OrdersPage({ shopId, onRefresh }) {
   const [orderDetails, setOrderDetails] = React.useState(null);
+  // Edit mode state for detail modal
+  const [editMode, setEditMode] = React.useState(false);
+  const [editNotes, setEditNotes] = React.useState("");
+  const [editDR, setEditDR] = React.useState("");
+  const [editItems, setEditItems] = React.useState([]); // [{order_item_id, quantity, unit_cost, dot_number, ...rest}]
+  const [editSaving, setEditSaving] = React.useState(false);
+  const [editAddSearch, setEditAddSearch] = React.useState("");
+  const [editAddResults, setEditAddResults] = React.useState([]);
+  const [editAddPending, setEditAddPending] = React.useState([]); // new items to add
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [supplierFilter, setSupplierFilter] = React.useState("");
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
@@ -3547,6 +3556,105 @@ export default function OrdersPage({ shopId, onRefresh }) {
     });
   }
 
+  // ── Edit mode helpers ────────────────────────────────────────────────────
+  function openEditMode() {
+    if (!orderDetails) return;
+    setEditNotes(orderDetails.order_notes || "");
+    setEditDR(orderDetails.delivery_receipt || "");
+    setEditItems((orderDetails.items || []).map(i => ({
+      order_item_id: i.order_item_id,
+      quantity: i.quantity,
+      unit_cost: i.unit_cost,
+      dot_number: i.dot_number || "",
+      item_name: i.item_name || i.displaySize || "",
+      brand: i.brand, design: i.design, size: i.size,
+      received_status: i.received_status,
+    })));
+    setEditAddPending([]);
+    setEditAddSearch("");
+    setEditAddResults([]);
+    setEditMode(true);
+  }
+
+  function cancelEditMode() {
+    setEditMode(false);
+    setEditAddPending([]);
+    setEditAddSearch("");
+    setEditAddResults([]);
+  }
+
+  async function saveEditMode() {
+    if (!orderDetails) return;
+    setEditSaving(true);
+    try {
+      // 1. Save header (notes + DR)
+      await apiFetch(`${API_URL}/orders/${orderDetails.order_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_notes: editNotes, delivery_receipt: editDR }),
+      });
+      // 2. Save each item
+      for (const ei of editItems) {
+        const orig = (orderDetails.items || []).find(i => i.order_item_id === ei.order_item_id);
+        const changed = !orig ||
+          String(ei.quantity) !== String(orig.quantity) ||
+          String(ei.unit_cost) !== String(orig.unit_cost) ||
+          (ei.dot_number || "") !== (orig.dot_number || "");
+        if (changed) {
+          await apiFetch(`${API_URL}/orders/${orderDetails.order_id}/items/${ei.order_item_id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ quantity: ei.quantity, unit_cost: ei.unit_cost, dot_number: ei.dot_number }),
+          });
+        }
+      }
+      // 3. Add new items
+      if (editAddPending.length > 0) {
+        await apiFetch(`${API_URL}/orders/${orderDetails.order_id}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: editAddPending }),
+        });
+      }
+      // Refresh
+      const r2 = await apiFetch(`${API_URL}/orders/${orderDetails.order_id}/details`);
+      const fresh = await r2.json();
+      setOrderDetails(fresh);
+      setEditMode(false);
+      setEditAddPending([]);
+      fetchOrders();
+      setToast({ msg: "Order saved.", type: "success" });
+    } catch (e) {
+      setToast({ msg: e.message || "Save failed", type: "error" });
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function editAddItemSearch(q) {
+    setEditAddSearch(q);
+    if (!q || q.length < 2) { setEditAddResults([]); return; }
+    try {
+      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}&perPage=20`);
+      const d = await r.json();
+      setEditAddResults(Array.isArray(d) ? d : (d.data || []));
+    } catch { setEditAddResults([]); }
+  }
+
+  function editAddItemSelect(item) {
+    setEditAddPending(prev => [...prev, {
+      item_id: item.item_id,
+      supplier_id: item.supplier_id || null,
+      quantity: 1,
+      unit_cost: item.unit_cost || 0,
+      dot_number: "",
+      item_name: [item.brand, item.design, item.size].filter(Boolean).join(" ") || item.item_name || item.item_id,
+      is_new_item: 0,
+    }]);
+    setEditAddSearch("");
+    setEditAddResults([]);
+  }
+
   async function receiveOrder() {
     setLoading(true);
     try {
@@ -3597,6 +3705,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       setDeliveryReceipt("");
       setReceivePaymentMode("TERMS");
       setReceiveCheckInfo({ check_number: "", bank: "", check_date: "" });
+      cancelEditMode();
       setOrderDetails(null);
       setToast({
         title: "Order Received",
@@ -4329,7 +4438,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       {orderDetails && !showReceiveModal && !showCancelModal && (
         <div
           className="ord-details-overlay"
-          onClick={(e) => e.target === e.currentTarget && setOrderDetails(null)}
+          onClick={(e) => e.target === e.currentTarget && (cancelEditMode(), setOrderDetails(null))}
         >
           <div className="ord-details">
             <div className="ord-details-header">
@@ -4337,12 +4446,23 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 <div className="ord-details-title">Order Details</div>
                 <div className="ord-details-id">{orderDetails.order_id}</div>
               </div>
-              <button
-                className="ord-details-close"
-                onClick={() => setOrderDetails(null)}
-              >
-                ✕
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                {!editMode && (
+                  <button
+                    className="ord-btn ord-btn-sky"
+                    style={{ padding: "0.28rem 0.8rem", fontSize: "0.82rem" }}
+                    onClick={openEditMode}
+                  >
+                    ✎ Edit
+                  </button>
+                )}
+                <button
+                  className="ord-details-close"
+                  onClick={() => { cancelEditMode(); setOrderDetails(null); }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="ord-details-body">
@@ -4484,14 +4604,42 @@ export default function OrdersPage({ shopId, onRefresh }) {
               </div>
 
               {/* Notes */}
-              {orderDetails.order_notes && (
+              {editMode ? (
+                <div className="ord-notes-block">
+                  <div className="ord-notes-label">DR # &amp; Notes</div>
+                  <input
+                    type="text"
+                    placeholder="Delivery Receipt #"
+                    value={editDR}
+                    onChange={e => setEditDR(e.target.value)}
+                    style={{
+                      width: "100%", boxSizing: "border-box",
+                      background: "var(--th-surface)", color: "var(--th-text)",
+                      border: "1px solid var(--th-border)", borderRadius: 6,
+                      padding: "0.4rem 0.6rem", fontSize: "0.88rem", marginBottom: "0.5rem",
+                    }}
+                  />
+                  <textarea
+                    rows={3}
+                    placeholder="Order notes..."
+                    value={editNotes}
+                    onChange={e => setEditNotes(e.target.value)}
+                    style={{
+                      width: "100%", boxSizing: "border-box", resize: "vertical",
+                      background: "var(--th-surface)", color: "var(--th-text)",
+                      border: "1px solid var(--th-border)", borderRadius: 6,
+                      padding: "0.4rem 0.6rem", fontSize: "0.88rem",
+                    }}
+                  />
+                </div>
+              ) : orderDetails.order_notes ? (
                 <div className="ord-notes-block">
                   <div className="ord-notes-label">Notes</div>
                   <div className="ord-notes-text">
                     {orderDetails.order_notes}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Receipt stats */}
               {orderDetails.status === "RECEIVED" && (
@@ -4564,16 +4712,175 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 </svg>
                 Items ({orderDetails.items?.length})
               </div>
-              {orderDetails.items?.map((item) => (
-                <DetailItem
-                  key={item.order_item_id}
-                  item={item}
-                  orderStatus={orderDetails.status}
-                />
-              ))}
+              {editMode ? (
+                <>
+                  {editItems.map((ei, idx) => (
+                    <div key={ei.order_item_id} style={{
+                      background: "var(--th-surface)",
+                      border: "1px solid var(--th-border)",
+                      borderRadius: 8, padding: "0.6rem 0.75rem",
+                      marginBottom: "0.5rem",
+                    }}>
+                      <div style={{ fontSize: "0.82rem", color: "var(--th-text-muted)", marginBottom: "0.4rem", fontWeight: 600 }}>
+                        {ei.item_name || [ei.brand, ei.design, ei.size].filter(Boolean).join(" ") || ei.order_item_id}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.4rem" }}>
+                        <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                          Qty
+                          <input type="number" min="0.01" step="any" value={ei.quantity}
+                            onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
+                            style={{ display: "block", width: "100%", boxSizing: "border-box",
+                              background: "var(--th-bg)", color: "var(--th-text)",
+                              border: "1px solid var(--th-border)", borderRadius: 5,
+                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                        </label>
+                        <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                          Unit Cost
+                          <input type="number" min="0" step="any" value={ei.unit_cost}
+                            onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
+                            style={{ display: "block", width: "100%", boxSizing: "border-box",
+                              background: "var(--th-bg)", color: "var(--th-text)",
+                              border: "1px solid var(--th-border)", borderRadius: 5,
+                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                        </label>
+                        <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                          DOT #
+                          <input type="text" value={ei.dot_number}
+                            onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
+                            placeholder="e.g. 2524"
+                            style={{ display: "block", width: "100%", boxSizing: "border-box",
+                              background: "var(--th-bg)", color: "var(--th-text)",
+                              border: "1px solid var(--th-border)", borderRadius: 5,
+                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                        </label>
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--th-amber)", marginTop: "0.3rem", textAlign: "right" }}>
+                        Subtotal: {ordCurrency((parseFloat(ei.quantity) || 0) * (parseFloat(ei.unit_cost) || 0))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add new items (PENDING/CONFIRMED only) */}
+                  {["PENDING", "CONFIRMED"].includes(orderDetails.status) && (
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <div className="ord-section-title" style={{ marginBottom: "0.4rem" }}>+ Add Items</div>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="text"
+                          placeholder="Search item to add..."
+                          value={editAddSearch}
+                          onChange={e => editAddItemSearch(e.target.value)}
+                          style={{
+                            width: "100%", boxSizing: "border-box",
+                            background: "var(--th-surface)", color: "var(--th-text)",
+                            border: "1px solid var(--th-border)", borderRadius: 6,
+                            padding: "0.4rem 0.6rem", fontSize: "0.85rem",
+                          }}
+                        />
+                        {editAddResults.length > 0 && (
+                          <div style={{
+                            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+                            background: "var(--th-surface)", border: "1px solid var(--th-border)",
+                            borderRadius: 6, maxHeight: 200, overflowY: "auto",
+                          }}>
+                            {editAddResults.map(it => (
+                              <div key={it.item_id}
+                                onClick={() => editAddItemSelect(it)}
+                                style={{
+                                  padding: "0.45rem 0.65rem", cursor: "pointer",
+                                  fontSize: "0.83rem", borderBottom: "1px solid var(--th-border-soft)",
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = "var(--th-hover)"}
+                                onMouseLeave={e => e.currentTarget.style.background = ""}
+                              >
+                                <span style={{ fontWeight: 600 }}>{[it.brand, it.design, it.size].filter(Boolean).join(" ") || it.item_name}</span>
+                                {it.sku && <span style={{ color: "var(--th-text-muted)", marginLeft: "0.4rem", fontSize: "0.78rem" }}>{it.sku}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Staged new items */}
+                      {editAddPending.map((ap, idx) => (
+                        <div key={idx} style={{
+                          background: "var(--th-emerald-bg, #d1fae5)", border: "1px solid var(--th-emerald)",
+                          borderRadius: 8, padding: "0.5rem 0.75rem", marginTop: "0.4rem",
+                        }}>
+                          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--th-emerald)", marginBottom: "0.3rem" }}>
+                            + {ap.item_name}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.4rem", alignItems: "end" }}>
+                            <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                              Qty
+                              <input type="number" min="0.01" step="any" value={ap.quantity}
+                                onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
+                                style={{ display: "block", width: "100%", boxSizing: "border-box",
+                                  background: "var(--th-bg)", color: "var(--th-text)",
+                                  border: "1px solid var(--th-border)", borderRadius: 5,
+                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                            </label>
+                            <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                              Unit Cost
+                              <input type="number" min="0" step="any" value={ap.unit_cost}
+                                onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
+                                style={{ display: "block", width: "100%", boxSizing: "border-box",
+                                  background: "var(--th-bg)", color: "var(--th-text)",
+                                  border: "1px solid var(--th-border)", borderRadius: 5,
+                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                            </label>
+                            <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                              DOT #
+                              <input type="text" value={ap.dot_number}
+                                onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
+                                placeholder="e.g. 2524"
+                                style={{ display: "block", width: "100%", boxSizing: "border-box",
+                                  background: "var(--th-bg)", color: "var(--th-text)",
+                                  border: "1px solid var(--th-border)", borderRadius: 5,
+                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                            </label>
+                            <button
+                              onClick={() => setEditAddPending(prev => prev.filter((_, i) => i !== idx))}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--th-rose)", fontSize: "1rem", paddingBottom: "0.1rem" }}
+                            >✕</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                orderDetails.items?.map((item) => (
+                  <DetailItem
+                    key={item.order_item_id}
+                    item={item}
+                    orderStatus={orderDetails.status}
+                  />
+                ))
+              )}
             </div>
 
             <div className="ord-details-footer">
+              {editMode ? (
+                <>
+                  <button
+                    className="ord-btn ord-btn-emerald"
+                    style={{ flex: 1, justifyContent: "center" }}
+                    onClick={saveEditMode}
+                    disabled={editSaving}
+                  >
+                    {editSaving ? "Saving…" : "✓ Save Changes"}
+                  </button>
+                  <button
+                    className="ord-btn"
+                    style={{ flex: 1, justifyContent: "center" }}
+                    onClick={cancelEditMode}
+                    disabled={editSaving}
+                  >
+                    ✕ Cancel
+                  </button>
+                </>
+              ) : (
+                <>
               {orderDetails.status === "PENDING" && (
                 <>
                   <button
@@ -4646,6 +4953,8 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 >
                   ✓ Inventory updated from this order.
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>

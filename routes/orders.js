@@ -477,6 +477,84 @@ router.post("/orders/:order_id/receive", async (req, res) => {
       });
 });
 
+// Edit order header (notes, DR number)
+router.put("/orders/:order_id", (req, res) => {
+  const { order_id } = req.params;
+  const { order_notes, delivery_receipt } = req.body;
+  db.run(
+    `UPDATE orders SET
+       order_notes = CASE WHEN ? IS NOT NULL THEN ? ELSE order_notes END,
+       delivery_receipt = CASE WHEN ? IS NOT NULL THEN ? ELSE delivery_receipt END
+     WHERE order_id = ?`,
+    [order_notes !== undefined ? order_notes : null, order_notes !== undefined ? order_notes : null,
+     delivery_receipt !== undefined ? delivery_receipt : null, delivery_receipt !== undefined ? delivery_receipt : null,
+     order_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Order not found" });
+      res.json({ order_id, message: "Order updated" });
+    }
+  );
+});
+
+// Edit an order item (qty, unit_cost, dot_number)
+router.put("/orders/:order_id/items/:order_item_id", (req, res) => {
+  const { order_id, order_item_id } = req.params;
+  const { quantity, unit_cost, dot_number } = req.body;
+  const qty = parseFloat(quantity);
+  const cost = parseFloat(unit_cost);
+  if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: "Invalid quantity" });
+  if (isNaN(cost) || cost < 0) return res.status(400).json({ error: "Invalid unit cost" });
+  const line_total = qty * cost;
+  db.run(
+    `UPDATE order_items SET quantity = ?, unit_cost = ?, line_total = ?, dot_number = ?
+     WHERE order_item_id = ? AND order_id = ?`,
+    [qty, cost, line_total, dot_number || null, order_item_id, order_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      db.get(`SELECT COALESCE(SUM(line_total), 0) as t FROM order_items WHERE order_id = ?`, [order_id], (e, r) => {
+        db.run(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [r ? r.t : 0, order_id], () => {
+          res.json({ order_item_id, line_total, new_order_total: r ? r.t : 0, message: "Item updated" });
+        });
+      });
+    }
+  );
+});
+
+// Add item(s) to an existing PENDING or CONFIRMED order
+router.post("/orders/:order_id/items", (req, res) => {
+  const { order_id } = req.params;
+  const { items: newItems } = req.body;
+  if (!newItems || !newItems.length) return res.status(400).json({ error: "items array required" });
+  db.get(`SELECT order_id, status FROM orders WHERE order_id = ?`, [order_id], (err, row) => {
+    if (err || !row) return res.status(404).json({ error: "Order not found" });
+    if (!["PENDING", "CONFIRMED"].includes(row.status)) {
+      return res.status(400).json({ error: "Can only add items to PENDING or CONFIRMED orders" });
+    }
+    const stmt = db.prepare(
+      `INSERT INTO order_items (order_item_id, order_id, item_id, supplier_id, quantity, unit_cost, line_total, dot_number, is_new_item, received_status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)`
+    );
+    for (const it of newItems) {
+      const qty = parseFloat(it.quantity) || 1;
+      const cost = parseFloat(it.unit_cost) || 0;
+      stmt.run([
+        `OI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        order_id, it.item_id, it.supplier_id || null,
+        qty, cost, qty * cost, it.dot_number || null, it.is_new_item ? 1 : 0
+      ]);
+    }
+    stmt.finalize((err2) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      db.get(`SELECT COALESCE(SUM(line_total), 0) as t FROM order_items WHERE order_id = ?`, [order_id], (e, r) => {
+        db.run(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [r ? r.t : 0, order_id], () => {
+          res.json({ message: "Items added", count: newItems.length, new_order_total: r ? r.t : 0 });
+        });
+      });
+    });
+  });
+});
+
 router.delete("/orders/:order_id/items/:order_item_id", (req, res) => {
   const { order_id, order_item_id } = req.params;
   db.run(`DELETE FROM order_items WHERE order_item_id = ?`, [order_item_id], function (err) {
