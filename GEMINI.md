@@ -51,24 +51,29 @@ This file provides project-specific context and instructions for the Gemini CLI 
 - After frontend changes, verify the build: `npm run build`.
 - Always check that API endpoints match the expected `/api` prefix and are protected by `authMiddleware` where appropriate.
 
-## System Feature Index (v2.1)
+## System Feature Index (v2.2)
 
 ### Core Business Logic
 - **Inventory Management:** `routes/items.js`, `src/pages/InventoryPage.jsx`. Handles stock levels, reorder points, and DOT tracking.
-- **Point of Sale (POS):** `routes/sales.js`, `src/pages/POSPage.jsx`. Hybrid cart supporting both products and services. Header dynamically displays the shop name.
+- **Point of Sale (POS):** `routes/sales.js`, `src/pages/POSPage.jsx`. Hybrid cart supporting both products and services with **real-time draft persistence**. Header dynamically displays the shop name.
 - **Customer Directory:** `routes/customers.js`, `src/pages/CustomerPage.jsx`. CRM with purchase history and vehicle plate tracking.
 - **Supplier Relations:** `routes/suppliers.js`, `src/pages/SuppliersPage.jsx`. Vendor management and stock source tracking.
-- **Financial Tracking:** `routes/financials.js`, `src/pages/FinancialHealthPage.jsx`. Deep analysis of revenue, expenses, and net position.
+- **Order Management:** `routes/orders.js`, `src/pages/OrdersPage.jsx`. Full CRUD for purchase orders including **order editing** and status tracking.
 
 ### Specialty Operations
 - **Recap/Retreading:** `routes/recap.js`, `src/pages/RecapPage.jsx`. Full lifecycle tracking for customer-owned and shop-owned casing jobs.
 - **Staff & Payroll:** `routes/staff.js`, `src/pages/StaffPage.jsx`, `src/pages/PayrollPage.jsx`. Role-based access, attendance tracking, and commission calculations.
 - **Accounts Receivable/Payable:** `routes/financials.js`, `src/pages/ReceivablesPage.jsx`, `src/pages/PayablesPage.jsx`. Debt and credit tracking for clients and suppliers.
-- **Cash Ledger:** `routes/cashledger.js`, `src/pages/CashLedgerPage.jsx`. Real-time tracking of physical cash flow with manual entry support.
+- **Cash Ledger:** `routes/cashledger.js`, `src/pages/CashLedgerPage.jsx`. Real-time tracking of physical cash flow with **automatic draft saving**.
 
 ### Intelligence & Reliability
-- **TireHub AI Assistant:** `chatbot.js`, `src/components/TireHubBot.jsx`. Local Llama 3.2 engine with grounded DB-access (zero hallucination design).
-- **Auto-Backup Engine:** `routes/backup.js`, `server.js`. 30-minute automated Excel-based snapshots of all 42 database tables.
-- **Advanced Reporting:** `src/pages/Reportspage.jsx`. Interactive daily activity reports with collapsible cash breakdown and audit-ready transaction references.
+- **Profits & Margins:** `routes/financials.js`, `src/pages/ProfitsPage.jsx`. Deep analysis of revenue, COGS, expenses, and net position.
+- **Performance Engine:** Server-side pagination and optimized queries (JOINs instead of correlated subqueries) for large datasets.
+- **Auto-Backup Engine:** `routes/backup.js`, `server.js`. 30-minute automated Excel-based snapshots of all database tables.
+- **Advanced Reporting:** `src/pages/Reportspage.jsx`. Interactive daily activity reports with **Cash Pool breakdown** and improved transaction accuracy.
 - **Theme Engine:** Fully reactive OLED Midnight Glass interface supporting dynamic Dark/Light mode transitions.
 
+### Legacy / Removed Features
+- **TireHub AI Assistant:** (v2.1) Removed Local Llama 3.2 engine integration to reduce dependency bloat.
+- **Financial Health Page:** (v2.1) Consolidated into the more comprehensive Profits & Margins dashboard.
+- **Sales Ledger Table:** (v2.1) Audited and marked as dead/deprecated in favor of unified Sale Header/Items structure.

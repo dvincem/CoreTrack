@@ -20,6 +20,14 @@ const ordCurrency =
           maximumFractionDigits: 2,
         });
 
+const ordCompact = (n) => {
+  const v = Number(n || 0);
+  if (v >= 1_000_000_000) return "₱" + (v / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + "B";
+  if (v >= 1_000_000)     return "₱" + (v / 1_000_000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  if (v >= 1_000)         return "₱" + (v / 1_000).toFixed(2).replace(/\.?0+$/, "") + "K";
+  return "₱" + v.toFixed(2);
+};
+
 /* ── Status helpers ── */
 const STATUS_META = {
   ALL: { color: "var(--th-sky)", label: "All" },
@@ -3047,6 +3055,22 @@ export default function OrdersPage({ shopId, onRefresh }) {
   const [supplierFilter, setSupplierFilter] = React.useState("");
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
   const ORDERS_PAGE_SIZE = 10;
+
+  // Stable KPI counts — fetched independently, never affected by the status filter
+  const [ordersKpi, setOrdersKpi] = React.useState({
+    total: 0, pending: 0, confirmed: 0, received: 0, cancelled: 0,
+    totalValue: 0, pendingValue: 0, receivedValue: 0,
+  });
+  const fetchOrdersKpi = React.useCallback(async () => {
+    if (!shopId) return;
+    try {
+      const r = await apiFetch(`${API_URL}/orders-kpi/${shopId}`);
+      const d = await r.json();
+      if (!d.error) setOrdersKpi(d);
+    } catch { /* non-fatal */ }
+  }, [shopId]);
+  React.useEffect(() => { fetchOrdersKpi(); }, [fetchOrdersKpi]);
+
   const {
     data: orders,
     page: ordersPage,
@@ -3341,6 +3365,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
             : `Total: ${ordCurrency(results[0].total_amount)}`,
       });
       fetchOrders();
+      fetchOrdersKpi();
     } catch (e) {
       setError(e.message);
     }
@@ -3414,6 +3439,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       if (!r.ok) throw new Error(res.error || "Update failed");
       setToast({ title: "Status Updated", sub: `Order → ${newStatus}` });
       fetchOrders();
+      fetchOrdersKpi();
       if (orderDetails?.order_id === orderId) await fetchOrderDetails(orderId);
     } catch (e) {
       setError(e.message);
@@ -3462,6 +3488,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       if (orderDetails?.order_id === orderId) setOrderDetails(null);
       setToast({ title: "Order Cancelled" });
       fetchOrders();
+      fetchOrdersKpi();
     } catch (e) {
       setError(e.message);
     }
@@ -3623,6 +3650,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       setEditMode(false);
       setEditAddPending([]);
       fetchOrders();
+      fetchOrdersKpi();
       setToast({ msg: "Order saved.", type: "success" });
     } catch (e) {
       setToast({ msg: e.message || "Save failed", type: "error" });
@@ -3712,6 +3740,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
         sub: `${receivedItems.length} item${receivedItems.length !== 1 ? "s" : ""} added to inventory`,
       });
       fetchOrders();
+      fetchOrdersKpi();
     } catch (e) {
       setError(e.message);
     }
@@ -3719,12 +3748,13 @@ export default function OrdersPage({ shopId, onRefresh }) {
   }
 
   /* Derived data */
+  // statusCounts always reflects ALL orders — not affected by the active status tab
   const statusCounts = {
-    ALL: orders.length,
-    PENDING: orders.filter((o) => o.status === "PENDING").length,
-    CONFIRMED: orders.filter((o) => o.status === "CONFIRMED").length,
-    RECEIVED: orders.filter((o) => o.status === "RECEIVED").length,
-    CANCELLED: orders.filter((o) => o.status === "CANCELLED").length,
+    ALL:       ordersKpi.total,
+    PENDING:   ordersKpi.pending,
+    CONFIRMED: ordersKpi.confirmed,
+    RECEIVED:  ordersKpi.received,
+    CANCELLED: ordersKpi.cancelled,
   };
 
   // Unique suppliers derived from all loaded orders
@@ -3933,6 +3963,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
               sub: `${result.items_received} item(s) added to inventory`,
             });
             fetchOrders();
+            fetchOrdersKpi();
             if (onRefresh) onRefresh();
           }}
         />
@@ -3997,54 +4028,44 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
           {/* KPIs */}
           {(() => {
-            const totalVal = orders.reduce(
-              (s, o) => s + (parseFloat(o.total_amount) || 0),
-              0,
-            );
-            const pendingVal = orders
-              .filter((o) => o.status === "PENDING")
-              .reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
-            const receivedVal = orders
-              .filter((o) => o.status === "RECEIVED")
-              .reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
             return (
               <div className="th-kpi-row">
                 <div className="th-kpi sky">
                   <div className="th-kpi-label kpi-lbl">Total Orders</div>
-                  <div className="th-kpi-value kpi-val">{orders.length}</div>
+                  <div className="th-kpi-value kpi-val">{ordersKpi.total}</div>
                   <div className="th-kpi-sub kpi-sub">
-                    {ordCurrency(totalVal)} total value
+                    {ordCompact(ordersKpi.totalValue)} total value
                   </div>
                 </div>
                 <div className="th-kpi amber">
                   <div className="th-kpi-label kpi-lbl">Pending</div>
                   <div className="th-kpi-value kpi-val">
-                    {statusCounts.PENDING}
+                    {ordersKpi.pending}
                   </div>
                   <div className="th-kpi-sub kpi-sub">
-                    {ordCurrency(pendingVal)} awaiting
+                    {ordCompact(ordersKpi.pendingValue)} awaiting
                   </div>
                 </div>
                 <div className="th-kpi violet">
                   <div className="th-kpi-label kpi-lbl">Confirmed</div>
                   <div className="th-kpi-value kpi-val">
-                    {statusCounts.CONFIRMED}
+                    {ordersKpi.confirmed}
                   </div>
                   <div className="th-kpi-sub kpi-sub">ready for delivery</div>
                 </div>
                 <div className="th-kpi emerald">
                   <div className="th-kpi-label kpi-lbl">Received</div>
                   <div className="th-kpi-value kpi-val">
-                    {statusCounts.RECEIVED}
+                    {ordersKpi.received}
                   </div>
                   <div className="th-kpi-sub kpi-sub">
-                    {ordCurrency(receivedVal)} completed
+                    {ordCompact(ordersKpi.receivedValue)} completed
                   </div>
                 </div>
                 <div className="th-kpi rose">
                   <div className="th-kpi-label kpi-lbl">Cancelled</div>
                   <div className="th-kpi-value kpi-val">
-                    {statusCounts.CANCELLED}
+                    {ordersKpi.cancelled}
                   </div>
                   <div className="th-kpi-sub kpi-sub">voided orders</div>
                 </div>

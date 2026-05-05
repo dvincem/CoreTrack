@@ -6,11 +6,11 @@ const makeStyles = (accentColor) => `
     background: var(--th-bg-card);
     border: 1px solid var(--th-border);
     border-radius: 12px;
-    padding: 0.55rem 1rem;
+    padding: 0.5rem .5rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.85rem 1rem;
+    gap: 0.5rem .5rem;
     position: relative;
     z-index: 20;
     min-height: min-content;
@@ -26,20 +26,21 @@ const makeStyles = (accentColor) => `
     order: 1;
     flex-shrink: 0;
     gap: 0.5rem;
-    height: clamp(2rem, 5vw, 2.3rem);
+    height: 100%;
   }
   .fh-search {
-    flex: 1 1 200px;
+    flex: 1 1 0%;
     order: 2;
-    min-width: 0;
-    height: clamp(2rem, 5vw, 2.3rem);
+    min-width: 200px;
+    height: 100%;
   }
   .fh-filters {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.4rem;
     order: 3;
-    flex-shrink: 0;
+    flex: 0 0 auto;
     flex-wrap: wrap;
   }
   .fh-btn {

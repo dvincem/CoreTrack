@@ -3,6 +3,31 @@ import React from 'react'
 import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
 import { DataTable } from '../components/DataTable'
 
+/** 
+ * Robust clipboard helper with fallback for non-secure contexts (HTTP)
+ */
+function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+    } catch (err) {
+      console.error('Fallback copy failed', err);
+    }
+    document.body.removeChild(textArea);
+    return Promise.resolve();
+  }
+}
+
 
 // Power helpers (mirrors server-side)
 const POWER_MAP = { superadmin: 100, owner: 80, admin: 60 }
@@ -92,6 +117,7 @@ function SuperadminCard() {
   const [info, setInfo] = React.useState(null)
   const [visible, setVisible] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
+  const [userCopied, setUserCopied] = React.useState(false)
 
   React.useEffect(() => {
     const token = localStorage.getItem('th-token')
@@ -115,9 +141,30 @@ function SuperadminCard() {
           Superadmin Account
         </div>
         <div style={{ display:'flex', flexDirection: 'column', gap:'0.4rem', alignItems:'flex-start' }}>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize:'0.72rem', color:'var(--th-text-faint)' }}>Username: </span>
             <code style={{ fontSize:'0.88rem', color:'var(--th-text-primary)' }}>{info.username}</code>
+            <button 
+              title="Copy Username"
+              onClick={() => {
+                copyToClipboard(info.username)
+                setUserCopied(true)
+                setTimeout(() => setUserCopied(false), 2000)
+              }}
+              style={{
+                background: 'none', border: 'none', color: 'var(--th-text-faint)',
+                cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center',
+                transition: 'color 0.15s', lineHeight: 1
+              }}
+              onMouseOver={e => e.currentTarget.style.color = 'var(--th-sky)'}
+              onMouseOut={e => e.currentTarget.style.color = 'var(--th-text-faint)'}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+            {userCopied && <span style={{ fontSize: '0.6rem', color: 'var(--th-sky)', fontWeight: 700, animation: 'cpIn 0.2s' }}>COPIED!</span>}
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
             <span style={{ fontSize:'0.72rem', color:'var(--th-text-faint)' }}>Password: </span>
@@ -132,7 +179,7 @@ function SuperadminCard() {
               <button 
                 title="Copy Password"
                 onClick={() => {
-                  navigator.clipboard.writeText(info.password)
+                  copyToClipboard(info.password)
                   setCopied(true)
                   setTimeout(() => setCopied(false), 2000)
                 }}
@@ -289,6 +336,7 @@ function StaffAccessTab({ callerPower }) {
   const [loading, setLoading] = React.useState(true)
   const [revealed, setRevealed] = React.useState(null)
   const [copied, setCopied] = React.useState(false)
+  const [userCopied, setUserCopied] = React.useState(false)
   const [busy, setBusy]       = React.useState({})
   const [managingPages, setManagingPages] = React.useState(null)
   const [managingRoles, setManagingRoles] = React.useState(null)
@@ -495,8 +543,33 @@ function StaffAccessTab({ callerPower }) {
           <div className="cp-modal" onClick={e => e.stopPropagation()}>
             <div className="cp-modal-title">{revealed.isReset ? 'PIN Reset' : 'Access Created'}</div>
             <div className="cp-modal-sub">Share these credentials privately with the staff member.</div>
-            <div className="cp-user-box">
-              <div className="cp-pin-label">Username</div>
+            <div className="cp-user-box" style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                <div className="cp-pin-label" style={{ marginBottom: 0 }}>Username</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {userCopied && <span style={{ fontSize: '0.65rem', color: 'var(--th-sky)', fontWeight: 700, animation: 'cpIn 0.2s' }}>COPIED!</span>}
+                  <button 
+                    title="Copy Username"
+                    onClick={() => {
+                      copyToClipboard(revealed.username)
+                      setUserCopied(true)
+                      setTimeout(() => setUserCopied(false), 2000)
+                    }}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--th-text-faint)',
+                      cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center',
+                      transition: 'color 0.15s', lineHeight: 1
+                    }}
+                    onMouseOver={e => e.currentTarget.style.color = 'var(--th-sky)'}
+                    onMouseOut={e => e.currentTarget.style.color = 'var(--th-text-faint)'}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
               <div className="cp-user-value">{revealed.username}</div>
             </div>
             <div className="cp-pin-box" style={{ position: 'relative' }}>
@@ -507,7 +580,7 @@ function StaffAccessTab({ callerPower }) {
                   <button 
                     title="Copy PIN"
                     onClick={() => {
-                      navigator.clipboard.writeText(revealed.pin)
+                      copyToClipboard(revealed.pin)
                       setCopied(true)
                       setTimeout(() => setCopied(false), 2000)
                     }}

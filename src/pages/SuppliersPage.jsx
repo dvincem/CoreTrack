@@ -45,6 +45,7 @@ function SuppliersPage({ shopId }) {
   const [supplierInventory, setSupplierInventory] = React.useState([])
   const [invLoading, setInvLoading] = React.useState(false)
   const [invSearch, setInvSearch] = React.useState('')
+  const [invSuggestions, setInvSuggestions] = React.useState([])
   const [invPage, setInvPage] = React.useState(1)
   const [showBrandForm, setShowBrandForm] = React.useState(false)
   const [brandInputs, setBrandInputs] = React.useState([BLANK_BRAND()])
@@ -303,6 +304,26 @@ function SuppliersPage({ shopId }) {
     )
   }, [supplierInventory, invSearch])
 
+  // Inventory Suggestions
+  React.useEffect(() => {
+    const q = invSearch.trim().toLowerCase()
+    if (!q) { setInvSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const item of supplierInventory) {
+      if (results.length >= 8) break
+      if (item.item_name?.toLowerCase().includes(q)) add(item.item_name, 'ITEM', '📦')
+      if (item.brand?.toLowerCase().includes(q)) add(item.brand, 'BRAND', '🏷️')
+      if (item.size?.toLowerCase().includes(q)) add(item.size, 'SIZE', '📏')
+    }
+    setInvSuggestions(results)
+  }, [invSearch, supplierInventory])
+
   const invPaged = invFiltered.slice((invPage - 1) * INV_PAGE_SIZE, invPage * INV_PAGE_SIZE)
   const invTotalPages = Math.ceil(invFiltered.length / INV_PAGE_SIZE) || 1
 
@@ -361,6 +382,7 @@ function SuppliersPage({ shopId }) {
             suggestions: suggestions,
             onSuggestionSelect: s => { setSearch(s.text); setSuppPage(1) },
             resultCount: search.trim() ? filtered.length : undefined,
+            totalCount: suppliers.length,
             resultLabel: "suppliers",
           }}
           filters={[
@@ -771,6 +793,11 @@ function SuppliersPage({ shopId }) {
                         value={invSearch}
                         onChange={v => { setInvSearch(v); setInvPage(1); }}
                         placeholder="Search items..."
+                        suggestions={invSuggestions}
+                        onSuggestionSelect={s => { setInvSearch(s.text); setInvPage(1); }}
+                        resultCount={invSearch.trim() ? invFiltered.length : undefined}
+                        totalCount={supplierInventory.length}
+                        resultLabel="items"
                         style={{ height: '32px', marginBottom: 0, minWidth: '100px', flex: 1 }}
                       />
                     </div>

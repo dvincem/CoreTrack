@@ -144,6 +144,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const [baseRows, setBaseRows] = React.useState([])
   const [loading, setLoading] = React.useState(false)
   const [search, setSearch] = React.useState('')
+  const [suggestions, setSuggestions] = React.useState([])
   const [page, setPage] = React.useState(1)
   const PAGE_SIZE = 15
 
@@ -189,6 +190,27 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
     } catch { setBaseRows([]) }
     finally { setLoading(false) }
   }
+
+  // Purchase Suggestions
+  React.useEffect(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const r of baseRows) {
+      if (results.length >= 10) break
+      if (r.item_name?.toLowerCase().includes(q)) add(r.item_name, 'ITEM', '📦')
+      if (r.brand?.toLowerCase().includes(q)) add(r.brand, 'BRAND', '🏷️')
+      if (r.category?.toLowerCase().includes(q)) add(r.category, 'CAT', '📁')
+      if (r.notes?.toLowerCase().includes(q)) add(r.notes, 'NOTES', '📄')
+    }
+    setSuggestions(results)
+  }, [search, baseRows])
 
   function showToast(msg, ok = true) {
     setToast({ msg, ok })
@@ -490,6 +512,8 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
             value: search,
             onChange: (v) => { setSearch(v); setPage(1); },
             placeholder: "Search by item name, category, or notes…",
+            suggestions: suggestions,
+            onSuggestionSelect: s => setSearch(s.text),
             resultCount: search.trim() ? histRows.length : undefined,
             totalCount: baseRows.length,
             resultLabel: "purchases",

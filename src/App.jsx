@@ -30,8 +30,8 @@ import ServicesSummaryPage from './pages/ServicesSummaryPage'
 import SalesProjectionPage from './pages/SalesProjectionPage'
 import DryRunTrackerPage from './pages/DryRunTrackerPage'
 import ProfilePage from './pages/ProfilePage'
-import TireHubBot from './components/TireHubBot'
 import Modal from './components/Modal'
+import GlobalSearch from './components/GlobalSearch'
 
 /* ============================================================
    TIREHUB — APP SHELL
@@ -1291,6 +1291,15 @@ function TireHub() {
           </select>
         </div>
 
+        {/* Global Search — admin/manager only */}
+        {(userPower >= 60 || userRole?.includes('manager') || userRole === 'admin' || userRole === 'owner') && (
+          <GlobalSearch
+            shopId={shop}
+            onNavigate={(id) => { setPage(id); localStorage.setItem('th-page', id); setMobileSidebarOpen(false); }}
+            collapsed={sidebarCollapsed}
+          />
+        )}
+
         {/* Navigation */}
         <nav className="th-sidebar-nav">
           {NAV_SECTIONS.map((section) => {
@@ -1349,52 +1358,56 @@ function TireHub() {
               <ThemeToggle collapsed={false} asMenuItem />
               <div className="th-settings-popover-divider" />
               {/* Backup */}
-              <button
-                className="th-settings-popover-item"
-                onClick={async () => {
-                  if (backupState === "saving") return;
-                  setBackupState("saving");
-                  try {
-                    const r = await fetch(`${API_URL}/backup`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-                    const d = await r.json();
-                    setBackupState(d.ok ? "ok" : "error");
-                    if (d.ok) fetchBackupStatus();
-                  } catch { setBackupState("error"); }
-                  setTimeout(() => setBackupState("idle"), 3000);
-                }}
-              >
-                {backupState === "saving"
-                  ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, animation: "spin 1s linear infinite" }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>
-                  : backupState === "ok"
-                    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, color: "var(--th-emerald)" }}><polyline points="20 6 9 17 4 12" /></svg>
-                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
-                }
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span>{backupState === "saving" ? "Saving…" : backupState === "ok" ? "Backup saved!" : backupState === "error" ? "Backup failed" : "Backup data"}</span>
-                  {lastBackupTime && <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 500, marginTop: '-2px' }}>Last: {getRelativeTime(lastBackupTime)}</span>}
-                </div>
-              </button>
+              {userRole !== 'tireman' && (
+                <button
+                  className="th-settings-popover-item"
+                  onClick={async () => {
+                    if (backupState === "saving") return;
+                    setBackupState("saving");
+                    try {
+                      const r = await fetch(`${API_URL}/backup`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+                      const d = await r.json();
+                      setBackupState(d.ok ? "ok" : "error");
+                      if (d.ok) fetchBackupStatus();
+                    } catch { setBackupState("error"); }
+                    setTimeout(() => setBackupState("idle"), 3000);
+                  }}
+                >
+                  {backupState === "saving"
+                    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, animation: "spin 1s linear infinite" }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>
+                    : backupState === "ok"
+                      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, color: "var(--th-emerald)" }}><polyline points="20 6 9 17 4 12" /></svg>
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                  }
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <span>{backupState === "saving" ? "Saving…" : backupState === "ok" ? "Backup saved!" : backupState === "error" ? "Backup failed" : "Backup data"}</span>
+                    {lastBackupTime && <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 500, marginTop: '-2px' }}>Last: {getRelativeTime(lastBackupTime)}</span>}
+                  </div>
+                </button>
+              )}
 
               <div className="th-settings-popover-divider" />
               {/* Shop Status Toggle */}
-              <button
-                className={`th-settings-popover-item ${isShopClosed ? 'danger' : 'staff'}`}
-                onClick={handleGlobalToggleClick}
-                style={{ 
-                  border: 'none',
-                  background: isShopClosed ? 'rgba(239, 68, 68, 0.05)' : 'rgba(249, 115, 22, 0.05)'
-                }}
-              >
-                {isShopClosed ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontWeight: 700 }}>{isShopClosed ? "SHOP CLOSED" : "SHOP OPEN"}</span>
-                  <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>{isShopClosed ? "Next Day Mode" : "Current Day Mode"}</span>
-                </div>
-              </button>
+              {userRole !== 'tireman' && (
+                <button
+                  className={`th-settings-popover-item ${isShopClosed ? 'danger' : 'staff'}`}
+                  onClick={handleGlobalToggleClick}
+                  style={{ 
+                    border: 'none',
+                    background: isShopClosed ? 'rgba(239, 68, 68, 0.05)' : 'rgba(249, 115, 22, 0.05)'
+                  }}
+                >
+                  {isShopClosed ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <span style={{ fontWeight: 700 }}>{isShopClosed ? "SHOP CLOSED" : "SHOP OPEN"}</span>
+                    <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>{isShopClosed ? "Next Day Mode" : "Current Day Mode"}</span>
+                  </div>
+                </button>
+              )}
 
               {/* Current user display */}
               {currentStaffName && (<>
@@ -1471,7 +1484,7 @@ function TireHub() {
             case "reports": return <Reportspage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "products": return <Productspage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "services": return <Servicespage key={refresh} shopId={shop} setPageContext={setPageContext} />;
-            case "services-summary": return <ServicesSummaryPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
+            case "services-summary": return <ServicesSummaryPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} userRole={userRole} currentStaffId={currentStaffId} />;
             case "staff": return <StaffManagementPage key={refresh} shopId={shop} setPageContext={setPageContext} userRole={userRole} userPower={userPower} />;
             case "customers": return <CustomerPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "suppliers": return <SuppliersPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
@@ -1977,7 +1990,6 @@ function TireHub() {
         </div>
       )}
 
-      <TireHubBot pageContext={pageContext} />
     </div>
   );
 }

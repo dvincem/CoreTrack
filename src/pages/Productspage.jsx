@@ -169,6 +169,7 @@ function Productspage({ shopId }) {
   const [priceHistLoading, setPriceHistLoading] = React.useState(false);
   const [historyVariants, setHistoryVariants] = React.useState([]);
   const [activeHistVariantId, setActiveHistVariantId] = React.useState(null);
+  const [activeHistDesign, setActiveHistDesign] = React.useState(null);
 
   function parseVariantInfo(variant_info) {
     if (!variant_info) return [];
@@ -177,9 +178,10 @@ function Productspage({ shopId }) {
       return {
         item_id: parts[0],
         dot_number: parts[1] === 'NONE' ? null : (parts[1] || null),
-        qty: parseInt(parts[2]) || 0,
-        selling_price: parseFloat(parts[3]) || 0,
-        unit_cost: parseFloat(parts[4]) || 0,
+        design: parts[2] === 'NONE' ? null : (parts[2] || null),
+        qty: parseInt(parts[3]) || 0,
+        selling_price: parseFloat(parts[4]) || 0,
+        unit_cost: parseFloat(parts[5]) || 0,
       };
     }).filter(v => v.item_id);
   }
@@ -618,15 +620,19 @@ function Productspage({ shopId }) {
     setSelected(item);
     setHistoryVariants(variants);   // always store — needed for real item_id resolution even on single-DOT tires
     setActiveHistVariantId(null);
+    setActiveHistDesign(null);
     setAdjQty("");
     setDetailTab("transactions");
     setHistLoading(true);
     setPriceHistLoading(true);
     setDetailsVisible(false);
+    // For multi-design groups item.design is null — seed from first design in design_list
+    const seedDesign = item.design ||
+      (item.design_list ? item.design_list.split(',').filter(Boolean)[0] || "" : "");
     setDetailForm({
       category: item.category || "",
       brand: item.brand || "",
-      design: item.design || "",
+      design: seedDesign,
       size: item.size || ""
     });
     try {
@@ -643,6 +649,15 @@ function Productspage({ shopId }) {
       ).then((r) => r.json());
       const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
       setHistory(rows);
+      // Enrich historyVariants with per-item item_name/sku from ledger rows
+      if (rows.length > 0) {
+        const nameMap = new Map(rows.map(r => [String(r.item_id), { item_name: r.item_name, sku: r.sku }]));
+        setHistoryVariants(prev => prev.map(v => ({
+          ...v,
+          item_name: nameMap.get(String(v.item_id))?.item_name || v.item_name || null,
+          sku:       nameMap.get(String(v.item_id))?.sku       || v.sku       || null,
+        })));
+      }
     } catch {
       setHistory([]);
     }
@@ -668,11 +683,15 @@ function Productspage({ shopId }) {
 
   async function handleUpdateDetails() {
     setDetailsSaving(true);
-    // For grouped items use the active variant's real item_id; fall back to first variant
+    // Resolve a real integer item_id — never use the synthetic group_key string:
+    //   1. active variant selected in modal
+    //   2. first variant from historyVariants (populated on open)
+    //   3. real_item_id from the grouped row (MAX(item_id) returned by /items)
+    //   4. selected.item_id for non-grouped items (already a real id)
     const targetId = (() => {
       if ((selected?.variant_count || 0) <= 1) return selected?.item_id;
       const v = historyVariants.find(x => x.item_id === activeHistVariantId) || historyVariants[0];
-      return v?.item_id || selected?.item_id;
+      return v?.item_id || selected?.real_item_id || selected?.item_id;
     })();
     try {
       const res = await apiFetch(`${API_URL}/items/${targetId}/details`, {
@@ -683,18 +702,20 @@ function Productspage({ shopId }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update details");
 
-      const updatedItem = {
-        ...selected,
+      toast(`Details updated (${data.updated_count ?? 1} variant${(data.updated_count ?? 1) !== 1 ? 's' : ''})`, "success");
+      setDetailsVisible(false);
+      // Refetch so the list and grouped row reflect the new brand/design/size/name
+      refetchItems();
+      fetchKpi();
+      // Also refresh the open modal's item so KPI card shows correct values immediately
+      setSelected(s => ({
+        ...s,
         category: data.category,
         brand: data.brand,
         design: data.design,
         size: data.size,
-        item_name: data.item_name
-      };
-      setSelected(updatedItem);
-      setItems(prev => prev.map(i => i.item_id === selected.item_id ? updatedItem : i));
-      toast("Details updated successfully", "success");
-      setDetailsVisible(false);
+        item_name: data.item_name,
+      }));
     } catch (err) {
       toast(err.message, "error");
     } finally {
@@ -982,9 +1003,24 @@ function Productspage({ shopId }) {
     {
       key: "design",
       label: "Design",
-      render: (item) => (
-        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--th-text-heading)" }}>{item.design || "—"}</span>
-      ),
+      render: (item) => {
+        if (item.design_count > 1) {
+          const designs = (item.design_list || "").split(",").filter(Boolean);
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "0.72rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: "var(--th-violet,#a855f7)", background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 4, padding: "0.1rem 0.4rem", display: "inline-block" }}>
+                {item.design_count} Designs
+              </span>
+              <div style={{ fontSize: "0.62rem", color: "var(--th-text-faint)", maxWidth: "90px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={designs.join(", ")}>
+                {designs.join(", ")}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--th-text-heading)" }}>{item.design || "—"}</span>
+        );
+      }
     },
     {
       key: "size",
@@ -1741,11 +1777,12 @@ function Productspage({ shopId }) {
         {selected && (
           <ItemHistoryModal
             item={selected}
-            onClose={() => { setSelected(null); setHistoryVariants([]); setActiveHistVariantId(null); }}
+            onClose={() => { setSelected(null); setHistoryVariants([]); setActiveHistVariantId(null); setActiveHistDesign(null); }}
             currency={prodCurrency}
             variants={historyVariants.length > 1 ? historyVariants : undefined}
             activeVariantId={activeHistVariantId}
             onVariantChange={setActiveHistVariantId}
+            onDesignChange={setActiveHistDesign}
             historyContent={
               histLoading || priceHistLoading ? (
                 <div className="inv-hist-loading">
@@ -1753,13 +1790,21 @@ function Productspage({ shopId }) {
                 </div>
               ) : (
                 (() => {
-                  // Filter by active variant when one is selected
+                  // Build design-level item_id set when a design tab is active
+                  const designItemIds = activeHistDesign
+                    ? new Set(historyVariants.filter(v => v.design === activeHistDesign).map(v => v.item_id))
+                    : null;
+                  // Filter by specific variant > design group > all
                   const filteredHistory = activeHistVariantId
                     ? history.filter(h => h.item_id === activeHistVariantId)
-                    : history;
+                    : designItemIds
+                      ? history.filter(h => designItemIds.has(h.item_id))
+                      : history;
                   const filteredPriceHistory = activeHistVariantId
                     ? priceHistory.filter(p => p.item_id === activeHistVariantId)
-                    : priceHistory;
+                    : designItemIds
+                      ? priceHistory.filter(p => designItemIds.has(p.item_id))
+                      : priceHistory;
                   const showItemName = !activeHistVariantId && historyVariants.length > 1;
 
                   const txEntries = filteredHistory.map((h) => ({
@@ -2042,6 +2087,12 @@ function Productspage({ shopId }) {
 
               {detailsVisible && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
+                  {/* Warn when editing a multi-design group — all siblings will be updated */}
+                  {(selected?.design_count || 0) > 1 && (
+                    <div style={{ fontSize: "0.72rem", color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, padding: "0.4rem 0.6rem", lineHeight: 1.4 }}>
+                      ⚠ This is a multi-design group ({selected.design_list?.split(',').filter(Boolean).join(', ')}). Saving will update <b>all {selected.variant_count} variants</b> to the same brand, size, and design.
+                    </div>
+                  )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
                       <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Category</label>

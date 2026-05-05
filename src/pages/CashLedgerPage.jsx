@@ -83,6 +83,8 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
   /* ── Filters ── */
   const [sourceFilter, setSourceFilter] = React.useState('ALL')
   const [methodFilter, setMethodFilter] = React.useState('ALL')
+  const [search, setSearch] = React.useState('')
+  const [suggestions, setSuggestions] = React.useState([])
   const [page, setPage] = React.useState(1)
 
   /* ── Manual entry form ── */
@@ -131,6 +133,27 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
     } catch { setRows([]) }
     setLoading(false)
   }
+
+  // Cash Ledger Suggestions
+  React.useEffect(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const r of rows) {
+      if (results.length >= 10) break
+      if (r.description?.toLowerCase().includes(q)) add(r.description, 'DESC', '📝')
+      if (r.source_label?.toLowerCase().includes(q)) add(r.source_label, 'SOURCE', '📊')
+      if (r.recorded_by?.toLowerCase().includes(q)) add(r.recorded_by, 'USER', '👤')
+      if (r.notes?.toLowerCase().includes(q)) add(r.notes, 'NOTES', '📄')
+    }
+    setSuggestions(results)
+  }, [search, rows])
 
   /* ── Toast ── */
   function showToast(msg, icon = '✓') {
@@ -243,8 +266,17 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
     let f = rows
     if (sourceFilter !== 'ALL') f = f.filter(r => r.source === sourceFilter)
     if (methodFilter !== 'ALL') f = f.filter(r => r.payment_method === methodFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      f = f.filter(r => 
+        r.description?.toLowerCase().includes(q) ||
+        r.source_label?.toLowerCase().includes(q) ||
+        r.recorded_by?.toLowerCase().includes(q) ||
+        r.notes?.toLowerCase().includes(q)
+      )
+    }
     return f
-  }, [rows, sourceFilter, methodFilter])
+  }, [rows, sourceFilter, methodFilter, search])
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -417,6 +449,16 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
 
       {/* Filter Header Toolbar */}
       <FilterHeader
+        searchProps={{
+          value: search,
+          onChange: setSearch,
+          placeholder: "Search by description, source, or notes…",
+          suggestions: suggestions,
+          onSuggestionSelect: s => setSearch(s.text),
+          resultCount: search.trim() ? filtered.length : undefined,
+          totalCount: rows.length,
+          resultLabel: "entries",
+        }}
         leftComponent={
           <div className="fh-left">
             <select className="cl-select" style={{ minWidth: '250px' }}

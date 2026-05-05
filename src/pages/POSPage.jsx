@@ -393,6 +393,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [miscForm, setMiscForm] = React.useState({ name: "", price: "", cost: "", qty: "1", category: "", newCategory: "" });
   const [toast, setToast] = React.useState(null); // { amount }
   const [dotModal, setDotModal] = React.useState(null); // array of DOT variants to pick from
+  const [designModal, setDesignModal] = React.useState(null); // array of design_variants to pick from
   const [showCommission, setShowCommission] = React.useState(true); // collapsible commission section
   const cartColRef = React.useRef(null);
   const isResettingPersistence = React.useRef(false);
@@ -911,7 +912,11 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       };
       // Rep carries the aggregated total quantity so the card shows full stock.
       const _rep = { ...rep, current_quantity: g.total_quantity, unit_cost: g.unit_cost, selling_price: g.selling_price, brand: g.brand, design: g.design, size: g.size };
-      return { _rep, _variants: g.variants && g.variants.length > 1 ? g.variants : null };
+      return {
+        _rep,
+        _variants: g.variants && g.variants.length > 1 ? g.variants : null,
+        _designVariants: g.design_variants || null,
+      };
     });
   }, [posGroups]);
 
@@ -962,6 +967,86 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               })}
             </div>
             <button onClick={() => setDotModal(null)} style={{ marginTop: "1rem", width: "100%", padding: "0.5rem", borderRadius: 7, border: "1px solid var(--th-border)", background: "transparent", color: "var(--th-text-dim)", cursor: "pointer", fontSize: "0.82rem" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Design Selection Modal ── */}
+      {designModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) setDesignModal(null); }}>
+          <div style={{ background: "var(--th-bg-card)", border: "1px solid var(--th-border)", borderRadius: 12, padding: "1.5rem", width: 400, maxWidth: "90vw" }}>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: "1rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-primary)", marginBottom: "0.25rem" }}>
+              Select Design
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "var(--th-text-faint)", marginBottom: "1rem" }}>
+              Choose a tire design to continue
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {designModal.map((dv) => {
+                const qty = dv.total_quantity || 0;
+                const stockCls = qty <= 2 ? "#fb7185" : qty <= 3 ? "#fbbf24" : "#34d399";
+                // Collect DOT info for display
+                const dotList = dv.dot_variants
+                  ? dv.dot_variants  // multiple in-stock DOTs
+                  : (dv.direct_item && dv.direct_item.dot_number ? [dv.direct_item] : []);
+                return (
+                  <button
+                    key={dv.design || dv.item_id}
+                    onClick={() => {
+                      if (dv.dot_variants && dv.dot_variants.length > 1) {
+                        setDotModal(dv.dot_variants);
+                      } else {
+                        addToCart(dv.direct_item);
+                      }
+                      setDesignModal(null);
+                    }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "stretch", padding: "0.75rem 1rem", borderRadius: 8, border: "1px solid var(--th-border)", background: "var(--th-bg-input)", cursor: "pointer", transition: "border-color 0.15s", textAlign: "left" }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "var(--th-violet,#a855f7)"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = "var(--th-border)"}
+                  >
+                    {/* Top row: design name + price/stock */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--th-text-primary)" }}>{dv.design}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        <span style={{ fontSize: "0.78rem", color: stockCls, fontWeight: 700, fontFamily: "'Barlow Condensed',sans-serif" }}>Stock: {qty}</span>
+                        <span style={{ fontWeight: 700, color: "var(--th-text-primary)", fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1rem" }}>{posCurrency(dv.selling_price)}</span>
+                      </div>
+                    </div>
+                    {/* DOT row — always shown when DOTs exist */}
+                    {dotList.length > 0 && (
+                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.4rem" }}>
+                        {dotList.map(v => {
+                          const dQty = v.current_quantity || 0;
+                          const dCls = dQty <= 2 ? "#fb7185" : dQty <= 3 ? "#fbbf24" : "#34d399";
+                          return (
+                            <span key={v.item_id} style={{
+                              fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700,
+                              fontSize: "0.72rem", letterSpacing: "0.04em",
+                              background: "rgba(251,191,36,0.08)", color: "#fbbf24",
+                              border: "1px solid rgba(251,191,36,0.25)", borderRadius: 4,
+                              padding: "0.1rem 0.4rem",
+                              display: "inline-flex", alignItems: "center", gap: "0.3rem"
+                            }}>
+                              DOT {v.dot_number}
+                              <span style={{ color: dCls, fontWeight: 800 }}>×{dQty}</span>
+                            </span>
+                          );
+                        })}
+                        {dv.dot_variants && (
+                          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.68rem", color: "var(--th-text-faint)", alignSelf: "center" }}>
+                            — tap to pick batch
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => setDesignModal(null)} style={{ marginTop: "1rem", width: "100%", padding: "0.5rem", borderRadius: 7, border: "1px solid var(--th-border)", background: "transparent", color: "var(--th-text-dim)", cursor: "pointer", fontSize: "0.82rem" }}>
               Cancel
             </button>
           </div>
@@ -1161,13 +1246,16 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
               <div className="th-section-label">Products</div>
               <div className="pos-product-grid">
-                {pagedItems.map(({ _rep: i, _variants }) => {
+                {pagedItems.map(({ _rep: i, _variants, _designVariants }) => {
                   const hasMultipleDots = _variants && _variants.length > 1;
-                  const qty = _variants
-                    ? _variants.reduce((s, v) => s + (v.current_quantity || 0), 0)
-                    : (i.current_quantity || 0);
+                  const qty = _designVariants
+                    ? _designVariants.reduce((s, dv) => s + (dv.total_quantity || 0), 0)
+                    : _variants
+                      ? _variants.reduce((s, v) => s + (v.current_quantity || 0), 0)
+                      : (i.current_quantity || 0);
                   const stockCls = qty <= 2 ? "critical" : qty <= 3 ? "low" : "ok";
                   const handleClick = () => {
+                    if (_designVariants) { setDesignModal(_designVariants); return; }
                     if (hasMultipleDots) setDotModal(_variants);
                     else addToCart(_variants ? _variants[0] : i);
                   };
@@ -1184,7 +1272,12 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                           style={{ backgroundImage: `url(${brandLogos[i.brand]})` }}
                         />
                       )}
-                      {hasMultipleDots && (
+                      {_designVariants && (
+                        <span className="pos-multi-dot-badge" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}>
+                          {_designVariants.length} Designs
+                        </span>
+                      )}
+                      {!_designVariants && hasMultipleDots && (
                         <span className="pos-multi-dot-badge">{_variants.length} DOTs</span>
                       )}
                       <div className="pos-card-cat">{i.category}</div>
@@ -1201,7 +1294,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                           {i.size}
                         </div>
                       )}
-                      {!hasMultipleDots && i.dot_number && (
+                      {!_designVariants && !hasMultipleDots && i.dot_number && (
                         <div style={{ fontSize: "0.82rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.04em", marginBottom: "0.15rem" }}>DOT {i.dot_number}</div>
                       )}
                       <div className="pos-card-price">{posCurrency(i.selling_price)}</div>

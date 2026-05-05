@@ -16,7 +16,20 @@ const fmtCompact = (n) => {
 }
 const today = () => new Date().toISOString().split('T')[0]
 
-export default function ServicesSummaryPage({ shopId, isShopClosed }) {
+function aggregateItems(items) {
+  const map = {}
+  items.forEach(item => {
+    const cleanName = item.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${item.sale_id}\\)?`, 'gi'), '').trim()
+    if (!map[cleanName]) {
+      map[cleanName] = { name: cleanName, quantity: 0, amount: 0 }
+    }
+    map[cleanName].quantity += (item.quantity || 1)
+    map[cleanName].amount += item.amount
+  })
+  return Object.values(map).sort((a, b) => b.amount - a.amount)
+}
+
+export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, currentStaffId, setPageContext }) {
   const [activeTab, setActiveTab] = React.useState('summary')
 
   // Shared date state
@@ -37,6 +50,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
   const [staffMap, setStaffMap] = React.useState({})
   const PAGE_SIZE = 10
   const [saleModal, setSaleModal] = React.useState(null)
+  const [histSuggestions, setHistSuggestions] = React.useState([])
   const {
     data: records,
     page, setPage,
@@ -104,6 +118,31 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
       .catch(() => { })
   }, [shopId])
 
+  React.useEffect(() => {
+    if (setPageContext) setPageContext({ view: 'Services Summary', shopId });
+  }, [shopId, setPageContext]);
+
+  // History Suggestions
+  React.useEffect(() => {
+    const q = histSearch.trim().toLowerCase()
+    if (!q) { setHistSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const r of records) {
+      if (results.length >= 10) break
+      if (r.invoice_number?.toLowerCase().includes(q)) add(r.invoice_number, 'INVOICE', '📋')
+      if (r.customer_name?.toLowerCase().includes(q)) add(r.customer_name, 'CUSTOMER', '👤')
+      if (r.staff_name?.toLowerCase().includes(q)) add(r.staff_name, 'STAFF', '👤')
+      if (r.sale_notes?.toLowerCase().includes(q)) add(r.sale_notes, 'NOTES', '📄')
+    }
+    setHistSuggestions(results)
+  }, [histSearch, records])
+
   const totalSvcRevenue = data.reduce((s, t) => s + t.services.reduce((a, x) => a + x.amount, 0), 0)
   const totalCommissions = data.reduce((s, t) => s + t.commissions.reduce((a, x) => a + x.amount, 0), 0)
   const totalBaleDeducted = data.reduce((s, t) => s + (t.bale_deducted || 0), 0)
@@ -158,7 +197,15 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                   <input className="fh-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setActiveRange(''); loadWith(startDate, e.target.value) }} style={{ flex: 1, minWidth: '120px' }} />
                 </div>
               }
-              filters={[
+              filters={userRole === 'tireman' ? [
+                { value: 'today', label: 'NGAYON', active: activeRange === 'today' },
+                { value: 'yesterday', label: 'KAHAPON', active: activeRange === 'yesterday' },
+                { value: '7d', label: '7 ARAW', active: activeRange === '7d' },
+                { value: '30d', label: '30 ARAW', active: activeRange === '30d' },
+                { value: '3m', label: '3 BUWAN', active: activeRange === '3m' },
+                { value: '6m', label: '6 BUWAN', active: activeRange === '6m' },
+                { value: 'yr', label: 'NGAYONG TAON', active: activeRange === 'yr' },
+              ] : [
                 { value: 'today', label: 'Today', active: activeRange === 'today' },
                 { value: 'yesterday', label: 'Yesterday', active: activeRange === 'yesterday' },
                 { value: '7d', label: '7 Days', active: activeRange === '7d' },
@@ -206,13 +253,21 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
             <>
               <div className="th-section-label">Breakdown by Tireman</div>
               <div className="ss-card-grid">
-                {data.map(tireman => {
+                {[...data].sort((a, b) => {
+                  if (String(a.staff_id) === String(currentStaffId)) return -1;
+                  if (String(b.staff_id) === String(currentStaffId)) return 1;
+                  return 0;
+                }).map(tireman => {
                   const svcTotal = tireman.services.reduce((s, x) => s + x.amount, 0)
                   const comTotal = tireman.commissions.reduce((s, x) => s + x.amount, 0)
                   const baleDeducted = tireman.bale_deducted || 0
                   const svcPay = svcTotal / 2
                   const payout = svcPay + comTotal - baleDeducted
                   const initials = tireman.full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+
+                  const isShortRange = activeRange === 'today' || activeRange === 'yesterday'
+                  const displayServices = isShortRange ? tireman.services : aggregateItems(tireman.services)
+                  const displayCommissions = isShortRange ? tireman.commissions : aggregateItems(tireman.commissions)
 
                   return (
                     <div key={tireman.staff_id} className="ss-tireman-card" onClick={() => { setModal({ tireman, svcTotal, comTotal, baleDeducted, svcPay, payout, initials }); setExpandedRows(new Set()) }} style={{ cursor: 'pointer' }}>
@@ -264,8 +319,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                         {/* Services table */}
                         <div className="ss-detail-section">
                           <div className="ss-detail-head">
-                            <span className="ss-detail-head-label sky">🔧 Services Performed</span>
-                            <span className="ss-detail-count">{tireman.services.length}</span>
+                            <span className="ss-detail-head-label sky">🔧 {isShortRange ? 'Services Performed' : 'Services Summary'}</span>
+                            <span className="ss-detail-count">{isShortRange ? tireman.services.length : displayServices.length}</span>
                           </div>
                           <table className="ss-table">
                             <thead>
@@ -275,13 +330,13 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                               </tr>
                             </thead>
                             <tbody>
-                              {tireman.services.length === 0 ? (
+                              {displayServices.length === 0 ? (
                                 <tr><td colSpan={2} className="ss-empty-cell">No services recorded</td></tr>
-                              ) : tireman.services.map(s => (
-                                <tr key={s.log_id}>
+                              ) : displayServices.map((s, idx) => (
+                                <tr key={isShortRange ? s.log_id : idx}>
                                   <td>
                                     <div className="ss-svc-name">
-                                      {s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim()}
+                                      {isShortRange ? s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim() : s.name}
                                     </div>
                                     {s.quantity !== 1 && <div className="ss-svc-qty">× {s.quantity}</div>}
                                   </td>
@@ -303,8 +358,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                         {/* Commission table */}
                         <div className="ss-detail-section">
                           <div className="ss-detail-head">
-                            <span className="ss-detail-head-label emerald">💰 Commission Earned</span>
-                            <span className="ss-detail-count">{tireman.commissions.length}</span>
+                            <span className="ss-detail-head-label emerald">💰 {isShortRange ? 'Commission Earned' : 'Commission Summary'}</span>
+                            <span className="ss-detail-count">{isShortRange ? tireman.commissions.length : displayCommissions.length}</span>
                           </div>
                           <table className="ss-table">
                             <thead>
@@ -314,13 +369,13 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                               </tr>
                             </thead>
                             <tbody>
-                              {tireman.commissions.length === 0 ? (
+                              {displayCommissions.length === 0 ? (
                                 <tr><td colSpan={2} className="ss-empty-cell">No commissions recorded</td></tr>
-                              ) : tireman.commissions.map(c => (
-                                <tr key={c.log_id}>
+                              ) : displayCommissions.map((c, idx) => (
+                                <tr key={isShortRange ? c.log_id : idx}>
                                   <td>
                                     <div className="ss-svc-name">
-                                      {c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim()}
+                                      {isShortRange ? c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim() : c.name}
                                     </div>
                                     {c.quantity !== 1 && <div className="ss-svc-qty">× {c.quantity}</div>}
                                   </td>
@@ -355,6 +410,9 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
           {/* Detail Modal */}
           {modal && (() => {
             const { tireman, svcTotal, comTotal, baleDeducted, svcPay, payout, initials } = modal
+            const isShortRange = activeRange === 'today' || activeRange === 'yesterday'
+            const displayServices = isShortRange ? tireman.services : aggregateItems(tireman.services)
+            const displayCommissions = isShortRange ? tireman.commissions : aggregateItems(tireman.commissions)
             return (
               <div className="hist-modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
                 <div className="inv-history" style={{ maxWidth: 680 }}>
@@ -405,20 +463,20 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                         {/* Services */}
                         <div className="ss-detail-section">
                           <div className="ss-detail-head">
-                            <span className="ss-detail-head-label sky">🔧 Services Performed</span>
-                            <span className="ss-detail-count">{tireman.services.length}</span>
+                            <span className="ss-detail-head-label sky">🔧 {isShortRange ? 'Services Performed' : 'Services Summary'}</span>
+                            <span className="ss-detail-count">{isShortRange ? tireman.services.length : displayServices.length}</span>
                           </div>
                           <table className="ss-table">
                             <thead><tr><th>Service</th><th className="r">Amount</th></tr></thead>
                             <tbody>
-                              {tireman.services.length === 0 ? (
+                              {displayServices.length === 0 ? (
                                 <tr><td colSpan={2} className="ss-empty-cell">No services recorded</td></tr>
-                              ) : tireman.services.map(s => (
-                                <tr key={s.log_id} onClick={e => { e.stopPropagation(); toggleRow('svc-' + s.log_id) }} style={{ cursor: 'pointer' }}>
+                              ) : displayServices.map((s, idx) => (
+                                <tr key={isShortRange ? s.log_id : idx} onClick={e => { e.stopPropagation(); isShortRange && toggleRow('svc-' + s.log_id) }} style={{ cursor: isShortRange ? 'pointer' : 'default' }}>
                                   <td>
-                                    <div className={`ss-svc-name${expandedRows.has('svc-' + s.log_id) ? ' ss-svc-expanded' : ''}`}>
-                                      {s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim()}
-                                      {s.sale_id && expandedRows.has('svc-' + s.log_id) && (
+                                    <div className={`ss-svc-name${isShortRange && expandedRows.has('svc-' + s.log_id) ? ' ss-svc-expanded' : ''}`}>
+                                      {isShortRange ? s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim() : s.name}
+                                      {isShortRange && s.sale_id && expandedRows.has('svc-' + s.log_id) && (
                                         <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82em', marginLeft: '0.45rem', fontWeight: 400 }}>(Sale {s.sale_id})</span>
                                       )}
                                     </div>
@@ -428,7 +486,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                                 </tr>
                               ))}
                             </tbody>
-                            {tireman.services.length > 0 && (
+                            {displayServices.length > 0 && (
                               <tfoot><tr className="ss-total-row"><td className="ss-total-label">Total</td><td><div className="ss-money sky">{fmt(svcTotal)}</div></td></tr></tfoot>
                             )}
                           </table>
@@ -436,20 +494,20 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                         {/* Commission */}
                         <div className="ss-detail-section">
                           <div className="ss-detail-head">
-                            <span className="ss-detail-head-label emerald">💰 Commission Earned</span>
-                            <span className="ss-detail-count">{tireman.commissions.length}</span>
+                            <span className="ss-detail-head-label emerald">💰 {isShortRange ? 'Commission Earned' : 'Commission Summary'}</span>
+                            <span className="ss-detail-count">{isShortRange ? tireman.commissions.length : displayCommissions.length}</span>
                           </div>
                           <table className="ss-table">
                             <thead><tr><th>Description</th><th className="r">Amount</th></tr></thead>
                             <tbody>
-                              {tireman.commissions.length === 0 ? (
+                              {displayCommissions.length === 0 ? (
                                 <tr><td colSpan={2} className="ss-empty-cell">No commissions recorded</td></tr>
-                              ) : tireman.commissions.map(c => (
-                                <tr key={c.log_id} onClick={e => { e.stopPropagation(); toggleRow('com-' + c.log_id) }} style={{ cursor: 'pointer' }}>
+                              ) : displayCommissions.map((c, idx) => (
+                                <tr key={isShortRange ? c.log_id : idx} onClick={e => { e.stopPropagation(); isShortRange && toggleRow('com-' + c.log_id) }} style={{ cursor: isShortRange ? 'pointer' : 'default' }}>
                                   <td>
-                                    <div className={`ss-svc-name${expandedRows.has('com-' + c.log_id) ? ' ss-svc-expanded' : ''}`}>
-                                      {c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim()}
-                                      {c.sale_id && expandedRows.has('com-' + c.log_id) && (
+                                    <div className={`ss-svc-name${isShortRange && expandedRows.has('com-' + c.log_id) ? ' ss-svc-expanded' : ''}`}>
+                                      {isShortRange ? c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim() : c.name}
+                                      {isShortRange && c.sale_id && expandedRows.has('com-' + c.log_id) && (
                                         <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82em', marginLeft: '0.45rem', fontWeight: 400 }}>(Sale {c.sale_id})</span>
                                       )}
                                     </div>
@@ -459,7 +517,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                                 </tr>
                               ))}
                             </tbody>
-                            {tireman.commissions.length > 0 && (
+                            {displayCommissions.length > 0 && (
                               <tfoot><tr className="ss-total-row"><td className="ss-total-label">Total</td><td><div className="ss-money emerald">{fmt(comTotal)}</div></td></tr></tfoot>
                             )}
                           </table>
@@ -497,6 +555,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                 value: histSearch,
                 onChange: v => { setHistSearch(v); setPage(1) },
                 placeholder: "Search invoice, customer, service, staff…",
+                suggestions: histSuggestions,
+                onSuggestionSelect: s => setHistSearch(s.text),
                 resultCount: filteredRecords.length,
                 totalCount: records.length,
                 resultLabel: "records",
@@ -509,7 +569,11 @@ export default function ServicesSummaryPage({ shopId, isShopClosed }) {
                   <input className="fh-date" type="date" value={histEndDate} onChange={e => setHistEndDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
                 </div>
               }
-              filters={[
+              filters={userRole === 'tireman' ? [
+                { value: 'all', label: 'LAHAT', active: histType === 'all' },
+                { value: 'service', label: 'SERBISYO', active: histType === 'service' },
+                { value: 'commission', label: 'KOMISYON', active: histType === 'commission' },
+              ] : [
                 { value: 'all', label: 'All', active: histType === 'all' },
                 { value: 'service', label: 'Services', active: histType === 'service' },
                 { value: 'commission', label: 'Commissions', active: histType === 'commission' },

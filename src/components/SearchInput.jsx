@@ -21,7 +21,7 @@ const styles = `
 .si-wrap {
   position: relative;
   z-index: 20;
-  margin-bottom: 0.75rem;
+  width: 100%;
 }
 
 .si-inner {
@@ -29,6 +29,7 @@ const styles = `
   display: flex;
   align-items: center;
   height: 100%;
+  width: 100%;
 }
 
 .si-icon {
@@ -57,7 +58,8 @@ const styles = `
 }
 
 .si-input:focus {
-  border-color: var(--th-orange);
+  border-color: var(--th-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .si-clear {
@@ -77,17 +79,7 @@ const styles = `
   color: var(--th-rose);
 }
 
-.si-result {
-  font-size: 0.78rem;
-  color: var(--th-text-dim);
-  margin-top: 0.45rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.si-result b {
-  color: var(--th-text-muted);
-}
+/* .si-result removed */
 
 .si-suggestions {
   position: absolute;
@@ -139,26 +131,18 @@ const styles = `
   .si-wrap {
     margin-bottom: .5rem;
   }
-  .si-result {
-    font-size: 0.8rem;
-    margin-top: 0.5rem;
+  .si-wrap {
+    margin-bottom: .5rem;
   }
 }
 
 @media (max-width: 640px) {
-  .si-wrap {
-    margin-bottom: 0.55rem;
-  }
   .si-icon {
     left: 8px;
   }
   .si-icon svg {
     width: 13px;
     height: 13px;
-  }
-  .si-result {
-    font-size: 0.72rem;
-    margin-top: 0.3rem;
   }
 }
 `;
@@ -213,7 +197,6 @@ export default function SearchInput({
   }
 
   const showSuggestions = showSug && suggestions.length > 0;
-  const showResult = typeof resultCount === "number" && typeof totalCount === "number" && value;
 
   return (
     <div className={`si-wrap${className ? " " + className : ""}`} style={style}>
@@ -253,11 +236,6 @@ export default function SearchInput({
           </div>
         )}
       </div>
-      {showResult && (
-        <div className="si-result">
-          <b>{resultCount}</b> of <b>{totalCount}</b> {resultLabel} matched
-        </div>
-      )}
     </div>
   );
 }

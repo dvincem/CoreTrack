@@ -29,6 +29,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
   const [categories, setCategories] = React.useState([])
   const [error, setError] = React.useState('')
   const [toast, setToast] = React.useState(null)
+  const [suggestions, setSuggestions] = React.useState([])
 
   // Filters
   const today = new Date().toISOString().split('T')[0]
@@ -111,6 +112,26 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
   }, [form, showExpForm, editingId, shopId, isDraftLoaded]);
 
   React.useEffect(() => { fetchSummary() }, [shopId, startDate, endDate])
+
+  // Expense Suggestions
+  React.useEffect(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const e of expenses) {
+      if (results.length >= 10) break
+      if (e.description?.toLowerCase().includes(q)) add(e.description, 'DESC', '📝')
+      if (e.category_name?.toLowerCase().includes(q)) add(e.category_name, 'CAT', '📁')
+      if (e.reference_no?.toLowerCase().includes(q)) add(e.reference_no, 'REF', '🔖')
+    }
+    setSuggestions(results)
+  }, [search, expenses])
 
   async function fetchSummary() {
     try {
@@ -395,6 +416,8 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
           value: search,
           onChange: setSearch,
           placeholder: "Description, category, ref #…",
+          suggestions: suggestions,
+          onSuggestionSelect: s => setSearch(s.text),
           resultCount: search.trim() ? expTotal : undefined,
           totalCount: expTotal,
           resultLabel: "expenses",

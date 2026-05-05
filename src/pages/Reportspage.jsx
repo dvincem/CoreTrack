@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { API_URL, apiFetch, SkeletonRows, currency, compactCurrency } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import DataTable from '../components/DataTable'
+import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import { ChartThemeProvider, RevenueDonutChart, useChartTheme, ChartTooltip } from '../components/ChartWrapper'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
@@ -226,6 +227,8 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [showCashBreakdown, setShowCashBreakdown] = useState(false)
+  const [search, setSearch] = useState('')
+  const [suggestions, setSuggestions] = useState([])
 
   const [isClosed, setIsClosed] = useState(false)
 
@@ -251,6 +254,27 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
     return () => { active = false }
   }, [shopId, endDate, isOpen])
 
+  // Search logic
+  useEffect(() => {
+    if (!data?.transactions) return
+    const q = search.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const sugs = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      sugs.push({ text: text.trim(), type, icon })
+    }
+    for (const t of data.transactions) {
+      if (sugs.length >= 10) break
+      if (t.id?.toLowerCase().includes(q)) add(t.id, 'REF', '🆔')
+      if (t.customerName?.toLowerCase().includes(q)) add(t.customerName, 'DESC', '👤')
+      if (t.type?.toLowerCase().includes(q)) add(t.type, 'TYPE', '📋')
+    }
+    setSuggestions(sugs)
+  }, [search, data])
+
   if (loading) return <div className="rpt-loading">Generating Daily Report…</div>
   if (error) return (
     <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--th-rose-bg)', border: '1px solid var(--th-rose)', borderRadius: 12, color: 'var(--th-rose)' }}>
@@ -264,8 +288,10 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const { kpis, paymentSummary, cashPool = {}, transactions } = data
 
   const filteredTxns = transactions.filter(t => {
-    if (filterMode === 'ALL') return true
-    return (t.paymentMethod || '').replace('BANK_', '') === filterMode
+    const q = search.toLowerCase()
+    const matchMode = filterMode === 'ALL' || (t.paymentMethod || '').replace('BANK_', '') === filterMode
+    const matchSearch = !q || (t.id || '').toLowerCase().includes(q) || (t.customerName || '').toLowerCase().includes(q) || (t.type || '').toLowerCase().includes(q)
+    return matchMode && matchSearch
   })
   const totalPages = Math.max(1, Math.ceil(filteredTxns.length / pageSize))
   const paginatedTxns = filteredTxns.slice((page - 1) * pageSize, page * pageSize)
@@ -358,14 +384,27 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
         <div className="rpt-card" style={{ overflow: 'hidden' }}>
           <div className="rpt-card-head">
             <span className="rpt-card-title">Daily Activity Feed</span>
-            <div className="rpt-mode-bar">
-              {['ALL', 'CASH', 'GCASH', 'BPI', 'BDO', 'CARD', 'CREDIT'].map(m => (
-                <button
-                  key={m}
-                  className={`rpt-mode-btn${filterMode === m ? ' active' : ''}`}
-                  onClick={() => setFilterMode(m)}
-                >{m}</button>
-              ))}
+            <div style={{ flex: 1 }}>
+              <FilterHeader
+                searchProps={{
+                  value: search,
+                  onChange: setSearch,
+                  placeholder: "Search description or ref...",
+                  suggestions: suggestions,
+                  onSuggestionSelect: s => setSearch(s.text),
+                  resultCount: search.trim() ? filteredTxns.length : undefined,
+                  totalCount: transactions.length,
+                  resultLabel: "transactions",
+                }}
+                filters={['ALL', 'CASH', 'GCASH', 'BPI', 'BDO', 'CARD', 'CREDIT'].map(m => ({
+                  label: m,
+                  value: m,
+                  active: filterMode === m,
+                  count: m === 'ALL' ? transactions.length : transactions.filter(t => t.paymentMethod === m).length
+                }))}
+                onFilterChange={setFilterMode}
+                accentColor="var(--th-emerald)"
+              />
             </div>
           </div>
           <DataTable
@@ -498,7 +537,15 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
         sales.forEach(s => { const dow = dowNames[new Date(s.sale_datetime).getDay()]; dowMap[dow] += s.total_amount })
         const dowChart = dowNames.map(d => ({ label: d, value: dowMap[d] }))
         const totalRevenue = sales.reduce((a, s) => a + s.total_amount, 0)
-        setData({ revenue: totalRevenue, txnCount: sales.length, avgSale: sales.length ? totalRevenue / sales.length : 0, dailyChart, dowChart })
+        
+        // Average Sale: Only include transactions up to today's date
+        const now = new Date()
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        const cappedSales = sales.filter(s => (s.sale_datetime || '').split('T')[0] <= todayStr)
+        const cappedRevenue = cappedSales.reduce((a, s) => a + s.total_amount, 0)
+        const avgSale = cappedSales.length ? cappedRevenue / cappedSales.length : 0
+
+        setData({ revenue: totalRevenue, txnCount: sales.length, avgSale, dailyChart, dowChart })
         setLoading(false)
       })
       .catch(() => { if (active) setLoading(false) })

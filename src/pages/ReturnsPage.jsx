@@ -2,6 +2,8 @@ import '../pages_css/ReturnsPage.css';
 import React, { useState, useEffect, useCallback } from "react";
 import { API_URL, apiFetch } from "../lib/config";
 import Pagination from '../components/Pagination'
+import SearchInput from '../components/SearchInput'
+import FilterHeader from '../components/FilterHeader'
 
 /* ─── CSS ──────────────────────────────────────────────────────────────────── */
 ;
@@ -128,6 +130,8 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
   const [histFilter, setHistFilter] = useState({ type: "", status: "" });
   const [histPage, setHistPage] = useState(1);
   const HIST_PAGE_SIZE = 10;
+  const [histSearch, setHistSearch] = useState('');
+  const [histSuggestions, setHistSuggestions] = useState([]);
   const [replModal, setReplModal] = useState(null);
   const [replDot, setReplDot] = useState("");
   const [replDr, setReplDr] = useState("");
@@ -151,6 +155,31 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
   useEffect(() => {
     if (tab === "history") loadHistory();
   }, [tab, loadHistory]);
+
+  // Hist Suggestions
+  useEffect(() => {
+    const q = histSearch.trim().toLowerCase()
+    if (!q) { setHistSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const r of histReturns) {
+      if (results.length >= 10) break
+      if (r.return_id?.toLowerCase().includes(q)) add(r.return_id, 'REF', '🆔')
+      if (r.customer_name?.toLowerCase().includes(q)) add(r.customer_name, 'CUSTOMER', '👤')
+      if (r.item_name?.toLowerCase().includes(q)) add(r.item_name, 'ITEM', '📦')
+    }
+    setHistSuggestions(results)
+  }, [histSearch, histReturns])
+
+  const filteredHistory = histReturns.filter(r => {
+    const q = histSearch.toLowerCase()
+    return !q || (r.return_id || '').toLowerCase().includes(q) || (r.customer_name || '').toLowerCase().includes(q) || (r.item_name || '').toLowerCase().includes(q)
+  })
 
   /* ── Load sale IDs and order IDs on mount ───────────────────────── */
   useEffect(() => {
@@ -968,39 +997,47 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
       {/* ── HISTORY TAB ───────────────────────────────────────────────── */}
       {tab === "history" && (
         <div className="ret-panel">
-          <div className="ret-filters">
-            <select
-              className="ret-filter-select"
-              value={histFilter.type}
-              onChange={(e) => setHistFilter((f) => ({ ...f, type: e.target.value }))}
-            >
-              <option value="">All Types</option>
-              <option value="CUSTOMER_RETURN">Customer Returns</option>
-              <option value="SUPPLIER_RETURN">Supplier Returns</option>
-              <option value="SUPPLIER_REPLACEMENT">Replacements In</option>
-            </select>
-            <select
-              className="ret-filter-select"
-              value={histFilter.status}
-              onChange={(e) => setHistFilter((f) => ({ ...f, status: e.target.value }))}
-            >
-              <option value="">All Statuses</option>
-              <option value="PROCESSED">Processed</option>
-              <option value="PENDING">Pending</option>
-              <option value="REPLACEMENT_PENDING">Replacement Pending</option>
-              <option value="WARRANTY_PENDING">Warranty Testing</option>
-              <option value="READY_FOR_PICKUP">Ready for Pickup</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="RESOLVED">Resolved</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-            <button className="ret-btn ret-btn-slate ret-btn-sm" onClick={loadHistory}>↺ Refresh</button>
+          <div className="ret-card">
+            <div className="ret-card-title">Return History</div>
+            <FilterHeader
+              searchProps={{
+                value: histSearch,
+                onChange: setHistSearch,
+                placeholder: "Search reference, customer, item…",
+                suggestions: histSuggestions,
+                onSuggestionSelect: s => setHistSearch(s.text),
+                resultCount: histSearch.trim() ? filteredHistory.length : undefined,
+                totalCount: histReturns.length,
+                resultLabel: "returns",
+              }}
+              filters={[
+                { label: "All Types", value: "", active: histFilter.type === "" },
+                { label: "Customer", value: "CUSTOMER_RETURN", active: histFilter.type === "CUSTOMER_RETURN" },
+                { label: "Supplier", value: "SUPPLIER_RETURN", active: histFilter.type === "SUPPLIER_RETURN" },
+              ]}
+              onFilterChange={(v) => setHistFilter({ ...histFilter, type: v })}
+              accentColor="var(--th-orange)"
+            />
+            
+            <div className="ret-form-row" style={{ marginTop: '0.5rem' }}>
+               <div className="ret-form-field" style={{ maxWidth: 200 }}>
+                 <label className="ret-label">Status Filter</label>
+                 <select className="ret-select" value={histFilter.status} onChange={e => setHistFilter({ ...histFilter, status: e.target.value })}>
+                   <option value="">All Statuses</option>
+                   <option value="PROCESSED">Processed</option>
+                   <option value="PENDING">Pending</option>
+                   <option value="REPLACEMENT_PENDING">Replacement Pending</option>
+                   <option value="WARRANTY_PENDING">Warranty Pending</option>
+                   <option value="COMPLETED">Completed</option>
+                 </select>
+               </div>
+            </div>
           </div>
 
           <div className="ret-card" style={{ padding: 0 }}>
             {histLoading ? (
               <div className="ret-empty"><div className="ret-empty-text">Loading…</div></div>
-            ) : histReturns.length === 0 ? (
+            ) : filteredHistory.length === 0 ? (
               <div className="ret-empty">
                 <svg className="ret-empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-4.98" />
@@ -1037,7 +1074,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                       // Skip auto-created supplier return rows (they merge into the customer row)
                       const autoSuppIds = new Set(Object.values(autoSuppMap).map(r => r.return_id));
 
-                      return histReturns
+                      return filteredHistory
                         .filter(r => !autoSuppIds.has(r.return_id))
                         .slice((histPage - 1) * HIST_PAGE_SIZE, histPage * HIST_PAGE_SIZE)
                         .map((r) => {
@@ -1128,7 +1165,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                   </tbody>
                 </table>
               </div>
-              <Pagination currentPage={histPage} totalPages={Math.ceil(histReturns.length/HIST_PAGE_SIZE)} onPageChange={setHistPage} />
+              <Pagination currentPage={histPage} totalPages={Math.ceil(filteredHistory.length/HIST_PAGE_SIZE)} onPageChange={setHistPage} />
               </div>
             )}
           </div>

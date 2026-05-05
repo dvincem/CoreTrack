@@ -159,6 +159,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
   const [statsRange] = useState("month");
   const [staffStats, setStaffStats] = useState({});
   const [kpiData, setKpiData] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
 
   const isSuperAdmin = (userPower && userPower >= 80) || userRole === 'admin' || userRole === 'owner';
 
@@ -223,7 +224,27 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
   useEffect(() => {
     fetchAttendance();
     fetchAttendanceStats();
-  }, [attendanceDate, shopId, statsRange]);
+  }, [statsRange, attendanceDate, shopId]);
+
+  // Staff Suggestions
+  useEffect(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const s of staff) {
+      if (results.length >= 10) break
+      if (s.full_name?.toLowerCase().includes(q)) add(s.full_name, 'STAFF', '👤')
+      if (s.staff_code?.toLowerCase().includes(q)) add(s.staff_code, 'CODE', '🆔')
+      if (s.role?.toLowerCase().includes(q)) add(s.role, 'ROLE', '📋')
+    }
+    setSuggestions(results)
+  }, [search, staff])
 
   async function fetchAttendance() {
     try {
@@ -402,7 +423,10 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
           value: search,
           onChange: setSearch,
           placeholder: "Search staff name or code...",
-          resultCount: search.trim() ? filteredStaff.length : undefined,
+          suggestions: suggestions,
+          onSuggestionSelect: (s) => { setSearch(s.text); setPage(1); },
+          resultCount: search.trim() ? staff.length : undefined,
+          totalCount: total,
           resultLabel: "staff",
         }}
         leftComponent={

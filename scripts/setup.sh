@@ -3,7 +3,7 @@
 # ==============================================================================
 # CoreTrack Automated Deployment Script (Ubuntu)
 # ==============================================================================
-# This script automates Phases 1-5 of the CoreTrack setup.
+# This script automates Phases 1-4 of the CoreTrack setup.
 # Run with: sudo bash setup.sh
 # ==============================================================================
 
@@ -95,31 +95,6 @@ else
 fi
 pm2 save
 
-# --- PHASE 5: INTELLIGENCE LAYER ---
-echo -e "${YELLOW}🧠 Phase 5: Setting up AI Engine (Ollama)...${NC}"
-if ! command -v ollama &> /dev/null; then
-    if [ "$EUID" -ne 0 ]; then
-        echo -e "${RED}Error: Ollama is not installed and root access is unavailable for installation.${NC}"
-        echo -e "${YELLOW}Please install Ollama manually: https://ollama.com/download${NC}"
-    else
-        echo -e "${BLUE}Installing Ollama...${NC}"
-        curl -fsSL https://ollama.com/install.sh | sh
-    fi
-fi
-
-# Ensure Ollama service is running
-if [ "$EUID" -eq 0 ]; then
-    systemctl enable ollama || true
-    systemctl start ollama || true
-else
-    echo -e "${YELLOW}Notice: Not running as root. Assuming Ollama service is managed externally or already running.${NC}"
-fi
-
-if command -v ollama &> /dev/null; then
-    echo -e "${BLUE}Pulling Llama 3.2:3b model...${NC}"
-    ollama pull llama3.2:3b
-fi
-
 # --- FINAL SUMMARY ---
 echo -e "\n${GREEN}================================================================${NC}"
 echo -e "${GREEN}🎉 CORETRACK SETUP COMPLETE!${NC}"
@@ -131,6 +106,5 @@ echo -e "\n${YELLOW}Next Steps:${NC}"
 echo -e "1. Open the URL above in your browser to start the ${BLUE}Setup Wizard${NC}."
 echo -e "2. Transfer your 'tire_shop.db' to $(pwd)/ if you have existing data."
 echo -e "3. Monitor server logs with: ${BLUE}pm2 logs coretrack${NC}"
-echo -e "4. Check AI health with: ${BLUE}ollama list${NC}"
 echo -e "${GREEN}================================================================${NC}\n"
 

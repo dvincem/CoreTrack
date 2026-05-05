@@ -452,6 +452,9 @@ function Servicespage() {
             placeholder: "Search by name or code…",
             suggestions: suggestions,
             onSuggestionSelect: (s) => setSearch(s.text),
+            resultCount: search.trim() ? filtered.length : undefined,
+            totalCount: services.length,
+            resultLabel: "services",
           }}
           filters={[
             { label: "All", value: "ALL", active: commFilter === "ALL" },

@@ -264,6 +264,7 @@ function CustomerPage({ shopId }) {
             suggestions: suggestions,
             onSuggestionSelect: (s) => { setSearch(s.text); setCuPage(1); },
             resultCount: search.trim() ? filtered.length : undefined,
+            totalCount: cuTotal,
             resultLabel: "customers",
           }}
           filters={[

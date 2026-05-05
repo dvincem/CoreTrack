@@ -80,6 +80,39 @@ router.post("/orders", async (req, res) => {
   }
 });
 
+// ── Orders KPI — status counts + total value (no status filter) ──────────────
+router.get("/orders-kpi/:shop_id", (req, res) => {
+  const { shop_id } = req.params;
+  db.all(
+    `SELECT
+       COUNT(*)                                                      AS total,
+       SUM(CASE WHEN status = 'PENDING'   THEN 1 ELSE 0 END)        AS pending,
+       SUM(CASE WHEN status = 'CONFIRMED' THEN 1 ELSE 0 END)        AS confirmed,
+       SUM(CASE WHEN status = 'RECEIVED'  THEN 1 ELSE 0 END)        AS received,
+       SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END)        AS cancelled,
+       COALESCE(SUM(total_amount), 0)                               AS totalValue,
+       COALESCE(SUM(CASE WHEN status = 'PENDING'   THEN total_amount ELSE 0 END), 0) AS pendingValue,
+       COALESCE(SUM(CASE WHEN status = 'RECEIVED'  THEN total_amount ELSE 0 END), 0) AS receivedValue
+     FROM orders
+     WHERE shop_id = ?`,
+    [shop_id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      const r = rows[0] || {};
+      res.json({
+        total:         r.total         || 0,
+        pending:       r.pending       || 0,
+        confirmed:     r.confirmed     || 0,
+        received:      r.received      || 0,
+        cancelled:     r.cancelled     || 0,
+        totalValue:    r.totalValue    || 0,
+        pendingValue:  r.pendingValue  || 0,
+        receivedValue: r.receivedValue || 0,
+      });
+    }
+  );
+});
+
 router.get("/orders/:shop_id", (req, res) => {
   const { shop_id } = req.params;
   const { status, supplier_id, q, page, perPage } = req.query;

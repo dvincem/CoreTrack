@@ -55,6 +55,8 @@ function ReceivablesPage({ shopId }) {
   // sidebar form
   const [showForm, setShowForm] = React.useState(false);
   const [formError, setFormError] = React.useState("");
+  const [suggestions, setSuggestions] = React.useState([])
+  const [baleSuggestions, setBaleSuggestions] = React.useState([])
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState({
     customer_id: "", receivable_type: "GENERAL", description: "",
@@ -271,7 +273,46 @@ function ReceivablesPage({ shopId }) {
     }
     return true;
   });
-  React.useEffect(() => { setBalePage(1); }, [baleStatusFilter, baleSearch, bales.length]);
+  React.useEffect(() => { setBalePage(1); }, [baleSearch, bales, baleStatusFilter])
+
+  // Receivables Suggestions
+  React.useEffect(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const r of receivables) {
+      if (results.length >= 10) break
+      if (r.customer_name?.toLowerCase().includes(q)) add(r.customer_name, 'CUSTOMER', '👤')
+      if (r.description?.toLowerCase().includes(q)) add(r.description, 'DESC', '📝')
+      if (r.contact_number?.toLowerCase().includes(q)) add(r.contact_number, 'PHONE', '📞')
+    }
+    setSuggestions(results)
+  }, [searchQuery, receivables])
+
+  // Bale Suggestions
+  React.useEffect(() => {
+    const q = baleSearch.trim().toLowerCase()
+    if (!q) { setBaleSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const b of bales) {
+      if (results.length >= 10) break
+      if (b.full_name?.toLowerCase().includes(q)) add(b.full_name, 'STAFF', '👤')
+      if (b.staff_code?.toLowerCase().includes(q)) add(b.staff_code, 'CODE', '🆔')
+    }
+    setBaleSuggestions(results)
+  }, [baleSearch, bales])
   const baleTotal = bales.filter(b => b.status === "ACTIVE").reduce((s, b) => s + (b.amount || 0), 0);
   const baleOutstanding = bales.filter(b => b.status === "ACTIVE").reduce((s, b) => s + (b.balance_amount || 0), 0);
   const baleActiveCount = bales.filter(b => b.status === "ACTIVE").length;
@@ -486,6 +527,8 @@ function ReceivablesPage({ shopId }) {
             value: searchQuery,
             onChange: setSearchQuery,
             placeholder: "Search by customer name, description, or contact…",
+            suggestions: suggestions,
+            onSuggestionSelect: s => setSearchQuery(s.text),
             resultCount: searchQuery.trim() ? rcvTotal : undefined,
             totalCount: kpi?.total || 0,
             resultLabel: "receivables",
@@ -539,6 +582,8 @@ function ReceivablesPage({ shopId }) {
               value: baleSearch,
               onChange: setBaleSearch,
               placeholder: "Search by employee name or code…",
+              suggestions: baleSuggestions,
+              onSuggestionSelect: s => setBaleSearch(s.text),
               resultCount: baleSearch.trim() ? filteredBales.length : undefined,
               totalCount: bales.length,
               resultLabel: "records",

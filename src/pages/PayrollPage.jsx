@@ -206,6 +206,24 @@ function PayrollPage({ shopId, setPageContext }) {
     XLSX.writeFile(wb, `payroll-${date}.xlsx`)
   }
 
+  // Suggestions
+  React.useEffect(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) { setSuggestions([]); return }
+    const seen = new Set()
+    const sugs = []
+    for (const r of summary) {
+      if (sugs.length >= 10) break
+      if (r.full_name?.toLowerCase().includes(q)) {
+        if (!seen.has(r.full_name)) { seen.add(r.full_name); sugs.push({ text: r.full_name, type: 'Staff', icon: '👤' }) }
+      }
+      if (r.staff_code?.toLowerCase().includes(q)) {
+        if (!seen.has(r.staff_code)) { seen.add(r.staff_code); sugs.push({ text: r.staff_code, type: 'ID', icon: '🆔' }) }
+      }
+    }
+    setSuggestions(sugs)
+  }, [search, summary])
+
   const filteredSummary = React.useMemo(() => {
     return summary.filter(s => s.full_name.toLowerCase().includes(search.toLowerCase()))
   }, [summary, search])

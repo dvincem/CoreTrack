@@ -55,7 +55,8 @@ function CreateOrderModal({
   orderItems,
   orderNotes,
   orderSearchQuery,
-  orderModalCurrentPage,
+  orderSuggestions,
+  orderModalPage,
   orderModalTotalPages,
   orderModalCurrentItems,
   filteredOrderItems,
@@ -389,35 +390,14 @@ function CreateOrderModal({
                 Select Items
               </div>
               <div style={{ position: "relative", marginBottom: "0.4rem" }}>
-                <input
-                  className="inv-input"
-                  style={{ paddingLeft: "2rem" }}
-                  placeholder="Search by name, SKU, brand, size…"
+                <SearchInput
                   value={orderSearchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
+                  onChange={v => onSearchChange(v)}
+                  placeholder="Search by name, SKU, brand, size…"
+                  suggestions={orderSuggestions}
+                  onSuggestionSelect={s => onSearchChange(s.text)}
+                  style={{ marginBottom: 0, width: '100%' }}
                 />
-                <span
-                  style={{
-                    position: "absolute",
-                    left: 8,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#475569",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                </span>
               </div>
 
               <div style={{ maxHeight: "380px", overflowY: "auto" }}>
@@ -467,34 +447,34 @@ function CreateOrderModal({
                     borderTop: "1px solid #283245",
                   }}
                 >
-                  <span style={{ fontSize: "0.7rem", color: "#475569" }}>
-                    {orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE -
-                      ORDER_MODAL_ITEMS_PER_PAGE +
-                      1}
-                    –
+                  <div className="inv-page-status">
+                    Showing{" "}
+                    {orderModalPage * ORDER_MODAL_ITEMS_PER_PAGE -
+                      (ORDER_MODAL_ITEMS_PER_PAGE - 1)}{" "}
+                    to{" "}
                     {Math.min(
-                      orderModalCurrentPage * ORDER_MODAL_ITEMS_PER_PAGE,
-                      orderModalTotalCount,
+                      orderModalPage * ORDER_MODAL_ITEMS_PER_PAGE,
+                      orderModalTotalCount
                     )}{" "}
                     of {orderModalTotalCount}
-                  </span>
-                  <div style={{ display: "flex", gap: "0.35rem" }}>
+                  </div>
+                  <div className="inv-page-ctrl">
                     <button
                       className="inv-page-btn"
-                      disabled={orderModalCurrentPage === 1}
-                      onClick={() => onPageChange(orderModalCurrentPage - 1)}
+                      disabled={orderModalPage === 1}
+                      onClick={() => onPageChange(orderModalPage - 1)}
                     >
-                      ← Prev
+                      ‹
                     </button>
-                    <span className="inv-page-current">
-                      {orderModalCurrentPage}/{orderModalTotalPages}
+                    <span className="inv-page-num">
+                      {orderModalPage}/{orderModalTotalPages}
                     </span>
                     <button
                       className="inv-page-btn"
-                      disabled={orderModalCurrentPage === orderModalTotalPages}
-                      onClick={() => onPageChange(orderModalCurrentPage + 1)}
+                      disabled={orderModalPage === orderModalTotalPages}
+                      onClick={() => onPageChange(orderModalPage + 1)}
                     >
-                      Next →
+                      ›
                     </button>
                   </div>
                 </div>
@@ -696,11 +676,13 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   const [historyLoading, setHistoryLoading] = React.useState(false);
   const [historyVariants, setHistoryVariants] = React.useState([]);
   const [activeHistVariantId, setActiveHistVariantId] = React.useState(null);
+  const [activeHistDesign, setActiveHistDesign] = React.useState(null);
 
   const [orderItems, setOrderItems] = React.useState([]);
   const [orderNotes, setOrderNotes] = React.useState("");
   const [orderSearchQuery, setOrderSearchQuery] = React.useState("");
-  const [orderModalCurrentPage, setOrderModalCurrentPage] = React.useState(1);
+  const [orderSuggestions, setOrderSuggestions] = React.useState([])
+  const [orderModalPage, setOrderModalPage] = React.useState(1)
   const [orderModalItems, setOrderModalItems] = React.useState([]);
   const [orderModalTotalCount, setOrderModalTotalCount] = React.useState(0);
   const [orderModalTotalPagesSrv, setOrderModalTotalPagesSrv] = React.useState(1);
@@ -745,20 +727,40 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
 
   React.useEffect(() => {
     if (!showCreateOrderModal) return;
-    setOrderModalCurrentPage(1);
+    setOrderModalPage(1);
   }, [orderSearchQuery, showCreateOrderModal]);
 
   React.useEffect(() => {
     if (!showCreateOrderModal) return;
     const t = setTimeout(() => { fetchOrderModalItems(); }, 300);
     return () => clearTimeout(t);
-  }, [showCreateOrderModal, orderSearchQuery, orderModalCurrentPage, shopId]);
+  }, [showCreateOrderModal, orderSearchQuery, orderModalPage, shopId]);
+
+  // Order modal suggestions
+  React.useEffect(() => {
+    const q = orderSearchQuery.trim().toLowerCase()
+    if (!q) { setOrderSuggestions([]); return }
+    const seen = new Set()
+    const results = []
+    const add = (text, type, icon) => {
+      if (!text || seen.has(text.trim())) return
+      seen.add(text.trim())
+      results.push({ text: text.trim(), type, icon })
+    }
+    for (const item of orderModalItems) {
+      if (results.length >= 8) break
+      if (item.item_name?.toLowerCase().includes(q)) add(item.item_name, 'ITEM', '📦')
+      if (item.brand?.toLowerCase().includes(q)) add(item.brand, 'BRAND', '🏷️')
+      if (item.sku?.toLowerCase().includes(q)) add(item.sku, 'SKU', '🔖')
+    }
+    setOrderSuggestions(results)
+  }, [orderSearchQuery, orderModalItems])
 
   async function fetchOrderModalItems() {
     setOrderModalLoading(true);
     try {
       const qs = new URLSearchParams({
-        page: String(orderModalCurrentPage),
+        page: String(orderModalPage),
         perPage: String(ORDER_MODAL_ITEMS_PER_PAGE),
       });
       if (orderSearchQuery.trim()) qs.set('q', orderSearchQuery.trim());
@@ -828,9 +830,10 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       return {
         item_id: parts[0],
         dot_number: parts[1] === 'NONE' ? null : (parts[1] || null),
-        qty: parseInt(parts[2]) || 0,
-        selling_price: parseFloat(parts[3]) || 0,
-        unit_cost: parseFloat(parts[4]) || 0,
+        design: parts[2] === 'NONE' ? null : (parts[2] || null),
+        qty: parseInt(parts[3]) || 0,
+        selling_price: parseFloat(parts[4]) || 0,
+        unit_cost: parseFloat(parts[5]) || 0,
       };
     }).filter(v => v.item_id);
   }
@@ -849,6 +852,15 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       setItemHistory(prev => (append ? [...prev, ...rows] : rows));
       setHistoryTotalPages(d?.meta?.totalPages || 1);
       setHistoryPage(page);
+      // Enrich historyVariants with per-item item_name/sku (first load only)
+      if (!append && rows.length > 0) {
+        const nameMap = new Map(rows.map(r => [String(r.item_id), { item_name: r.item_name, sku: r.sku }]));
+        setHistoryVariants(prev => prev.map(v => ({
+          ...v,
+          item_name: nameMap.get(String(v.item_id))?.item_name || v.item_name || null,
+          sku:       nameMap.get(String(v.item_id))?.sku       || v.sku       || null,
+        })));
+      }
     } catch {
       if (!append) setItemHistory([]);
     }
@@ -873,6 +885,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     const isGrouped = (item.variant_count || 0) > 1 && variants.length > 1;
     setHistoryVariants(isGrouped ? variants : []);
     setActiveHistVariantId(null);
+    setActiveHistDesign(null);
     setSelectedItemForHistory(item);
     if (isGrouped) {
       await fetchItemHistory(variants.map(v => v.item_id));
@@ -978,7 +991,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     setQuickOrderMode(false);
     setQuickSelected(new Set());
     setShowCreateOrderModal(true);
-    setOrderModalCurrentPage(1);
+    setOrderModalPage(1);
   }
 
   function submitOrder() {
@@ -1140,7 +1153,22 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     },
     {
       key: 'design', label: 'Design',
-      render: (item) => <span className="inv-td-name">{item.design || '\u2014'}</span>,
+      render: (item) => {
+        if (item.design_count > 1) {
+          const designs = (item.design_list || '').split(',').filter(Boolean);
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <span style={{ fontSize: '0.72rem', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: 'var(--th-violet,#a855f7)', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: 4, padding: '0.1rem 0.4rem', display: 'inline-block' }}>
+                {item.design_count} Designs
+              </span>
+              <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={designs.join(', ')}>
+                {designs.join(', ')}
+              </div>
+            </div>
+          );
+        }
+        return <span className="inv-td-name">{item.design || '\u2014'}</span>;
+      },
     },
     {
       key: 'size', label: 'Size',
@@ -1258,7 +1286,8 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
           orderItems={orderItems}
           orderNotes={orderNotes}
           orderSearchQuery={orderSearchQuery}
-          orderModalCurrentPage={orderModalCurrentPage}
+          orderSuggestions={orderSuggestions}
+          orderModalPage={orderModalPage}
           orderModalTotalPages={orderModalTotalPages}
           orderModalCurrentItems={orderModalCurrentItems}
           filteredOrderItems={filteredOrderItems}
@@ -1277,9 +1306,9 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
           onRemoveItem={removeFromOrder}
           onSearchChange={(v) => {
             setOrderSearchQuery(v);
-            setOrderModalCurrentPage(1);
+            setOrderModalPage(1);
           }}
-          onPageChange={setOrderModalCurrentPage}
+          onPageChange={setOrderModalPage}
           onNotesChange={setOrderNotes}
           onSubmit={submitOrder}
         />
@@ -1304,7 +1333,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
                 className="inv-btn inv-btn-sky"
                 onClick={() => {
                   setShowCreateOrderModal(true);
-                  setOrderModalCurrentPage(1);
+                  setOrderModalPage(1);
                 }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1385,7 +1414,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
               className="inv-btn inv-btn-sky"
               onClick={() => {
                 setShowCreateOrderModal(true);
-                setOrderModalCurrentPage(1);
+                setOrderModalPage(1);
               }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1484,21 +1513,27 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
 
           {selectedItemForHistory && (() => {
             const isGrouped = historyVariants.length > 1;
+            const designItemIds = activeHistDesign
+              ? new Set(historyVariants.filter(v => v.design === activeHistDesign).map(v => v.item_id))
+              : null;
             const visibleHistory = isGrouped && activeHistVariantId
               ? itemHistory.filter(e => e.item_id === activeHistVariantId)
-              : itemHistory;
+              : isGrouped && designItemIds
+                ? itemHistory.filter(e => designItemIds.has(e.item_id))
+                : itemHistory;
             return (
             <ItemHistoryModal
               item={selectedItemForHistory}
               onClose={() => {
                 setSelectedItemForHistory(null); setItemHistory([]);
                 setHistoryPage(1); setHistoryTotalPages(1);
-                setHistoryVariants([]); setActiveHistVariantId(null);
+                setHistoryVariants([]); setActiveHistVariantId(null); setActiveHistDesign(null);
               }}
               currency={invCurrency}
               variants={isGrouped ? historyVariants : undefined}
               activeVariantId={activeHistVariantId}
               onVariantChange={setActiveHistVariantId}
+              onDesignChange={setActiveHistDesign}
               historyContent={
                 historyLoading ? (
                   <div className="inv-hist-loading"><div className="inv-hist-spinner" /> Loading…</div>

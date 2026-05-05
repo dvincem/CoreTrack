@@ -27,7 +27,7 @@ router.get("/items/:shop_id", async (req, res) => {
   const whereClause = filters.join(" AND ");
 
   // CTE for base items and their stock
-  const baseSql = `
+  let baseSql = `
     WITH raw_items AS (
       SELECT 
         im.*,
@@ -44,13 +44,25 @@ router.get("/items/:shop_id", async (req, res) => {
   let selectCols, fromClause, orderBy;
 
   if (isGrouped) {
+    // Extend base CTE with multi-design key lookup (no correlated subqueries at query time)
+    baseSql += `,
+  multi_design_keys AS (
+    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size
+    FROM raw_items
+    WHERE brand IS NOT NULL AND design IS NOT NULL
+    GROUP BY COALESCE(brand,''), COALESCE(size,'')
+    HAVING COUNT(DISTINCT design) > 1
+  )`;
+
     selectCols = `
       group_key as item_id,
       MAX(item_id) as real_item_id,
       MAX(sku) as sku,
       MAX(item_name) as item_name,
       MAX(category) as category,
-      brand, design, size,
+      brand,
+      CASE WHEN COUNT(DISTINCT COALESCE(design,'')) > 1 THEN NULL ELSE MAX(design) END as design,
+      size,
       MAX(rim_size) as rim_size,
       MIN(unit_cost) as min_cost,
       MAX(unit_cost) as max_cost,
@@ -62,15 +74,24 @@ router.get("/items/:shop_id", async (req, res) => {
       SUM(current_quantity) as current_quantity,
       MAX(last_stock_update) as last_stock_update,
       COUNT(*) as variant_count,
-      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0)) as variant_info
+      COUNT(DISTINCT COALESCE(design,'')) as design_count,
+      GROUP_CONCAT(DISTINCT COALESCE(design,'')) as design_list,
+      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || REPLACE(COALESCE(design,'NONE'),':','_') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0)) as variant_info
     `;
     fromClause = `
       FROM (
         SELECT *,
           CASE
-            WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-            THEN COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
-            ELSE item_id
+            WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
+              SELECT 1 FROM multi_design_keys mk
+              WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+            )
+            THEN COALESCE(brand,'') || '||' || COALESCE(size,'')
+            ELSE
+              CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
+              THEN COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+              ELSE item_id
+              END
           END as group_key
         FROM raw_items
         WHERE NOT (
@@ -324,34 +345,65 @@ router.put("/items/:item_id/supplier", (req, res) => {
 router.put("/items/:item_id/details", (req, res) => {
   const { item_id } = req.params;
   const { category, brand, design, size } = req.body;
-  
+
   const upperBrand = brand ? brand.toUpperCase().trim() : null;
   const upperDesign = design ? design.toUpperCase().trim() : null;
   const trimmedSize = size ? size.trim() : null;
   const trimmedCat = category ? category.trim() : "MISC";
 
-  // Recalculate item_name
+  // item_name excludes design when design is blank (non-tire items)
   const item_name = [upperBrand, upperDesign, trimmedSize].filter(Boolean).join(' ');
 
-  db.run(
-    `UPDATE item_master 
-     SET category = ?, brand = ?, design = ?, size = ?, item_name = ?
-     WHERE item_id = ?`,
-    [trimmedCat, upperBrand, upperDesign, trimmedSize, item_name, item_id],
-    function (err) {
+  // Update the target item, its parent (if it has one), and all siblings sharing
+  // the same parent_item_id — keeps every DOT variant of a group in sync.
+  db.serialize(() => {
+    db.get(`SELECT parent_item_id FROM item_master WHERE item_id = ?`, [item_id], (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: "Item not found" });
-      res.json({ 
-        item_id, 
-        category: trimmedCat, 
-        brand: upperBrand, 
-        design: upperDesign, 
-        size: trimmedSize, 
-        item_name,
-        message: "Item details updated successfully" 
+      if (!row) return res.status(404).json({ error: "Item not found" });
+
+      const parentId = row.parent_item_id;
+
+      // Build a list of all related IDs to update in one statement:
+      // – the item itself
+      // – its parent (if exists)
+      // – all siblings that share the same parent
+      const buildIds = (cb) => {
+        if (!parentId) return cb(null, [item_id]);
+        db.all(
+          `SELECT item_id FROM item_master WHERE item_id = ? OR item_id = ? OR parent_item_id = ?`,
+          [item_id, parentId, parentId],
+          (e2, siblings) => {
+            if (e2) return cb(e2);
+            cb(null, [...new Set(siblings.map(s => s.item_id))]);
+          }
+        );
+      };
+
+      buildIds((idErr, ids) => {
+        if (idErr) return res.status(500).json({ error: idErr.message });
+        const placeholders = ids.map(() => '?').join(',');
+        db.run(
+          `UPDATE item_master
+             SET category = ?, brand = ?, design = ?, size = ?, item_name = ?
+           WHERE item_id IN (${placeholders})`,
+          [trimmedCat, upperBrand, upperDesign, trimmedSize, item_name, ...ids],
+          function (err2) {
+            if (err2) return res.status(500).json({ error: err2.message });
+            res.json({
+              item_id,
+              category: trimmedCat,
+              brand: upperBrand,
+              design: upperDesign,
+              size: trimmedSize,
+              item_name,
+              updated_count: this.changes,
+              message: "Item details updated successfully",
+            });
+          }
+        );
       });
-    }
-  );
+    });
+  });
 });
 
 // ── Price history for an item ─────────────────────────────────────────────────
@@ -685,16 +737,36 @@ router.get("/pos-items/:shop_id", async (req, res) => {
       LEFT JOIN current_stock cs ON cs.item_id = im.item_id AND cs.shop_id = ?
      WHERE ${filters}
   ),
+  multi_design_keys AS (
+    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size
+    FROM stock
+    WHERE brand IS NOT NULL AND design IS NOT NULL
+    GROUP BY COALESCE(brand,''), COALESCE(size,'')
+    HAVING COUNT(DISTINCT design) > 1
+  ),
   grouped AS (
     SELECT
-      CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-           THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
-           ELSE item_id END AS group_key,
-      MAX(brand) AS brand, MAX(design) AS design, MAX(size) AS size,
+      CASE
+        WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
+          SELECT 1 FROM multi_design_keys mk
+          WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+        )
+        THEN brand || '||' || COALESCE(size,'')
+        ELSE
+          CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
+               THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+               ELSE item_id
+          END
+      END AS group_key,
+      MAX(brand) AS brand,
+      CASE WHEN COUNT(DISTINCT COALESCE(design,'')) > 1 THEN NULL ELSE MAX(design) END AS design,
+      MAX(size) AS size,
       MAX(category) AS category, MAX(item_name) AS item_name,
       MIN(item_id) AS representative_item_id,
       AVG(unit_cost) AS unit_cost, AVG(selling_price) AS selling_price,
-      SUM(qty) AS total_quantity
+      SUM(qty) AS total_quantity,
+      COUNT(DISTINCT COALESCE(design,'')) AS design_count,
+      GROUP_CONCAT(DISTINCT COALESCE(design,'')) AS design_list
     FROM stock
     GROUP BY group_key
     ${stockOnly ? 'HAVING SUM(qty) > 0' : ''}
@@ -723,13 +795,32 @@ router.get("/pos-items/:shop_id", async (req, res) => {
       `${stockCte}
        SELECT item_id, dot_number, qty AS current_quantity, unit_cost, selling_price, sku, item_name,
               category, brand, design, size,
-              CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-                   THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
-                   ELSE item_id END AS group_key
-         FROM stock        WHERE CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-                   THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
-                   ELSE item_id END IN (${placeholders})
-        ORDER BY CASE WHEN dot_number IS NULL THEN 1 ELSE 0 END, dot_number ASC`,
+              CASE
+                WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
+                  SELECT 1 FROM multi_design_keys mk
+                  WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+                )
+                THEN brand || '||' || COALESCE(size,'')
+                ELSE
+                  CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
+                       THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+                       ELSE item_id
+                  END
+              END AS group_key
+         FROM stock
+        WHERE CASE
+                WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
+                  SELECT 1 FROM multi_design_keys mk
+                  WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+                )
+                THEN brand || '||' || COALESCE(size,'')
+                ELSE
+                  CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
+                       THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+                       ELSE item_id
+                  END
+              END IN (${placeholders})
+        ORDER BY design ASC, CASE WHEN dot_number IS NULL THEN 1 ELSE 0 END, dot_number ASC`,
       [...filterParams, ...keys]
     );
 
@@ -740,6 +831,36 @@ router.get("/pos-items/:shop_id", async (req, res) => {
     }
     const data = groups.map(g => {
       const vs = variantsByKey.get(g.group_key) || [];
+      const isMultiDesign = (g.design_count || 1) > 1;
+      if (isMultiDesign && vs.length > 0) {
+        // Build per-design sub-groups for the 2-step design → DOT picker in POS
+        const byDesign = new Map();
+        for (const v of vs) {
+          const d = v.design || '';
+          if (!byDesign.has(d)) byDesign.set(d, { design: v.design, variants: [] });
+          byDesign.get(d).variants.push(v);
+        }
+        const design_variants = Array.from(byDesign.values()).map(dg => {
+          // Only in-stock DOTs for POS — 0-qty batches must not appear in DOT picker
+          const dotItems = dg.variants.filter(v => v.dot_number && (v.current_quantity || 0) > 0);
+          const hasMultipleDots = dotItems.length > 1;
+          const repItem = dg.variants.find(v => !v.dot_number && (v.current_quantity || 0) > 0)
+                       || dg.variants.find(v => (v.current_quantity || 0) > 0)
+                       || dg.variants[0];
+          const totalQty = dg.variants.reduce((s, v) => s + (v.current_quantity || 0), 0);
+          return {
+            design: dg.design,
+            item_id: repItem ? repItem.item_id : null,
+            item_name: repItem ? repItem.item_name : null,
+            total_quantity: totalQty,
+            selling_price: repItem ? repItem.selling_price : 0,
+            unit_cost: repItem ? repItem.unit_cost : 0,
+            dot_variants: hasMultipleDots ? dotItems : null,
+            direct_item: hasMultipleDots ? null : (dotItems[0] || repItem),
+          };
+        }).filter(dv => !stockOnly || dv.total_quantity > 0);  // drop 0-stock designs when inStockOnly
+        return { ...g, variants: null, design_variants };
+      }
       const isMulti = vs.length > 1 || (vs[0] && vs[0].dot_number);
       return { ...g, variants: isMulti ? vs : null };
     });
