@@ -549,6 +549,8 @@ function initializeDatabase() {
       db.run(`CREATE INDEX IF NOT EXISTS idx_rcv_shop ON accounts_receivable(shop_id, status)`);
       db.run(`ALTER TABLE receivable_payments ADD COLUMN is_void INTEGER DEFAULT 0`, () => { });
       db.run(`ALTER TABLE receivable_payments ADD COLUMN void_reason TEXT`, () => { });
+      db.run(`ALTER TABLE receivable_payments ADD COLUMN is_opening_balance INTEGER DEFAULT 0`, () => { });
+      db.run(`ALTER TABLE accounts_receivable ADD COLUMN is_opening_balance INTEGER DEFAULT 0`, () => { });
 
       db.run(`CREATE TABLE IF NOT EXISTS accounts_payable (
         payable_id TEXT PRIMARY KEY,

@@ -52,12 +52,12 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
          WHERE e.shop_id = ? AND e.is_void = 0 AND e.expense_date BETWEEN ? AND ?`,
         [shop_id, startDate, endDate]),
 
-      // 4. Receivable payments (credit collections)
+      // 4. Receivable payments (credit collections) — exclude opening balance down payment rows
       q(`SELECT rp.*, ar.description AS receivable_desc, cm.customer_name
          FROM receivable_payments rp
          JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
          LEFT JOIN customer_master cm ON ar.customer_id = cm.customer_id
-         WHERE rp.shop_id = ? AND ar.status != 'VOIDED' AND rp.payment_date BETWEEN ? AND ?`,
+         WHERE rp.shop_id = ? AND ar.status != 'VOIDED' AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0) AND rp.payment_date BETWEEN ? AND ?`,
         [shop_id, startDate, endDate]),
 
       // 5. Payable payments (supplier payments)

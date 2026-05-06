@@ -391,8 +391,29 @@
   font-variant-numeric: tabular-nums;
 }
 
+.sp-cat {
+  font-size: 0.7rem;
+  color: var(--th-text-faint);
+  margin-top: 0.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sp-cat-chip {
+  display: inline-block;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: var(--th-violet-bg);
+  color: var(--th-violet);
+  margin-top: 0.22rem;
+}
+
 .sp-cell-item {
-  min-width: 160px;
+  min-width: 180px;
 }
 
 .sp-item-name {

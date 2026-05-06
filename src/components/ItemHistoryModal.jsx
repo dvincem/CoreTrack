@@ -18,6 +18,7 @@ import React from 'react'
 export default function ItemHistoryModal({
   item, onClose, currency, historyContent, children,
   variants, activeVariantId, onVariantChange, onDesignChange,
+  onUpdateCost, onUpdatePrice
 }) {
   const isGrouped = variants && variants.length > 1
 
@@ -29,6 +30,8 @@ export default function ItemHistoryModal({
 
   // Local state: which design pill is active (design-group mode only)
   const [activeDesign, setActiveDesign] = React.useState(null)
+  const [editingField, setEditingField] = React.useState(null) // 'cost' | 'price'
+  const [tempVal, setTempVal] = React.useState('')
 
   // Reset local design selection when variants change (new item opened)
   React.useEffect(() => {
@@ -89,6 +92,25 @@ export default function ItemHistoryModal({
     onVariantChange && onVariantChange(null)
     onDesignChange  && onDesignChange(null)
   }
+
+  function handleSaveEdit() {
+    const val = parseFloat(tempVal)
+    if (isNaN(val)) return
+    if (editingField === 'cost') {
+      onUpdateCost && onUpdateCost(val, activeVariantId)
+    } else {
+      onUpdatePrice && onUpdatePrice(val, activeVariantId)
+    }
+    setEditingField(null)
+  }
+
+  const pencilIcon = (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: '4px', cursor: 'pointer', opacity: 0.6 }}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+
 
   return (
     <div className="hist-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -247,7 +269,24 @@ export default function ItemHistoryModal({
             <div className="inv-hist-stats">
               <div className="inv-hist-stat">
                 <div className="inv-hist-stat-label">Unit Cost</div>
-                <div className="inv-hist-stat-val sky">{currency(displayCost)}</div>
+                {editingField === 'cost' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input
+                      type="number" step="0.01" value={tempVal}
+                      onChange={e => setTempVal(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSaveEdit()}
+                      autoFocus
+                      style={{ width: '80px', background: 'var(--th-bg-input,#1a2132)', border: '1px solid var(--th-sky,#0ea5e9)', color: '#fff', fontSize: '0.85rem', borderRadius: 4, padding: '2px 4px' }}
+                    />
+                    <button onClick={handleSaveEdit} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer', fontSize: '1rem' }}>✓</button>
+                    <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+                  </div>
+                ) : (
+                  <div className="inv-hist-stat-val sky" style={{ display: 'flex', alignItems: 'center' }}>
+                    {currency(displayCost)}
+                    <span onClick={() => { setEditingField('cost'); setTempVal(displayCost); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                  </div>
+                )}
               </div>
               <div className="inv-hist-stat">
                 <div className="inv-hist-stat-label">Stock</div>
@@ -255,9 +294,24 @@ export default function ItemHistoryModal({
               </div>
               <div className="inv-hist-stat">
                 <div className="inv-hist-stat-label">Sell Price</div>
-                <div className="inv-hist-stat-val" style={{ color: 'var(--th-orange)' }}>
-                  {currency(displayPrice)}
-                </div>
+                {editingField === 'price' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input
+                      type="number" step="0.01" value={tempVal}
+                      onChange={e => setTempVal(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSaveEdit()}
+                      autoFocus
+                      style={{ width: '80px', background: 'var(--th-bg-input,#1a2132)', border: '1px solid var(--th-orange,#f97316)', color: '#fff', fontSize: '0.85rem', borderRadius: 4, padding: '2px 4px' }}
+                    />
+                    <button onClick={handleSaveEdit} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer', fontSize: '1rem' }}>✓</button>
+                    <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+                  </div>
+                ) : (
+                  <div className="inv-hist-stat-val" style={{ color: 'var(--th-orange)', display: 'flex', alignItems: 'center' }}>
+                    {currency(displayPrice)}
+                    <span onClick={() => { setEditingField('price'); setTempVal(displayPrice); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                  </div>
+                )}
               </div>
               <div className="inv-hist-stat">
                 <div className="inv-hist-stat-label">Margin</div>
@@ -267,6 +321,7 @@ export default function ItemHistoryModal({
               </div>
             </div>
           </div>
+
 
           {/* Optional slot: archive button, stock adjustment, etc. */}
           {children}

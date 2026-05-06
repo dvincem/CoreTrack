@@ -363,15 +363,15 @@ router.get("/customer-sales/:customer_id", (req, res) => {
 
 router.patch("/sales/:sale_id", (req, res) => {
   const { sale_id } = req.params;
-  const { invoice_number, sale_notes, customer_id } = req.body;
+  const { invoice_number, sale_notes, customer_id, payment_method } = req.body;
   const targetCustomerId = customer_id === "" ? null : (customer_id ?? null);
 
   db.serialize(() => {
     db.run("BEGIN TRANSACTION");
 
     db.run(
-      `UPDATE sale_header SET invoice_number = ?, sale_notes = ?, customer_id = ? WHERE sale_id = ?`,
-      [invoice_number ?? null, sale_notes ?? null, targetCustomerId, sale_id],
+      `UPDATE sale_header SET invoice_number = ?, sale_notes = ?, customer_id = ?, payment_method = ? WHERE sale_id = ?`,
+      [invoice_number ?? null, sale_notes ?? null, targetCustomerId, payment_method ?? 'CASH', sale_id],
       function(err) {
         if (err) {
           db.run("ROLLBACK");

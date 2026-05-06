@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
 const { dbGet, dbAll, syncCurrentStock, findOrCreateDotVariant, logPriceHistory } = require("../lib/db");
+const { v4: uuidv4 } = require("uuid");
 
 router.get("/items/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
@@ -706,6 +707,18 @@ router.get("/items-kpi/:shop_id", async (req, res) => {
       params
     );
     res.json(row || { totalItems: 0, totalStockUnits: 0, stockValueCost: 0, stockValueRetail: 0, lowStockCount: 0, tireItems: 0, otherItems: 0, avgMargin: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Fetch unique categories ──────────────────────────────────────────────────
+router.get("/item-categories/any", async (req, res) => {
+  try {
+    const rows = await dbAll(
+      `SELECT DISTINCT category FROM item_master WHERE category IS NOT NULL AND category != '' ORDER BY category ASC`
+    );
+    res.json(rows.map((r) => r.category));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

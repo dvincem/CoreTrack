@@ -124,7 +124,7 @@ router.get("/receivables/:shop_id", (req, res) => {
 
 router.post("/receivables", (req, res) => {
   const { v4: uuidv4 } = require("uuid");
-  const { shop_id, customer_id, receivable_type, description, original_amount, down_payment, due_date, notes, created_by } = req.body;
+  const { shop_id, customer_id, receivable_type, description, original_amount, down_payment, due_date, notes, created_by, is_opening_balance } = req.body;
   if (!shop_id || !customer_id || !original_amount) {
     return res.status(400).json({ error: "shop_id, customer_id, original_amount required" });
   }
@@ -133,19 +133,20 @@ router.post("/receivables", (req, res) => {
   const balance = orig - dp;
   const receivable_id = `RCV-${uuidv4()}`;
   const now = new Date().toISOString();
+  const isOpening = is_opening_balance ? 1 : 0;
   db.run(
-    `INSERT INTO accounts_receivable (receivable_id, shop_id, customer_id, receivable_type, description, original_amount, down_payment, amount_paid, balance_amount, due_date, notes, status, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
-    [receivable_id, shop_id, customer_id, receivable_type || 'GENERAL', description || null, orig, dp, dp, balance, due_date || null, notes || null, created_by || null],
+    `INSERT INTO accounts_receivable (receivable_id, shop_id, customer_id, receivable_type, description, original_amount, down_payment, amount_paid, balance_amount, due_date, notes, status, created_by, is_opening_balance)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)`,
+    [receivable_id, shop_id, customer_id, receivable_type || 'GENERAL', description || null, orig, dp, dp, balance, due_date || null, notes || null, created_by || null, isOpening],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       // record down payment if any
       if (dp > 0) {
         const pay_id = `RPAY-${uuidv4()}`;
         db.run(
-          `INSERT INTO receivable_payments (payment_id, receivable_id, shop_id, amount, payment_date, payment_method, notes, recorded_by, created_at)
-           VALUES (?, ?, ?, ?, ?, 'CASH', 'Down payment', ?, ?)`,
-          [pay_id, receivable_id, shop_id, dp, now, created_by || null, new Date().toISOString()]
+          `INSERT INTO receivable_payments (payment_id, receivable_id, shop_id, amount, payment_date, payment_method, notes, recorded_by, created_at, is_opening_balance)
+           VALUES (?, ?, ?, ?, ?, 'CASH', 'Down payment', ?, ?, ?)`,
+          [pay_id, receivable_id, shop_id, dp, now, created_by || null, new Date().toISOString(), isOpening]
         );
       }
       res.json({ receivable_id, message: "Receivable created" });
@@ -689,11 +690,13 @@ router.get("/financial-health/:shop_id", (req, res) => {
     WHERE ap.shop_id = ? AND DATE(pp.payment_date) BETWEEN ? AND ?`;
 
   // 6b. Receivables collected in period (cash actually coming in from credit customers)
+  // Excludes opening balance down payment rows — those are pre-existing amounts, not new cash
   const qRcvCollected = `
-    SELECT COALESCE(SUM(amount), 0) AS receivables_collected,
+    SELECT COALESCE(SUM(rp.amount), 0) AS receivables_collected,
            COUNT(*) AS receivables_collected_count
-    FROM receivable_payments
-    WHERE shop_id = ? AND DATE(payment_date) BETWEEN ? AND ?`;
+    FROM receivable_payments rp
+    WHERE rp.shop_id = ? AND DATE(rp.payment_date) BETWEEN ? AND ?
+      AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)`;
 
   // 7. Open accounts receivable (customers still owe us)
   const qOpenReceivables = `
@@ -842,13 +845,12 @@ router.get('/sales-projection/:shop_id', (req, res) => {
   const today    = new Date().toISOString().split('T')[0];
   const histStart = new Date(Date.now() - history * 86400000).toISOString().split('T')[0];
 
-  // 1. Sales velocity per item over the history window
+  // 1. Sales velocity grouped by brand/design/size (DOT-agnostic)
   const velocitySQL = `
     SELECT
-      si.item_or_service_id   AS item_id,
-      MAX(si.item_name)       AS item_name,
-      MAX(si.sku)             AS sku,
-      MAX(si.brand)           AS brand,
+      im.brand                AS brand,
+      im.design               AS design,
+      im.size                 AS size,
       MAX(si.category)        AS category,
       SUM(si.quantity)        AS total_qty_sold,
       SUM(si.line_total)      AS total_revenue,
@@ -858,26 +860,30 @@ router.get('/sales-projection/:shop_id', (req, res) => {
       CAST(SUM(si.line_total) AS REAL) / ? AS avg_daily_revenue
     FROM sale_items si
     JOIN sale_header sh ON si.sale_id = sh.sale_id
+    JOIN item_master im ON si.item_or_service_id = im.item_id
     WHERE sh.shop_id = ?
       AND si.sale_type = 'PRODUCT'
       AND (si.is_custom IS NULL OR si.is_custom = 0)
       AND DATE(sh.sale_datetime) BETWEEN ? AND ?
-    GROUP BY si.item_or_service_id
+    GROUP BY im.brand, im.design, im.size
     HAVING SUM(si.quantity) > 0
     ORDER BY avg_daily_qty DESC
   `;
 
-  // 2. Current stock for those items
+  // 2. Current stock summed across all DOT variants per brand/design/size
   const stockSQL = `
-    SELECT item_id, current_quantity
-    FROM current_stock
-    WHERE shop_id = ?
+    SELECT im.brand, im.design, im.size, SUM(cs.current_quantity) AS total_stock
+    FROM current_stock cs
+    JOIN item_master im ON cs.item_id = im.item_id
+    WHERE cs.shop_id = ?
+    GROUP BY im.brand, im.design, im.size
   `;
 
-  // 3. Reorder point from item_master (global table — no shop_id)
+  // 3. Reorder point — max across all DOT variants per brand/design/size
   const reorderSQL = `
-    SELECT item_id, reorder_point, supplier_id
+    SELECT brand, design, size, MAX(reorder_point) AS reorder_point
     FROM item_master
+    GROUP BY brand, design, size
   `;
 
   db.all(velocitySQL, [history, history, shop_id, histStart, today], (err, velocityRows) => {
@@ -889,14 +895,15 @@ router.get('/sales-projection/:shop_id', (req, res) => {
       db.all(reorderSQL, [], (err3, reorderRows) => {
         if (err3) return res.status(500).json({ error: err3.message });
 
-        const stockMap   = Object.fromEntries(stockRows.map(r => [r.item_id, r.current_quantity]));
-        const reorderMap = Object.fromEntries(reorderRows.map(r => [r.item_id, r]));
+        const stockMap   = Object.fromEntries(stockRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r.total_stock]));
+        const reorderMap = Object.fromEntries(reorderRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r]));
 
         const items = velocityRows.map(v => {
-          const stock      = stockMap[v.item_id] || 0;
+          const key        = `${v.brand}|${v.design}|${v.size}`;
+          const stock      = stockMap[key] || 0;
           const dailyQty   = v.avg_daily_qty || 0;
           const dailyRev   = v.avg_daily_revenue || 0;
-          const reorderPt  = reorderMap[v.item_id]?.reorder_point || 5;
+          const reorderPt  = reorderMap[key]?.reorder_point || 5;
 
           // Days of stock remaining at current sales pace
           const days_remaining = dailyQty > 0 ? Math.floor(stock / dailyQty) : 9999;
@@ -920,10 +927,11 @@ router.get('/sales-projection/:shop_id', (req, res) => {
           else if (stock <= 3)  status = 'WARNING';
 
           return {
-            item_id:           v.item_id,
-            item_name:         v.item_name,
-            sku:               v.sku,
+            item_key:          key,
+            item_name:         [v.brand, v.design, v.size].filter(Boolean).join(' '),
             brand:             v.brand,
+            design:            v.design,
+            size:              v.size,
             category:          v.category,
             current_stock:     stock,
             total_qty_sold:    Math.round(v.total_qty_sold * 10) / 10,

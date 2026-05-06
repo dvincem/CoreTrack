@@ -1126,14 +1126,9 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: miscForm.category ? "var(--th-text-primary)" : "var(--th-text-faint)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
                     >
                       <option value="">MISC</option>
-                      <option value="PCR">PCR</option>
-                      <option value="MOTORCYCLE">MOTORCYCLE</option>
-                      <option value="SUV">SUV</option>
-                      <option value="LT">LT</option>
-                      <option value="TBR">TBR</option>
-                      <option value="RECAP">RECAP</option>
-                      <option value="SEALANT">SEALANT</option>
-                      <option value="TUBE">TUBE</option>
+                      {livePosCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                       <option value="__new__">+ Add new category…</option>
                     </select>
                     {miscForm.category === "__new__" && (

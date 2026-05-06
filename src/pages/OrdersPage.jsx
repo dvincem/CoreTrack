@@ -14,17 +14,17 @@ const ordCurrency =
   typeof currency === "function"
     ? currency
     : (n) =>
-        "₱" +
-        Number(n || 0).toLocaleString("en-PH", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+      "₱" +
+      Number(n || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
 const ordCompact = (n) => {
   const v = Number(n || 0);
   if (v >= 1_000_000_000) return "₱" + (v / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + "B";
-  if (v >= 1_000_000)     return "₱" + (v / 1_000_000).toFixed(2).replace(/\.?0+$/, "") + "M";
-  if (v >= 1_000)         return "₱" + (v / 1_000).toFixed(2).replace(/\.?0+$/, "") + "K";
+  if (v >= 1_000_000) return "₱" + (v / 1_000_000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  if (v >= 1_000) return "₱" + (v / 1_000).toFixed(2).replace(/\.?0+$/, "") + "K";
   return "₱" + v.toFixed(2);
 };
 
@@ -274,6 +274,15 @@ function CreateOrderModal({
     reorder_point: "0",
   });
   const [newItemError, setNewItemError] = React.useState("");
+  const [dbCategories, setDbCategories] = React.useState([]);
+  const [allCategories, setAllCategories] = React.useState([
+    "PCR", "SUV", "TBR", "LT", "MOTORCYCLE", "TUBE", "RECAP", "FLAP", "RECAPPING",
+    "VALVE", "WHEEL WEIGHT", "WHEEL BALANCING", "ACCESSORIES", "OTHER",
+  ]);
+  const [addCatModal, setAddCatModal] = React.useState({ open: false, value: "" });
+  const [isAddingNewCat, setIsAddingNewCat] = React.useState(false);
+  const [newCatInput, setNewCatInput] = React.useState("");
+
 
   const [dbSizes, setDbSizes] = React.useState([]);
   const [showSizeSug, setShowSizeSug] = React.useState(false);
@@ -291,7 +300,7 @@ function CreateOrderModal({
       .then((d) => {
         if (Array.isArray(d)) setDbSizes(d);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Brands
     apiFetch(`${API_URL}/item-brands/any`)
@@ -299,7 +308,7 @@ function CreateOrderModal({
       .then((d) => {
         if (Array.isArray(d)) setDbBrands(d);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Designs
     apiFetch(`${API_URL}/item-designs/any`)
@@ -307,8 +316,23 @@ function CreateOrderModal({
       .then((d) => {
         if (Array.isArray(d)) setDbDesigns(d);
       })
-      .catch(() => {});
+      .catch(() => { });
+
+    // Categories
+    apiFetch(`${API_URL}/item-categories/any`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) {
+          setDbCategories(d);
+          let userAdded = { tire: [], other: [] };
+          try { userAdded = JSON.parse(localStorage.getItem('th-user-cats') || '{"tire":[],"other":[]}'); } catch {}
+          const base = ["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","VALVE","WHEEL WEIGHT","WHEEL BALANCING","ACCESSORIES","OTHER"];
+          setAllCategories([...new Set([...base, ...d, ...(userAdded.tire||[]), ...(userAdded.other||[])])]);
+        }
+      })
+      .catch(() => { });
   }, []);
+
 
   const sizeSuggestions = React.useMemo(() => {
     if (!newItemForm.size) return [];
@@ -399,8 +423,10 @@ function CreateOrderModal({
     if (!newItemForm.design.trim())
       return setNewItemError("Design is required");
     if (!newItemForm.size.trim()) return setNewItemError("Size is required");
-    if (!newItemForm.category.trim())
+    const cat = newItemForm.category;
+    if (!cat || !cat.trim())
       return setNewItemError("Category is required");
+
     if (!newItemForm.unit_cost || parseFloat(newItemForm.unit_cost) <= 0)
       return setNewItemError("Unit cost is required");
     if (
@@ -418,7 +444,7 @@ function CreateOrderModal({
       brand: newItemForm.brand,
       design: newItemForm.design,
       size: newItemForm.size,
-      category: newItemForm.category,
+      category: cat,
       unit_cost: cost,
       selling_price: parseFloat(newItemForm.selling_price),
       quantity: qty,
@@ -586,8 +612,8 @@ function CreateOrderModal({
                               color: "var(--th-text-primary,#f8fafc)",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.background =
-                                "var(--th-border-mid,#283245)")
+                            (e.currentTarget.style.background =
+                              "var(--th-border-mid,#283245)")
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.background = "transparent")
@@ -718,12 +744,12 @@ function CreateOrderModal({
                                 color: "var(--th-text-primary,#f8fafc)",
                               }}
                               onMouseEnter={(e) =>
-                                (e.currentTarget.style.background =
-                                  "var(--th-border-mid,#283245)")
+                              (e.currentTarget.style.background =
+                                "var(--th-border-mid,#283245)")
                               }
                               onMouseLeave={(e) =>
-                                (e.currentTarget.style.background =
-                                  "transparent")
+                              (e.currentTarget.style.background =
+                                "transparent")
                               }
                             >
                               {d.design}
@@ -804,12 +830,12 @@ function CreateOrderModal({
                                 color: "var(--th-text-primary,#f8fafc)",
                               }}
                               onMouseEnter={(e) =>
-                                (e.currentTarget.style.background =
-                                  "var(--th-border-mid,#283245)")
+                              (e.currentTarget.style.background =
+                                "var(--th-border-mid,#283245)")
                               }
                               onMouseLeave={(e) =>
-                                (e.currentTarget.style.background =
-                                  "transparent")
+                              (e.currentTarget.style.background =
+                                "transparent")
                               }
                             >
                               {s}
@@ -835,28 +861,21 @@ function CreateOrderModal({
                       <select
                         className="inv-input"
                         value={newItemForm.category}
-                        onChange={(e) =>
-                          setNewItemForm((f) => ({
-                            ...f,
-                            category: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => {
+                          if (e.target.value === "___NEW___") {
+                            setAddCatModal({ open: true, value: "" });
+                          } else {
+                            setNewItemForm((f) => ({ ...f, category: e.target.value }));
+                          }
+                        }}
                       >
                         <option value="">— Select —</option>
-                        {[
-                          "PCR",
-                          "SUV",
-                          "TRUCK",
-                          "MOTORCYCLE",
-                          "VALVE",
-                          "WEIGHT",
-                          "SEALANT",
-                          "MISC",
-                        ].map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
+                        {[...new Set([...allCategories])].map((c) => (
+                          <option key={c} value={c}>{c}</option>
                         ))}
+                        <option value="___NEW___" style={{ color: "var(--th-orange,#f97316)", fontWeight: "bold" }}>
+                          + ADD NEW...
+                        </option>
                       </select>
                     </div>
                     <div>
@@ -1459,6 +1478,69 @@ function CreateOrderModal({
           </button>
         </div>
       </div>
+
+      {/* Add New Category Modal */}
+      {addCatModal.open && (
+        <div className="inv-modal-overlay" onClick={e => e.target === e.currentTarget && setAddCatModal({ open: false, value: "" })} style={{ zIndex: 9999 }}>
+          <div className="inv-modal" style={{ maxWidth: 380, padding: "1.5rem" }}>
+            <div className="inv-modal-header" style={{ marginBottom: "1rem" }}>
+              <div className="inv-modal-title">Add New Category</div>
+              <button className="inv-modal-close" onClick={() => setAddCatModal({ open: false, value: "" })}>✕</button>
+            </div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Category Name</label>
+              <input
+                autoFocus
+                className="inv-input"
+                placeholder="e.g. RADIAL"
+                value={addCatModal.value}
+                onChange={e => setAddCatModal(m => ({ ...m, value: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const trimmed = addCatModal.value.trim().toUpperCase();
+                    if (trimmed) {
+                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                      const type = TIRE_SET.has(trimmed) ? "tire" : "other";
+                      let ua = { tire: [], other: [] };
+                      try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
+                      ua[type] = [...new Set([...(ua[type]||[]), trimmed])];
+                      try { localStorage.setItem("th-user-cats", JSON.stringify(ua)); } catch {}
+                      setAllCategories(prev => [...new Set([...prev, trimmed])]);
+                      setNewItemForm(f => ({ ...f, category: trimmed }));
+                    }
+                    setAddCatModal({ open: false, value: "" });
+                  }
+                  if (e.key === "Escape") setAddCatModal({ open: false, value: "" });
+                }}
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button className="inv-btn inv-btn-slate" onClick={() => setAddCatModal({ open: false, value: "" })}>Cancel</button>
+              <button
+                className="inv-btn inv-btn-orange"
+                disabled={!addCatModal.value.trim()}
+                onClick={() => {
+                  const trimmed = addCatModal.value.trim().toUpperCase();
+                  if (trimmed) {
+                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                    const type = TIRE_SET.has(trimmed) ? "tire" : "other";
+                    let ua = { tire: [], other: [] };
+                    try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
+                    ua[type] = [...new Set([...(ua[type]||[]), trimmed])];
+                    try { localStorage.setItem("th-user-cats", JSON.stringify(ua)); } catch {}
+                    setAllCategories(prev => [...new Set([...prev, trimmed])]);
+                    setNewItemForm(f => ({ ...f, category: trimmed }));
+                  }
+                  setAddCatModal({ open: false, value: "" });
+                }}
+              >
+                Add Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1512,6 +1594,8 @@ const TIRE_CATS_QR = [
   "SUV",
   "TBR",
   "LT",
+  "TUBE",
+  "FLAP",
   "MOTORCYCLE",
   "TIRE",
   "RECAP",
@@ -1628,25 +1712,51 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
   const [showNiBrand, setShowNiBrand] = React.useState(false);
   const [showNiDesign, setShowNiDesign] = React.useState(false);
 
+  const [dbCategories, setDbCategories] = React.useState([]);
+  const [addCatModalQr, setAddCatModalQr] = React.useState({ open: false, value: "" });
+  const [isAddingNewCat, setIsAddingNewCat] = React.useState(false);
+  const [newCatInput, setNewCatInput] = React.useState("");
+  const [allCategoriesQr, setAllCategoriesQr] = React.useState([
+    "PCR", "SUV", "TBR", "LT", "MOTORCYCLE", "TUBE", "RECAP", "FLAP", "RECAPPING",
+    "VALVE", "WHEEL WEIGHT", "WHEEL BALANCING", "ACCESSORIES", "OTHER",
+  ]);
+
+
+  React.useEffect(() => {
+    apiFetch(`${API_URL}/item-categories/any`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) {
+          setDbCategories(d);
+          let userAdded = { tire: [], other: [] };
+          try { userAdded = JSON.parse(localStorage.getItem('th-user-cats') || '{"tire":[],"other":[]}'); } catch {}
+          const base = ["PCR", "SUV", "TBR", "LT", "MOTORCYCLE", "TUBE", "RECAP", "FLAP", "RECAPPING", "VALVE", "WHEEL WEIGHT", "WHEEL BALANCING", "ACCESSORIES", "OTHER"];
+          setAllCategoriesQr([...new Set([...base, ...d, ...(userAdded.tire || []), ...(userAdded.other || [])])]);
+        }
+      })
+      .catch(() => { });
+  }, []);
+
+
   React.useEffect(() => {
     apiFetch(`${API_URL}/item-sizes/any`)
       .then((r) => r.json())
       .then((d) => {
         if (Array.isArray(d)) setDbSizes(d);
       })
-      .catch(() => {});
+      .catch(() => { });
     apiFetch(`${API_URL}/item-brands/any`)
       .then((r) => r.json())
       .then((d) => {
         if (Array.isArray(d)) setDbBrands(d);
       })
-      .catch(() => {});
+      .catch(() => { });
     apiFetch(`${API_URL}/item-designs/any`)
       .then((r) => r.json())
       .then((d) => {
         if (Array.isArray(d)) setDbDesigns(d);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const niSizeSuggestions = React.useMemo(() => {
@@ -1711,17 +1821,10 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
     if (!newItemForm.supplier_id) return setNewItemErr("Select a supplier");
     if (!newItemForm.design.trim()) return setNewItemErr("Design is required");
     if (!newItemForm.size.trim()) return setNewItemErr("Size is required");
-    if (!newItemForm.category) return setNewItemErr("Category is required");
-    if (!newItemForm.unit_cost || parseFloat(newItemForm.unit_cost) <= 0)
-      return setNewItemErr("Unit cost is required");
-    if (
-      !newItemForm.selling_price ||
-      parseFloat(newItemForm.selling_price) <= 0
-    )
-      return setNewItemErr("Selling price is required");
-    const isTire = TIRE_CATS_QR.includes(
-      (newItemForm.category || "").toUpperCase(),
-    );
+    const cat = newItemForm.category;
+    if (!cat) return setNewItemErr("Select or enter a category");
+
+    const isTire = TIRE_CATS_QR.includes(cat);
     if (isTire && !newItemForm.dot_number.trim())
       return setNewItemErr("DOT number is required for tire categories");
     const qty = parseInt(newItemForm.quantity) || 1;
@@ -1738,7 +1841,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
         brand: brandUp,
         design: designUp,
         size: newItemForm.size,
-        category: newItemForm.category,
+        category: cat,
         supplier_id: newItemForm.supplier_id,
         quantity: qty,
         unit_cost: cost,
@@ -1869,13 +1972,21 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
   return (
     <div
       className="inv-modal-overlay"
+      style={{
+        overflowY: "auto",
+        display: "flex",
+        alignItems: "flex-start",
+        paddingTop: "5vh",
+        paddingBottom: "5vh",
+      }}
       onClick={(e) => e.target === e.currentTarget && !submitting && onClose()}
     >
       <div
         className="inv-modal"
         style={{
-          maxWidth: 880,
-          maxHeight: "95vh",
+          maxWidth: 1080,
+          maxHeight: "none",
+          overflowY: "auto",
           display: "flex",
           flexDirection: "column",
         }}
@@ -2308,8 +2419,8 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                               borderBottom: "1px solid var(--th-border)",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.background =
-                                "var(--th-border)")
+                            (e.currentTarget.style.background =
+                              "var(--th-border)")
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.background = "transparent")
@@ -2439,8 +2550,8 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                               borderBottom: "1px solid var(--th-border)",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.background =
-                                "var(--th-border)")
+                            (e.currentTarget.style.background =
+                              "var(--th-border)")
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.background = "transparent")
@@ -2518,8 +2629,8 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                               borderBottom: "1px solid var(--th-border)",
                             }}
                             onMouseEnter={(e) =>
-                              (e.currentTarget.style.background =
-                                "var(--th-border)")
+                            (e.currentTarget.style.background =
+                              "var(--th-border)")
                             }
                             onMouseLeave={(e) =>
                               (e.currentTarget.style.background = "transparent")
@@ -2557,29 +2668,21 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                     <select
                       className="inv-input"
                       value={newItemForm.category}
-                      onChange={(e) =>
-                        setNewItemForm((f) => ({
-                          ...f,
-                          category: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => {
+                        if (e.target.value === "___NEW___") {
+                          setAddCatModalQr({ open: true, value: "" });
+                        } else {
+                          setNewItemForm((f) => ({ ...f, category: e.target.value }));
+                        }
+                      }}
                     >
                       <option value="">— Select —</option>
-                      {[
-                        "PCR",
-                        "SUV",
-                        "TBR",
-                        "LT",
-                        "MOTORCYCLE",
-                        "VALVE",
-                        "WEIGHT",
-                        "SEALANT",
-                        "MISC",
-                      ].map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
+                      {[...new Set([...allCategoriesQr])].map((c) => (
+                        <option key={c} value={c}>{c}</option>
                       ))}
+                      <option value="___NEW___" style={{ color: "var(--th-orange)", fontWeight: "bold" }}>
+                        + ADD NEW...
+                      </option>
                     </select>
                   </div>
                   <div>
@@ -2841,12 +2944,6 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                           {!line.is_new_item && ` · Stock: ${line.current_qty}`}
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeLine(line._key)}
-                        className="inv-btn-icon qr-card-delete"
-                      >
-                        ✕
-                      </button>
                     </div>
 
                     {/* ── Supplier (full-width on mobile, cell on desktop) ── */}
@@ -2939,6 +3036,14 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                           {ordCurrency(lineTotal)}
                         </div>
                       </div>
+
+                      {/* ── Delete button (col 7) ── */}
+                      <button
+                        onClick={() => removeLine(line._key)}
+                        className="inv-btn-icon qr-card-delete"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
                 );
@@ -3033,6 +3138,69 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
           </button>
         </div>
       </div>
+
+      {/* Add New Category Modal */}
+      {addCatModalQr.open && (
+        <div className="inv-modal-overlay" onClick={e => e.target === e.currentTarget && setAddCatModalQr({ open: false, value: "" })} style={{ zIndex: 9999 }}>
+          <div className="inv-modal" style={{ maxWidth: 380, padding: "1.5rem" }}>
+            <div className="inv-modal-header" style={{ marginBottom: "1rem" }}>
+              <div className="inv-modal-title">Add New Category</div>
+              <button className="inv-modal-close" onClick={() => setAddCatModalQr({ open: false, value: "" })}>✕</button>
+            </div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Category Name</label>
+              <input
+                autoFocus
+                className="inv-input"
+                placeholder="e.g. RADIAL"
+                value={addCatModalQr.value}
+                onChange={e => setAddCatModalQr(m => ({ ...m, value: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const trimmed = addCatModalQr.value.trim().toUpperCase();
+                    if (trimmed) {
+                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                      const type = TIRE_SET.has(trimmed) ? "tire" : "other";
+                      let ua = { tire: [], other: [] };
+                      try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
+                      ua[type] = [...new Set([...(ua[type]||[]), trimmed])];
+                      try { localStorage.setItem("th-user-cats", JSON.stringify(ua)); } catch {}
+                      setAllCategoriesQr(prev => [...new Set([...prev, trimmed])]);
+                      setNewItemForm(f => ({ ...f, category: trimmed }));
+                    }
+                    setAddCatModalQr({ open: false, value: "" });
+                  }
+                  if (e.key === "Escape") setAddCatModalQr({ open: false, value: "" });
+                }}
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button className="inv-btn inv-btn-slate" onClick={() => setAddCatModalQr({ open: false, value: "" })}>Cancel</button>
+              <button
+                className="inv-btn inv-btn-orange"
+                disabled={!addCatModalQr.value.trim()}
+                onClick={() => {
+                  const trimmed = addCatModalQr.value.trim().toUpperCase();
+                  if (trimmed) {
+                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                    const type = TIRE_SET.has(trimmed) ? "tire" : "other";
+                    let ua = { tire: [], other: [] };
+                    try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
+                    ua[type] = [...new Set([...(ua[type]||[]), trimmed])];
+                    try { localStorage.setItem("th-user-cats", JSON.stringify(ua)); } catch {}
+                    setAllCategoriesQr(prev => [...new Set([...prev, trimmed])]);
+                    setNewItemForm(f => ({ ...f, category: trimmed }));
+                  }
+                  setAddCatModalQr({ open: false, value: "" });
+                }}
+              >
+                Add Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3041,6 +3209,11 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
    MAIN COMPONENT
 ════════════════════════════════════════ */
 export default function OrdersPage({ shopId, onRefresh }) {
+  // Role-based access: admin, manager, owner can delete orders
+  const userRole = (localStorage.getItem("th-role") || "").toLowerCase();
+  const userPower = Number(localStorage.getItem("th-power") || "0");
+  const canDeleteOrder = userRole === "admin" || userRole === "owner" || userRole.includes("manager") || userPower >= 80;
+
   const [orderDetails, setOrderDetails] = React.useState(null);
   // Edit mode state for detail modal
   const [editMode, setEditMode] = React.useState(false);
@@ -3191,10 +3364,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
         createOrderItems.map((o) =>
           o.item_id === item.item_id
             ? {
-                ...o,
-                quantity: o.quantity + 1,
-                line_total: (o.quantity + 1) * o.unit_cost,
-              }
+              ...o,
+              quantity: o.quantity + 1,
+              line_total: (o.quantity + 1) * o.unit_cost,
+            }
             : o,
         ),
       );
@@ -3283,11 +3456,11 @@ export default function OrdersPage({ shopId, onRefresh }) {
         { label: "Total Amount", value: ordCurrency(total) },
         ...(Object.keys(groups).length > 1
           ? [
-              {
-                label: "Orders",
-                value: `Will split into ${Object.keys(groups).length} orders`,
-              },
-            ]
+            {
+              label: "Orders",
+              value: `Will split into ${Object.keys(groups).length} orders`,
+            },
+          ]
           : []),
       ],
       okLabel: "Create Order",
@@ -3495,12 +3668,40 @@ export default function OrdersPage({ shopId, onRefresh }) {
     setLoading(false);
   }
 
+  function stageDeleteOrder(order) {
+    const isReceived = order.status === "RECEIVED";
+    setPending({
+      title: "Delete Order?",
+      rows: [
+        { label: "Order", value: order.order_id },
+        { label: "Status", value: order.status },
+        { label: "Amount", value: ordCurrency(order.total_amount) },
+        ...(isReceived ? [{ label: "⚠ Warning", value: "This order was received. Inventory will NOT be reversed." }] : []),
+      ],
+      okLabel: "Delete Order",
+      danger: true,
+      action: () => deleteOrder(order.order_id),
+    });
+  }
+
+  async function deleteOrder(orderId) {
+    setLoading(true);
+    try {
+      const r = await apiFetch(`${API_URL}/orders/${orderId}`, { method: "DELETE" });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Delete failed");
+      setOrderDetails(null);
+      setToast({ title: "Order Deleted", sub: orderId });
+      fetchOrders();
+      fetchOrdersKpi();
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }
+
   async function stageReceiveOrder() {
     if (!deliveryReceipt.trim()) {
-      setError("Delivery Receipt (DR) number is required");
-      return;
-    }
-    if (receivedItems.length === 0) {
       setError("Select at least one item as received");
       return;
     }
@@ -3750,10 +3951,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
   /* Derived data */
   // statusCounts always reflects ALL orders — not affected by the active status tab
   const statusCounts = {
-    ALL:       ordersKpi.total,
-    PENDING:   ordersKpi.pending,
+    ALL: ordersKpi.total,
+    PENDING: ordersKpi.pending,
     CONFIRMED: ordersKpi.confirmed,
-    RECEIVED:  ordersKpi.received,
+    RECEIVED: ordersKpi.received,
     CANCELLED: ordersKpi.cancelled,
   };
 
@@ -4504,7 +4705,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                       orderDetails.items?.reduce(
                         (s, i) =>
                           orderDetails.status === "RECEIVED" &&
-                          i.received_status === "NOT_RECEIVED"
+                            i.received_status === "NOT_RECEIVED"
                             ? s
                             : s + (i.line_total || 0),
                         0,
@@ -4750,29 +4951,35 @@ export default function OrdersPage({ shopId, onRefresh }) {
                           Qty
                           <input type="number" min="0.01" step="any" value={ei.quantity}
                             onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
-                            style={{ display: "block", width: "100%", boxSizing: "border-box",
+                            style={{
+                              display: "block", width: "100%", boxSizing: "border-box",
                               background: "var(--th-bg)", color: "var(--th-text)",
                               border: "1px solid var(--th-border)", borderRadius: 5,
-                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
+                            }} />
                         </label>
                         <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                           Unit Cost
                           <input type="number" min="0" step="any" value={ei.unit_cost}
                             onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
-                            style={{ display: "block", width: "100%", boxSizing: "border-box",
+                            style={{
+                              display: "block", width: "100%", boxSizing: "border-box",
                               background: "var(--th-bg)", color: "var(--th-text)",
                               border: "1px solid var(--th-border)", borderRadius: 5,
-                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
+                            }} />
                         </label>
                         <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                           DOT #
                           <input type="text" value={ei.dot_number}
                             onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
                             placeholder="e.g. 2524"
-                            style={{ display: "block", width: "100%", boxSizing: "border-box",
+                            style={{
+                              display: "block", width: "100%", boxSizing: "border-box",
                               background: "var(--th-bg)", color: "var(--th-text)",
                               border: "1px solid var(--th-border)", borderRadius: 5,
-                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                              padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
+                            }} />
                         </label>
                       </div>
                       <div style={{ fontSize: "0.75rem", color: "var(--th-amber)", marginTop: "0.3rem", textAlign: "right" }}>
@@ -4835,29 +5042,35 @@ export default function OrdersPage({ shopId, onRefresh }) {
                               Qty
                               <input type="number" min="0.01" step="any" value={ap.quantity}
                                 onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
-                                style={{ display: "block", width: "100%", boxSizing: "border-box",
+                                style={{
+                                  display: "block", width: "100%", boxSizing: "border-box",
                                   background: "var(--th-bg)", color: "var(--th-text)",
                                   border: "1px solid var(--th-border)", borderRadius: 5,
-                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
+                                }} />
                             </label>
                             <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                               Unit Cost
                               <input type="number" min="0" step="any" value={ap.unit_cost}
                                 onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
-                                style={{ display: "block", width: "100%", boxSizing: "border-box",
+                                style={{
+                                  display: "block", width: "100%", boxSizing: "border-box",
                                   background: "var(--th-bg)", color: "var(--th-text)",
                                   border: "1px solid var(--th-border)", borderRadius: 5,
-                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
+                                }} />
                             </label>
                             <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                               DOT #
                               <input type="text" value={ap.dot_number}
                                 onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
                                 placeholder="e.g. 2524"
-                                style={{ display: "block", width: "100%", boxSizing: "border-box",
+                                style={{
+                                  display: "block", width: "100%", boxSizing: "border-box",
                                   background: "var(--th-bg)", color: "var(--th-text)",
                                   border: "1px solid var(--th-border)", borderRadius: 5,
-                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
+                                }} />
                             </label>
                             <button
                               onClick={() => setEditAddPending(prev => prev.filter((_, i) => i !== idx))}
@@ -4902,79 +5115,99 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 </>
               ) : (
                 <>
-              {orderDetails.status === "PENDING" && (
-                <>
-                  <button
-                    className="ord-btn ord-btn-sky"
-                    style={{ flex: 1, justifyContent: "center" }}
-                    onClick={() =>
-                      stageUpdateOrderStatus(orderDetails.order_id, "CONFIRMED")
-                    }
-                  >
-                    ✓ Confirm Order
-                  </button>
-                  <button
-                    className="ord-btn ord-btn-rose"
-                    style={{ flex: 1, justifyContent: "center" }}
-                    onClick={() => {
-                      setSelectedOrderForCancel(orderDetails.order_id);
-                      setShowCancelModal(true);
-                    }}
-                  >
-                    ✕ Cancel
-                  </button>
-                </>
-              )}
+                  {orderDetails.status === "PENDING" && (
+                    <>
+                      <button
+                        className="ord-btn ord-btn-sky"
+                        style={{ flex: 1, justifyContent: "center" }}
+                        onClick={() =>
+                          stageUpdateOrderStatus(orderDetails.order_id, "CONFIRMED")
+                        }
+                      >
+                        ✓ Confirm Order
+                      </button>
+                      <button
+                        className="ord-btn ord-btn-rose"
+                        style={{ flex: 1, justifyContent: "center" }}
+                        onClick={() => {
+                          setSelectedOrderForCancel(orderDetails.order_id);
+                          setShowCancelModal(true);
+                        }}
+                      >
+                        ✕ Cancel
+                      </button>
+                    </>
+                  )}
 
-              {orderDetails.status === "CONFIRMED" && (
-                <>
-                  <button
-                    className="ord-btn ord-btn-emerald"
-                    style={{ flex: 1, justifyContent: "center" }}
-                    onClick={() => openReceiveModal(orderDetails.order_id)}
-                  >
-                    📦 Receive Items
-                  </button>
-                  <button
-                    className="ord-btn ord-btn-rose"
-                    style={{ flex: 1, justifyContent: "center" }}
-                    onClick={() => {
-                      setSelectedOrderForCancel(orderDetails.order_id);
-                      setShowCancelModal(true);
-                    }}
-                  >
-                    ✕ Cancel
-                  </button>
-                </>
-              )}
+                  {orderDetails.status === "CONFIRMED" && (
+                    <>
+                      <button
+                        className="ord-btn ord-btn-emerald"
+                        style={{ flex: 1, justifyContent: "center" }}
+                        onClick={() => openReceiveModal(orderDetails.order_id)}
+                      >
+                        📦 Receive Items
+                      </button>
+                      <button
+                        className="ord-btn ord-btn-rose"
+                        style={{ flex: 1, justifyContent: "center" }}
+                        onClick={() => {
+                          setSelectedOrderForCancel(orderDetails.order_id);
+                          setShowCancelModal(true);
+                        }}
+                      >
+                        ✕ Cancel
+                      </button>
+                    </>
+                  )}
 
-              {orderDetails.status === "CANCELLED" && (
-                <div
-                  style={{
-                    color: "var(--th-rose)",
-                    fontSize: "0.88rem",
-                    textAlign: "center",
-                    width: "100%",
-                    fontStyle: "italic",
-                  }}
-                >
-                  This order was cancelled and cannot be processed.
-                </div>
-              )}
+                  {orderDetails.status === "CANCELLED" && (
+                    <div
+                      style={{
+                        color: "var(--th-rose)",
+                        fontSize: "0.88rem",
+                        textAlign: "center",
+                        width: "100%",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      This order was cancelled and cannot be processed.
+                    </div>
+                  )}
 
-              {orderDetails.status === "RECEIVED" && (
-                <div
-                  style={{
-                    color: "var(--th-emerald)",
-                    fontSize: "0.88rem",
-                    textAlign: "center",
-                    width: "100%",
-                    fontWeight: 600,
-                  }}
-                >
-                  ✓ Inventory updated from this order.
-                </div>
-              )}
+                  {orderDetails.status === "RECEIVED" && (
+                    <div
+                      style={{
+                        color: "var(--th-emerald)",
+                        fontSize: "0.88rem",
+                        textAlign: "center",
+                        width: "100%",
+                        fontWeight: 600,
+                      }}
+                    >
+                      ✓ Inventory updated from this order.
+                    </div>
+                  )}
+
+                  {canDeleteOrder && (
+                    <div style={{ alignSelf: "flex-start" }}>
+                      <button
+                        onClick={() => stageDeleteOrder(orderDetails)}
+                        style={{
+                          background: "none", border: "none",
+                          color: "var(--th-rose)", fontSize: "0.72rem",
+                          cursor: "pointer", opacity: 0.5,
+                          textDecoration: "underline", transition: "opacity 0.2s",
+                          padding: 0,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                        onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                        title={orderDetails.status === "RECEIVED" ? "Delete order (inventory not reversed)" : "Delete order permanently"}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -91,6 +91,30 @@ function CreateOrderModal({
   const [dbDesigns, setDbDesigns] = React.useState([]);
   const [showDesignSug, setShowDesignSug] = React.useState(false);
 
+  const [dbCategories, setDbCategories] = React.useState([]);
+  const [allCategories, setAllCategories] = React.useState([
+    "PCR", "SUV", "TBR", "LT", "MOTORCYCLE", "TUBE", "RECAP", "FLAP", "RECAPPING",
+    "VALVE", "WHEEL WEIGHT", "WHEEL BALANCING", "ACCESSORIES", "OTHER",
+  ]);
+  const [addCatModal, setAddCatModal] = React.useState({ open: false, value: "" });
+  const [isAddingNewCat, setIsAddingNewCat] = React.useState(false);
+  const [newCatInput, setNewCatInput] = React.useState("");
+
+  React.useEffect(() => {
+    apiFetch(`${API_URL}/item-categories/any`)
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          setDbCategories(d);
+          let userAdded = { tire: [], other: [] };
+          try { userAdded = JSON.parse(localStorage.getItem('th-user-cats') || '{"tire":[],"other":[]}'); } catch {}
+          const base = ["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","VALVE","WHEEL WEIGHT","WHEEL BALANCING","ACCESSORIES","OTHER"];
+          setAllCategories([...new Set([...base, ...d, ...(userAdded.tire||[]), ...(userAdded.other||[])])]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   React.useEffect(() => {
     // Sizes
     apiFetch(`${API_URL}/item-sizes/any`)
@@ -199,7 +223,8 @@ function CreateOrderModal({
     if (!newItemForm.supplier_id) return setNewItemError("Select a supplier");
     if (!newItemForm.design.trim()) return setNewItemError("Design is required");
     if (!newItemForm.size.trim()) return setNewItemError("Size is required");
-    if (!newItemForm.category.trim()) return setNewItemError("Category is required");
+    const cat = newItemForm.category;
+    if (!cat) return setNewItemError("Select or enter a category");
     if (!newItemForm.unit_cost || parseFloat(newItemForm.unit_cost) <= 0) return setNewItemError("Unit cost is required");
     if (!newItemForm.selling_price || parseFloat(newItemForm.selling_price) <= 0) return setNewItemError("Selling price is required");
     const qty = parseInt(newItemForm.quantity) || 1;
@@ -213,7 +238,7 @@ function CreateOrderModal({
       brand: newItemForm.brand,
       design: newItemForm.design,
       size: newItemForm.size,
-      category: newItemForm.category,
+      category: cat,
       unit_cost: cost,
       selling_price: parseFloat(newItemForm.selling_price),
       quantity: qty,
@@ -348,9 +373,24 @@ function CreateOrderModal({
                     </div>
                     <div>
                       <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Category <span style={{color:"#38bdf8"}}>*</span></label>
-                      <select className="inv-input" value={newItemForm.category} onChange={e => setNewItemForm(f => ({...f, category: e.target.value}))}>
+                      <select
+                        className="inv-input"
+                        value={newItemForm.category}
+                        onChange={(e) => {
+                          if (e.target.value === "___NEW___") {
+                            setAddCatModal({ open: true, value: "" });
+                          } else {
+                            setNewItemForm((f) => ({ ...f, category: e.target.value }));
+                          }
+                        }}
+                      >
                         <option value="">— Select —</option>
-                        {["PCR","SUV","TRUCK","MOTORCYCLE","VALVE","WEIGHT","SEALANT","MISC"].map(c => <option key={c} value={c}>{c}</option>)}
+                        {[...new Set([...allCategories])].map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                        <option value="___NEW___" style={{ color: "var(--th-orange,#f97316)", fontWeight: "bold" }}>
+                          + ADD NEW...
+                        </option>
                       </select>
                     </div>
                     <div>
@@ -625,6 +665,69 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
           </button>
         </div>
       </div>
+
+      {/* Add New Category Modal */}
+      {addCatModal.open && (
+        <div className="inv-modal-overlay" onClick={e => e.target === e.currentTarget && setAddCatModal({ open: false, value: "" })} style={{ zIndex: 9999 }}>
+          <div className="inv-modal" style={{ maxWidth: 380, padding: "1.5rem" }}>
+            <div className="inv-modal-header" style={{ marginBottom: "1rem" }}>
+              <div className="inv-modal-title">Add New Category</div>
+              <button className="inv-modal-close" onClick={() => setAddCatModal({ open: false, value: "" })}>✕</button>
+            </div>
+            <div style={{ marginBottom: "1.25rem" }}>
+              <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Category Name</label>
+              <input
+                autoFocus
+                className="inv-input"
+                placeholder="e.g. RADIAL"
+                value={addCatModal.value}
+                onChange={e => setAddCatModal(m => ({ ...m, value: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const trimmed = addCatModal.value.trim().toUpperCase();
+                    if (trimmed) {
+                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                      const type = TIRE_SET.has(trimmed) ? "tire" : "other";
+                      let ua = { tire: [], other: [] };
+                      try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
+                      ua[type] = [...new Set([...(ua[type]||[]), trimmed])];
+                      try { localStorage.setItem("th-user-cats", JSON.stringify(ua)); } catch {}
+                      setAllCategories(prev => [...new Set([...prev, trimmed])]);
+                      setNewItemForm(f => ({ ...f, category: trimmed }));
+                    }
+                    setAddCatModal({ open: false, value: "" });
+                  }
+                  if (e.key === "Escape") setAddCatModal({ open: false, value: "" });
+                }}
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button className="inv-btn inv-btn-slate" onClick={() => setAddCatModal({ open: false, value: "" })}>Cancel</button>
+              <button
+                className="inv-btn inv-btn-orange"
+                disabled={!addCatModal.value.trim()}
+                onClick={() => {
+                  const trimmed = addCatModal.value.trim().toUpperCase();
+                  if (trimmed) {
+                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                    const type = TIRE_SET.has(trimmed) ? "tire" : "other";
+                    let ua = { tire: [], other: [] };
+                    try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
+                    ua[type] = [...new Set([...(ua[type]||[]), trimmed])];
+                    try { localStorage.setItem("th-user-cats", JSON.stringify(ua)); } catch {}
+                    setAllCategories(prev => [...new Set([...prev, trimmed])]);
+                    setNewItemForm(f => ({ ...f, category: trimmed }));
+                  }
+                  setAddCatModal({ open: false, value: "" });
+                }}
+              >
+                Add Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

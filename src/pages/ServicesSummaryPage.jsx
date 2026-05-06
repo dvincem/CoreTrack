@@ -29,6 +29,47 @@ function aggregateItems(items) {
   return Object.values(map).sort((a, b) => b.amount - a.amount)
 }
 
+function groupBySale(items) {
+  const groups = {}
+  const result = []
+
+  items.forEach(item => {
+    const sid = item.sale_id
+    if (!sid) {
+      const cleanName = item.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${item.sale_id}\\)?`, 'gi'), '').trim()
+      result.push({ ...item, service_name: cleanName, name: cleanName, isGroup: false })
+      return
+    }
+    if (!groups[sid]) {
+      groups[sid] = {
+        ...item,
+        log_id: `group-${sid}`,
+        amount: 0,
+        isGroup: true,
+        _names: new Set(),
+        _items: []
+      }
+    }
+    const cleanName = item.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${item.sale_id}\\)?`, 'gi'), '').trim()
+    groups[sid]._names.add(cleanName)
+    groups[sid].amount += item.amount
+    groups[sid]._items.push(item)
+  })
+
+  Object.values(groups).forEach(g => {
+    g.service_name = Array.from(g._names).sort().join(', ')
+    g.name = g.service_name
+    if (g._items.length > 1) {
+      g.quantity = 1 // Hide qty badge for multi-service transactions
+    } else {
+      g.quantity = g._items[0].quantity
+    }
+    result.push(g)
+  })
+
+  return result.sort((a, b) => new Date(a.log_datetime) - new Date(b.log_datetime))
+}
+
 export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, currentStaffId, setPageContext }) {
   const [activeTab, setActiveTab] = React.useState('summary')
 
@@ -266,8 +307,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                   const initials = tireman.full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
                   const isShortRange = activeRange === 'today' || activeRange === 'yesterday'
-                  const displayServices = isShortRange ? tireman.services : aggregateItems(tireman.services)
-                  const displayCommissions = isShortRange ? tireman.commissions : aggregateItems(tireman.commissions)
+                  const displayServices = isShortRange ? groupBySale(tireman.services) : aggregateItems(tireman.services)
+                  const displayCommissions = isShortRange ? groupBySale(tireman.commissions) : aggregateItems(tireman.commissions)
 
                   return (
                     <div key={tireman.staff_id} className="ss-tireman-card" onClick={() => { setModal({ tireman, svcTotal, comTotal, baleDeducted, svcPay, payout, initials }); setExpandedRows(new Set()) }} style={{ cursor: 'pointer' }}>
@@ -336,7 +377,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                                 <tr key={isShortRange ? s.log_id : idx}>
                                   <td>
                                     <div className="ss-svc-name">
-                                      {isShortRange ? s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim() : s.name}
+                                      {s.service_name}
                                     </div>
                                     {s.quantity !== 1 && <div className="ss-svc-qty">× {s.quantity}</div>}
                                   </td>
@@ -375,7 +416,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                                 <tr key={isShortRange ? c.log_id : idx}>
                                   <td>
                                     <div className="ss-svc-name">
-                                      {isShortRange ? c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim() : c.name}
+                                      {c.service_name}
                                     </div>
                                     {c.quantity !== 1 && <div className="ss-svc-qty">× {c.quantity}</div>}
                                   </td>
@@ -411,8 +452,8 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
           {modal && (() => {
             const { tireman, svcTotal, comTotal, baleDeducted, svcPay, payout, initials } = modal
             const isShortRange = activeRange === 'today' || activeRange === 'yesterday'
-            const displayServices = isShortRange ? tireman.services : aggregateItems(tireman.services)
-            const displayCommissions = isShortRange ? tireman.commissions : aggregateItems(tireman.commissions)
+            const displayServices = isShortRange ? groupBySale(tireman.services) : aggregateItems(tireman.services)
+            const displayCommissions = isShortRange ? groupBySale(tireman.commissions) : aggregateItems(tireman.commissions)
             return (
               <div className="hist-modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
                 <div className="inv-history" style={{ maxWidth: 680 }}>
@@ -475,7 +516,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                                 <tr key={isShortRange ? s.log_id : idx} onClick={e => { e.stopPropagation(); isShortRange && toggleRow('svc-' + s.log_id) }} style={{ cursor: isShortRange ? 'pointer' : 'default' }}>
                                   <td>
                                     <div className={`ss-svc-name${isShortRange && expandedRows.has('svc-' + s.log_id) ? ' ss-svc-expanded' : ''}`}>
-                                      {isShortRange ? s.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${s.sale_id}\\)?`, 'gi'), '').trim() : s.name}
+                                      {s.service_name}
                                       {isShortRange && s.sale_id && expandedRows.has('svc-' + s.log_id) && (
                                         <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82em', marginLeft: '0.45rem', fontWeight: 400 }}>(Sale {s.sale_id})</span>
                                       )}
@@ -506,7 +547,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                                 <tr key={isShortRange ? c.log_id : idx} onClick={e => { e.stopPropagation(); isShortRange && toggleRow('com-' + c.log_id) }} style={{ cursor: isShortRange ? 'pointer' : 'default' }}>
                                   <td>
                                     <div className={`ss-svc-name${isShortRange && expandedRows.has('com-' + c.log_id) ? ' ss-svc-expanded' : ''}`}>
-                                      {isShortRange ? c.service_name.replace(new RegExp(`\\s?\\(?(Sale\\s+)?${c.sale_id}\\)?`, 'gi'), '').trim() : c.name}
+                                      {c.service_name}
                                       {isShortRange && c.sale_id && expandedRows.has('com-' + c.log_id) && (
                                         <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82em', marginLeft: '0.45rem', fontWeight: 400 }}>(Sale {c.sale_id})</span>
                                       )}

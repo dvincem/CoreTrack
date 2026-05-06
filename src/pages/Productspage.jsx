@@ -6,6 +6,7 @@ import FilterHeader from "../components/FilterHeader";
 import KpiCard from "../components/KpiCard";
 import ItemHistoryModal from "../components/ItemHistoryModal";
 import usePaginatedResource from "../hooks/usePaginatedResource";
+import useItemCategories from "../hooks/useItemCategories";
 
 /* ============================================================
    CORETRACK — PRODUCTS PAGE
@@ -28,36 +29,7 @@ function prodCurrency(n) {
 
 const PAGE_SIZE = 10;
 
-const DEFAULT_TIRE_CATS = [
-  "PCR",
-  "SUV",
-  "TBR",
-  "LT",
-  "MOTORCYCLE",
-  "TUBE",
-  "RECAP",
-];
-const DEFAULT_OTHER_CATS = [
-  "VALVE",
-  "WHEEL WEIGHT",
-  "WHEEL BALANCING",
-  "ACCESSORIES",
-  "OTHER",
-];
-const PROD_LS = { tire: "pur-cats-tire-v3", other: "pur-cats-other" };
-function prodLoadCats(key, defaults) {
-  try {
-    const s = localStorage.getItem(key);
-    return s ? JSON.parse(s) : [...defaults];
-  } catch {
-    return [...defaults];
-  }
-}
-function prodSaveCats(key, cats) {
-  try {
-    localStorage.setItem(key, JSON.stringify(cats));
-  } catch { }
-}
+
 
 function buildSKU(form) {
   if (!form.itemType) return "";
@@ -151,12 +123,8 @@ function Productspage({ shopId }) {
   const [itemsToAdd, setItemsToAdd] = React.useState([]);
   const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
 
-  const [tireCats, setTireCats] = React.useState(() =>
-    prodLoadCats(PROD_LS.tire, DEFAULT_TIRE_CATS),
-  );
-  const [otherCats, setOtherCats] = React.useState(() =>
-    prodLoadCats(PROD_LS.other, DEFAULT_OTHER_CATS),
-  );
+  const { tireCategories, otherCategories, allCategories, addCategory } = useItemCategories(shopId);
+  const [addCatModal, setAddCatModal] = React.useState({ open: false, idx: null, itemType: null, value: "" });
   const [saving, setSaving] = React.useState(false);
   const [pending, setPending] = React.useState(null);
   const [pendingAdj, setPendingAdj] = React.useState(null);
@@ -577,41 +545,83 @@ function Productspage({ shopId }) {
       setEditCell(null);
       return;
     }
-    const endpoint =
-      editCell.field === "selling_price"
-        ? `items/${item.item_id}/selling-price`
-        : `items/${item.item_id}/unit-cost`;
-    const body =
-      editCell.field === "selling_price"
-        ? { selling_price: val }
-        : { unit_cost: val };
+    // Resolve real DB item_id(s) — grouped items have a synthetic key like BRAND||DESIGN||SIZE
+    const variants = parseVariantInfo(item.variant_info);
+    const realIds = variants.length > 0
+      ? variants.map(v => v.item_id)
+      : [item.item_id];
+
+    const pathSuffix = editCell.field === "selling_price" ? "selling-price" : "unit-cost";
+    const body = editCell.field === "selling_price"
+      ? { selling_price: val }
+      : { unit_cost: val };
     try {
-      const res = await apiFetch(`${API_URL}/${endpoint}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.error) toast(data.error, "error");
-      else {
-        toast("Updated!");
-        refetchItems();
-        fetchKpi();
-        if (selected?.item_id === item.item_id) {
-          if (editCell.field === "unit_cost" && data.selling_price != null)
-            setSelected((s) => ({
-              ...s,
-              unit_cost: val,
-              selling_price: data.selling_price,
-            }));
-          else setSelected((s) => ({ ...s, [editCell.field]: val }));
-        }
+      // Update each real variant — for grouped items (multi-DOT) this applies the same price to all
+      await Promise.all(realIds.map(id =>
+        apiFetch(`${API_URL}/items/${id}/${pathSuffix}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ));
+      toast("Updated!");
+      refetchItems();
+      fetchKpi();
+      if (selected?.item_id === item.item_id) {
+        setSelected((s) => ({ ...s, [editCell.field]: val }));
       }
     } catch {
       toast("Failed to update.", "error");
     }
     setEditCell(null);
   }
+
+  async function updateModalPrice(newVal, variantId) {
+    const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
+    try {
+      await Promise.all(realIds.map(id =>
+        apiFetch(`${API_URL}/items/${id}/selling-price`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selling_price: newVal }),
+        })
+      ));
+      toast("Price updated!");
+      refetchItems();
+      fetchKpi();
+      if (variantId) {
+        setHistoryVariants(prev => prev.map(v => String(v.item_id) === String(variantId) ? { ...v, selling_price: newVal } : v));
+        if (String(selected.item_id) === String(variantId)) setSelected(prev => ({ ...prev, selling_price: newVal }));
+      } else {
+        setHistoryVariants(prev => prev.map(v => ({ ...v, selling_price: newVal })));
+        setSelected(prev => ({ ...prev, selling_price: newVal }));
+      }
+    } catch { toast("Failed to update price.", "error"); }
+  }
+
+  async function updateModalCost(newVal, variantId) {
+    const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
+    try {
+      await Promise.all(realIds.map(id =>
+        apiFetch(`${API_URL}/items/${id}/unit-cost`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ unit_cost: newVal }),
+        })
+      ));
+      toast("Cost updated!");
+      refetchItems();
+      fetchKpi();
+      if (variantId) {
+        setHistoryVariants(prev => prev.map(v => String(v.item_id) === String(variantId) ? { ...v, unit_cost: newVal } : v));
+        if (String(selected.item_id) === String(variantId)) setSelected(prev => ({ ...prev, unit_cost: newVal }));
+      } else {
+        setHistoryVariants(prev => prev.map(v => ({ ...v, unit_cost: newVal })));
+        setSelected(prev => ({ ...prev, unit_cost: newVal }));
+      }
+    } catch { toast("Failed to update cost.", "error"); }
+  }
+
 
   /* ── Detail panel ── */
   async function openDetail(item) {
@@ -1407,24 +1417,13 @@ function Productspage({ shopId }) {
                           style={{ height: "38px" }}
                           onChange={(e) => {
                             if (e.target.value === "__ADD__") {
-                              const name = window.prompt("Enter new category name:");
-                              if (name && name.trim()) {
-                                const trimmed = name.trim();
-                                if (item.itemType === "TIRE") {
-                                  const next = tireCats.includes(trimmed) ? tireCats : [...tireCats, trimmed];
-                                  setTireCats(next); prodSaveCats(PROD_LS.tire, next);
-                                } else {
-                                  const next = otherCats.includes(trimmed) ? otherCats : [...otherCats, trimmed];
-                                  setOtherCats(next); prodSaveCats(PROD_LS.other, next);
-                                }
-                                updateItemToAdd(idx, "category", trimmed);
-                              }
+                              setAddCatModal({ open: true, idx, itemType: item.itemType, value: "" });
                             } else {
                               updateItemToAdd(idx, "category", e.target.value);
                             }
                           }}
                         >
-                          {(item.itemType === "TIRE" ? tireCats : otherCats).map((c) => (
+                          {(item.itemType === "TIRE" ? tireCategories : otherCategories).map((c) => (
                             <option key={c}>{c}</option>
                           ))}
                           <option value="__ADD__">+ Add category…</option>
@@ -1783,6 +1782,9 @@ function Productspage({ shopId }) {
             activeVariantId={activeHistVariantId}
             onVariantChange={setActiveHistVariantId}
             onDesignChange={setActiveHistDesign}
+            onUpdateCost={updateModalCost}
+            onUpdatePrice={updateModalPrice}
+
             historyContent={
               histLoading || priceHistLoading ? (
                 <div className="inv-hist-loading">
@@ -2102,7 +2104,7 @@ function Productspage({ shopId }) {
                         onChange={e => setDetailForm({ ...detailForm, category: e.target.value })}
                         style={{ width: "100%" }}
                       >
-                        {[...DEFAULT_TIRE_CATS, ...DEFAULT_OTHER_CATS].map(c => (
+                        {allCategories.map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
@@ -2310,6 +2312,64 @@ function Productspage({ shopId }) {
           </div>
         )}
 
+
+        {/* Add New Category Modal */}
+        {addCatModal.open && (
+          <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setAddCatModal(m => ({ ...m, open: false }))}>
+            <div className="confirm-box" style={{ maxWidth: "380px", width: "90vw" }}>
+              <div className="confirm-title" style={{ color: "var(--th-orange)" }}>
+                Add New Category
+              </div>
+              <div className="confirm-details">
+                <p style={{ fontSize: "0.82rem", opacity: 0.7, marginBottom: "0.75rem" }}>
+                  Type a name for the new {addCatModal.itemType === "TIRE" ? "tire" : "other"} category.
+                </p>
+                <input
+                  autoFocus
+                  className="prod-adj-input"
+                  placeholder="e.g. RADIAL"
+                  value={addCatModal.value}
+                  onChange={e => setAddCatModal(m => ({ ...m, value: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const trimmed = addCatModal.value.trim().toUpperCase();
+                      if (trimmed) {
+                        addCategory(trimmed, addCatModal.itemType === "TIRE" ? "tire" : "other");
+                        updateItemToAdd(addCatModal.idx, "category", trimmed);
+                      }
+                      setAddCatModal({ open: false, idx: null, itemType: null, value: "" });
+                    }
+                    if (e.key === "Escape") setAddCatModal({ open: false, idx: null, itemType: null, value: "" });
+                  }}
+                  style={{ width: "100%", boxSizing: "border-box" }}
+                />
+              </div>
+              <div className="confirm-actions" style={{ marginTop: "1.25rem" }}>
+                <button
+                  className="confirm-btn-cancel"
+                  onClick={() => setAddCatModal({ open: false, idx: null, itemType: null, value: "" })}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="confirm-btn-ok"
+                  style={{ background: "var(--th-orange)", opacity: addCatModal.value.trim() ? 1 : 0.4 }}
+                  disabled={!addCatModal.value.trim()}
+                  onClick={() => {
+                    const trimmed = addCatModal.value.trim().toUpperCase();
+                    if (trimmed) {
+                      addCategory(trimmed, addCatModal.itemType === "TIRE" ? "tire" : "other");
+                      updateItemToAdd(addCatModal.idx, "category", trimmed);
+                    }
+                    setAddCatModal({ open: false, idx: null, itemType: null, value: "" });
+                  }}
+                >
+                  Add Category
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Confirm Stock Adjustment */}
         {pendingAdj && (

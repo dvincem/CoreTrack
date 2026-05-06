@@ -1,9 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
-const itemsRouter = require("./items");
-const findOrCreateDotVariant = itemsRouter.findOrCreateDotVariant;
-const { dbRun, dbGet, dbSerialize } = require("../lib/db");
+const { dbRun, dbGet, dbAll, dbSerialize, syncCurrentStock, logPriceHistory, findOrCreateDotVariant } = require("../lib/db");
 
 router.post("/orders", async (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;
@@ -603,9 +601,8 @@ router.delete("/orders/:order_id/items/:order_item_id", (req, res) => {
 
 router.delete("/orders/:order_id", (req, res) => {
   const { order_id } = req.params;
-  db.get(`SELECT status FROM orders WHERE order_id = ?`, [order_id], (err, order) => {
+  db.get(`SELECT order_id FROM orders WHERE order_id = ?`, [order_id], (err, order) => {
     if (err || !order) return res.status(404).json({ error: "Order not found" });
-    if (order.status !== "PENDING") return res.status(400).json({ error: "Can only delete PENDING orders" });
     db.serialize(() => {
       db.run(`DELETE FROM order_items WHERE order_id = ?`, [order_id]);
       db.run(`DELETE FROM orders WHERE order_id = ?`, [order_id], function (err) {
@@ -635,11 +632,12 @@ router.post("/orders/quick-receive", async (req, res) => {
     const brand  = (ni.brand     || '').toUpperCase().replace(/\s+/g, '').substring(0, 4);
     const design = (ni.design    || '').toUpperCase().replace(/\s+/g, '').substring(0, 4);
     const size   = (ni.size      || '').replace(/\s+/g, '');
-    return `${cat}-${brand}-${design}-${size}-${Date.now().toString().slice(-4)}`;
+    const rand   = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${cat}-${brand}-${design}-${size}-${rand}`;
   }
 
   try {
-    const order_id = `QORD-${Date.now()}`;
+    const order_id = `QORD-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const now = new Date().toISOString();
     const reference_id = delivery_receipt || order_id;
     const TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TIRE', 'RECAP', 'TUBE'];
@@ -647,29 +645,40 @@ router.post("/orders/quick-receive", async (req, res) => {
     // ── Step 0: Create new item_master rows for new_items[], then merge into lines ──
     const allLines = [...lines];
     for (const ni of new_items) {
-      const newItemId = `ITEM-QR-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const sku        = buildQrSku(ni);
       const upperBrand  = ni.brand  ? ni.brand.toUpperCase()  : null;
       const upperDesign = ni.design ? ni.design.toUpperCase() : null;
-      const item_name   = [upperBrand, upperDesign, ni.size].filter(Boolean).join(' ');
-      await dbRun(
-        `INSERT INTO item_master
-           (item_id, sku, item_name, category, brand, design, size,
-            unit_cost, selling_price, supplier_id, reorder_point, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
-        [
-          newItemId, sku, item_name,
-          (ni.category || 'MISC').toUpperCase(),
-          upperBrand, upperDesign, ni.size || null,
-          parseFloat(ni.unit_cost)    || 0,
-          parseFloat(ni.selling_price) || 0,
-          ni.supplier_id || null,
-          parseInt(ni.reorder_point) || 0,
-        ]
+      const cat = (ni.category || 'MISC').toUpperCase();
+      const size = ni.size || null;
+
+      // Check if item already exists in item_master
+      let existing = await dbGet(
+        `SELECT item_id FROM item_master WHERE category = ? AND brand = ? AND design = ? AND size = ?`,
+        [cat, upperBrand, upperDesign, size]
       );
-      // Merge the freshly-created item as a regular line
+
+      let targetItemId;
+      if (existing) {
+        targetItemId = existing.item_id;
+      } else {
+        targetItemId = `ITEM-QR-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const sku = buildQrSku(ni);
+        const item_name = [upperBrand, upperDesign, size].filter(Boolean).join(' ');
+        await dbRun(
+          `INSERT INTO item_master
+             (item_id, sku, item_name, category, brand, design, size,
+              unit_cost, selling_price, supplier_id, reorder_point, is_active, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+          [
+            targetItemId, sku, item_name, cat, upperBrand, upperDesign, size,
+            parseFloat(ni.unit_cost) || 0, parseFloat(ni.selling_price) || 0,
+            ni.supplier_id || null, parseInt(ni.reorder_point) || 0,
+          ]
+        );
+      }
+
+      // Merge the item as a regular line
       allLines.push({
-        item_id:    newItemId,
+        item_id:    targetItemId,
         supplier_id: ni.supplier_id || null,
         quantity:   parseFloat(ni.quantity)  || 1,
         unit_cost:  parseFloat(ni.unit_cost) || 0,

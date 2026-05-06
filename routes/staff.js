@@ -491,12 +491,12 @@ router.get("/services-summary/:shop_id", (req, res) => {
   db.all(
     `SELECT ll.log_id, ll.staff_id, ll.service_id, ll.service_name, ll.sale_id,
             ll.quantity, ll.unit_price, ll.total_amount, ll.commission_amount,
-            ll.business_date, sm.full_name, sm.staff_code,
+            ll.business_date, ll.log_datetime, sm.full_name, sm.staff_code,
             (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ?) as bale_deducted
      FROM labor_log ll
      LEFT JOIN staff_master sm ON ll.staff_id = sm.staff_id
      WHERE ll.shop_id = ? AND DATE(ll.business_date) BETWEEN ? AND ? AND ll.is_void = 0
-     ORDER BY sm.full_name, ll.log_datetime`,
+     ORDER BY sm.full_name, ll.log_datetime ASC`,
     [start, end, shop_id, start, end],
     (err, rows) => {
       if (err) return res.json({ error: err.message });

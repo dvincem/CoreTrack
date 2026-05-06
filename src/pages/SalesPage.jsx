@@ -41,15 +41,12 @@ function SalesPage({ shopId, isShopClosed }) {
   // Modal state
   const [modal, setModal] = React.useState(null) // { sale, details }
   const [loadingDetails, setLoadingDetails] = React.useState(false)
-  const [editing, setEditing] = React.useState(false)
-  const [editInvoice, setEditInvoice] = React.useState('')
-  const [editNotes, setEditNotes] = React.useState('')
-  const [editCustomerId, setEditCustomerId] = React.useState('')
   const [saving, setSaving] = React.useState(false)
-  const [pendingSaveEdit, setPendingSaveEdit] = React.useState(null)
   const [voidTarget, setVoidTarget] = React.useState(null)
   const [voidReason, setVoidReason] = React.useState('')
   const [customers, setCustomers] = React.useState([])
+  const [inlineEditingField, setInlineEditingField] = React.useState(null) // customer, payment, invoice, notes
+  const [inlineEditVal, setInlineEditVal] = React.useState('')
 
 
   React.useEffect(() => {
@@ -78,7 +75,6 @@ function SalesPage({ shopId, isShopClosed }) {
   }, [shopId, startDate, endDate])
 
   async function openModal(sale) {
-    setEditing(false)
     setModal({ sale, details: [] })
     setLoadingDetails(true)
     try {
@@ -89,50 +85,38 @@ function SalesPage({ shopId, isShopClosed }) {
     finally { setLoadingDetails(false) }
   }
 
-  function closeModal() { setModal(null); setEditing(false) }
+  function closeModal() { setModal(null) }
 
-  function startEdit() {
-    setEditInvoice(modal.sale.invoice_number || '')
-    setEditNotes(modal.sale.sale_notes || '')
-    setEditCustomerId(modal.sale.customer_id || '')
-    setEditing(true)
-  }
+  async function commitInlineEdit(field, newVal) {
+    const saleId = modal.sale.sale_id
+    const payload = {
+      invoice_number: modal.sale.invoice_number,
+      sale_notes: modal.sale.sale_notes,
+      customer_id: modal.sale.customer_id,
+      payment_method: modal.sale.payment_method || 'CASH'
+    }
 
-  function saveEdit() {
-    setPendingSaveEdit({ 
-      saleId: modal.sale.sale_id, 
-      invoice: editInvoice, 
-      notes: editNotes, 
-      customerId: editCustomerId 
-    })
-  }
+    if (field === 'customer') payload.customer_id = newVal === "" ? null : newVal
+    else if (field === 'payment') payload.payment_method = newVal
+    else if (field === 'invoice') payload.invoice_number = newVal
+    else if (field === 'notes') payload.sale_notes = newVal
 
-  async function confirmSaveEdit() {
-    const { saleId, invoice, notes, customerId } = pendingSaveEdit
-    setPendingSaveEdit(null)
     setSaving(true)
     try {
       const r = await apiFetch(`${API_URL}/sales/${saleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          invoice_number: invoice, 
-          sale_notes: notes, 
-          customer_id: customerId 
-        }),
+        body: JSON.stringify(payload),
       })
       if (r.ok) {
-        const selectedCustomer = customers.find(c => String(c.customer_id) === String(customerId))
-        const updated = { 
-          ...modal.sale, 
-          invoice_number: invoice, 
-          sale_notes: notes, 
-          customer_id: customerId || null, 
-          customer_name: selectedCustomer ? selectedCustomer.customer_name : 'Walk-in'
+        const updated = { ...modal.sale, ...payload }
+        if (field === 'customer') {
+          const cust = customers.find(c => String(c.customer_id) === String(payload.customer_id))
+          updated.customer_name = cust ? cust.customer_name : 'Walk-in'
         }
         setModal(m => ({ ...m, sale: updated }))
         fetchSales()
-        setEditing(false)
+        setInlineEditingField(null)
       }
     } catch { /* ignore */ }
     setSaving(false)
@@ -196,6 +180,13 @@ function SalesPage({ shopId, isShopClosed }) {
     }
     setSuggestions(results.slice(0, 12))
   }, [search, salesWithTiremen])
+
+  const pencilIcon = (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: '4px', cursor: 'pointer', opacity: 0.6 }}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
 
 
   const slColumns = React.useMemo(() => ([
@@ -420,56 +411,91 @@ function SalesPage({ shopId, isShopClosed }) {
                 <div className="sl-modal-invoice">{modal.sale.sale_id}</div>
               </div>
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                {!modal.sale.is_void && (
-                  <button className="th-btn th-btn-ghost" style={{ padding: '0.4rem 0.75rem', fontSize:'0.75rem' }} onClick={startEdit} disabled={editing}>
-                    Edit Header
-                  </button>
-                )}
                 {!!modal.sale.is_void && <span className="sl-type-badge svc" style={{background:'var(--th-rose-bg)',color:'var(--th-rose)'}}>VOIDED</span>}
                 <button className="sl-modal-close" onClick={closeModal}>✕</button>
               </div>
             </div>
 
             <div className="sl-modal-body">
-              {editing ? (
-                <div className="animate-fade-in" style={{ padding: '1rem', background: 'var(--th-bg-card-alt)', borderRadius: 10, border: '1px solid var(--th-border-strong)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                      <label className="sl-meta-label">Invoice Number</label>
-                      <input className="sl-input" value={editInvoice} onChange={e => setEditInvoice(e.target.value)} style={{ width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)' }} />
-                    </div>
-                    <div>
-                      <label className="sl-meta-label">Customer</label>
-                      <select className="sl-input" value={editCustomerId} onChange={e => setEditCustomerId(e.target.value)} style={{ width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)' }}>
-                        <option value="">Walk-in</option>
-                        {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="sl-meta-label">Internal Notes</label>
-                    <textarea className="sl-input" rows="2" value={editNotes} onChange={e => setEditNotes(e.target.value)} style={{ width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)', resize:'none' }} />
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
-                    <button className="th-btn th-btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
-                    <button className="th-btn th-btn-sky" onClick={saveEdit}>Save Changes</button>
-                  </div>
-                </div>
-              ) : (
                 <div className="sl-meta-grid">
                   <div className="sl-meta-card">
                     <div className="sl-meta-label">Customer</div>
-                    <div className="sl-meta-val">{modal.sale.customer_name || 'Walk-in'}</div>
+                    {inlineEditingField === 'customer' ? (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <select 
+                          className="sl-input" 
+                          value={inlineEditVal} 
+                          onChange={e => setInlineEditVal(e.target.value)} 
+                          style={{ flex: 1, padding: '2px 4px', fontSize: '0.8rem' }}
+                        >
+                          <option value="">Walk-in</option>
+                          {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>)}
+                        </select>
+                        <button onClick={() => commitInlineEdit('customer', inlineEditVal)} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => setInlineEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : (
+                      <div className="sl-meta-val" style={{ display: 'flex', alignItems: 'center' }}>
+                        {modal.sale.customer_name || 'Walk-in'}
+                        <span onClick={() => { setInlineEditingField('customer'); setInlineEditVal(modal.sale.customer_id || ''); }}>{pencilIcon}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="sl-meta-card">
+                    <div className="sl-meta-label">Invoice Number</div>
+                    {inlineEditingField === 'invoice' ? (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <input 
+                          className="sl-input" 
+                          value={inlineEditVal} 
+                          onChange={e => setInlineEditVal(e.target.value)} 
+                          onKeyDown={e => e.key === 'Enter' && commitInlineEdit('invoice', inlineEditVal)}
+                          autoFocus
+                          style={{ flex: 1, padding: '2px 4px', fontSize: '0.8rem' }}
+                        />
+                        <button onClick={() => commitInlineEdit('invoice', inlineEditVal)} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => setInlineEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : (
+                      <div className="sl-meta-val" style={{ display: 'flex', alignItems: 'center' }}>
+                        {modal.sale.invoice_number || '—'}
+                        <span onClick={() => { setInlineEditingField('invoice'); setInlineEditVal(modal.sale.invoice_number || ''); }}>{pencilIcon}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="sl-meta-card">
+                    <div className="sl-meta-label">Payment Method</div>
+                    {inlineEditingField === 'payment' ? (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <select 
+                          className="sl-input" 
+                          value={inlineEditVal} 
+                          onChange={e => setInlineEditVal(e.target.value)} 
+                          style={{ flex: 1, padding: '2px 4px', fontSize: '0.8rem' }}
+                        >
+                          <option value="CASH">Cash</option>
+                          <option value="GCASH">GCash</option>
+                          <option value="BANK_BPI">BPI</option>
+                          <option value="BANK_BDO">BDO</option>
+                          <option value="CARD">Card</option>
+                          <option value="CHECK">Check</option>
+                          <option value="CREDIT">Credit</option>
+                        </select>
+                        <button onClick={() => commitInlineEdit('payment', inlineEditVal)} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer' }}>✓</button>
+                        <button onClick={() => setInlineEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ) : (
+                      <div className="sl-meta-val sky" style={{ textTransform: 'uppercase', display: 'flex', alignItems: 'center' }}>
+                        {modal.sale.payment_method?.replace('_', ' ')}
+                        <span onClick={() => { setInlineEditingField('payment'); setInlineEditVal(modal.sale.payment_method || 'CASH'); }}>{pencilIcon}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="sl-meta-card">
                     <div className="sl-meta-label">Date & Time</div>
                     <div className="sl-meta-val">{new Date(modal.sale.sale_datetime).toLocaleString('en-PH')}</div>
                   </div>
                   <div className="sl-meta-card">
-                    <div className="sl-meta-label">Payment Method</div>
-                    <div className="sl-meta-val sky" style={{ textTransform: 'uppercase' }}>{modal.sale.payment_method?.replace('_', ' ')}</div>
-                  </div>
-                  <div className="sl-meta-card span2">
                     <div className="sl-meta-label">Handled By</div>
                     <div className="sl-meta-val">{modal.sale.staff_name}</div>
                   </div>
@@ -480,7 +506,6 @@ function SalesPage({ shopId, isShopClosed }) {
                     </div>
                   </div>
                 </div>
-              )}
 
               <div className="sl-section-title">Transaction Items</div>
               <DataTable
@@ -497,12 +522,33 @@ function SalesPage({ shopId, isShopClosed }) {
                 <span className="sl-modal-total-val">{fmt(modal.sale.total_amount)}</span>
               </div>
 
-              {!!modal.sale.sale_notes && (
-                <div style={{ padding: '0.75rem 1rem', background: 'var(--th-bg-card-alt)', borderRadius: 8, borderLeft: '3px solid var(--th-orange)' }}>
-                  <div className="sl-meta-label" style={{ marginBottom: '0.2rem' }}>Internal Notes</div>
-                  <div style={{ fontSize: '0.86rem', color: 'var(--th-text-body)', whiteSpace: 'pre-wrap' }}>{modal.sale.sale_notes}</div>
+              <div style={{ padding: '0.75rem 1rem', background: 'var(--th-bg-card-alt)', borderRadius: 8, borderLeft: '3px solid var(--th-orange)' }}>
+                <div className="sl-meta-label" style={{ marginBottom: '0.2rem', display: 'flex', alignItems: 'center' }}>
+                  Internal Notes
+                  {inlineEditingField !== 'notes' && (
+                    <span onClick={() => { setInlineEditingField('notes'); setInlineEditVal(modal.sale.sale_notes || ''); }}>{pencilIcon}</span>
+                  )}
                 </div>
-              )}
+                {inlineEditingField === 'notes' ? (
+                  <div>
+                    <textarea 
+                      className="sl-input" 
+                      rows="3" 
+                      value={inlineEditVal} 
+                      onChange={e => setInlineEditVal(e.target.value)} 
+                      style={{ width: '100%', padding: '0.5rem', background: 'var(--th-bg-input)', border: '1px solid var(--th-border)', borderRadius: 6, color: 'var(--th-text-primary)', resize: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button className="th-btn th-btn-sky" style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} onClick={() => commitInlineEdit('notes', inlineEditVal)}>Save</button>
+                      <button className="th-btn th-btn-ghost" style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} onClick={() => setInlineEditingField(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.86rem', color: 'var(--th-text-body)', whiteSpace: 'pre-wrap' }}>
+                    {modal.sale.sale_notes || <span style={{ color: 'var(--th-text-faint)', fontStyle: 'italic' }}>No notes</span>}
+                  </div>
+                )}
+              </div>
               
               {!!modal.sale.is_void && (
                 <div style={{ padding: '0.75rem 1rem', background: 'var(--th-rose-bg)', color: 'var(--th-rose)', borderRadius: 8, fontSize: '0.85rem' }}>
@@ -511,7 +557,7 @@ function SalesPage({ shopId, isShopClosed }) {
                 </div>
               )}
 
-              {!modal.sale.is_void && !editing && (
+              {!modal.sale.is_void && (
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', float: 'inline-end', justifyContent: 'flex-start' }}>
                   <button 
                     onClick={() => setVoidTarget(modal.sale)}
@@ -532,19 +578,6 @@ function SalesPage({ shopId, isShopClosed }) {
         </div>
       )}
 
-      {/* Confirm Save Edit */}
-      {pendingSaveEdit && (
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <div className="confirm-title">Update Header?</div>
-            <p className="th-text-sm" style={{color:'var(--th-text-body)', marginBottom:'1.5rem'}}>Save changes to invoice and customer details?</p>
-            <div className="confirm-actions">
-              <button className="confirm-btn-cancel" onClick={() => setPendingSaveEdit(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSaveEdit} disabled={saving}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Void confirmation */}
       {voidTarget && (

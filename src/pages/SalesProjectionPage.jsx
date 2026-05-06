@@ -95,8 +95,8 @@ export default function SalesProjectionPage({ shopId }) {
       const q = search.toLowerCase()
       rows = rows.filter(i =>
         (i.item_name || '').toLowerCase().includes(q) ||
-        (i.sku || '').toLowerCase().includes(q) ||
-        (i.brand || '').toLowerCase().includes(q)
+        (i.brand || '').toLowerCase().includes(q) ||
+        (i.category || '').toLowerCase().includes(q)
       )
     }
     // Sort
@@ -150,14 +150,8 @@ export default function SalesProjectionPage({ shopId }) {
     { key: 'item_name', label: 'Item', render: row => (
       <div className="sp-cell-item">
         <div className="sp-item-name">{row.item_name}</div>
-        {row.sku && <div className="sp-item-sku">{row.sku}</div>}
+        {row.category && <span className="sp-cat-chip">{row.category}</span>}
       </div>
-    )},
-    { key: 'brand', label: 'Brand / Cat', render: row => (
-      <>
-        <div className="sp-brand">{row.brand || '—'}</div>
-        {row.category && <div className="sp-cat">{row.category}</div>}
-      </>
     )},
     { key: 'current_stock', label: 'Stock', align: 'right', render: row => (
       <span className={row.current_stock <= 0 ? 'sp-zero' : row.current_stock <= row.reorder_point ? 'sp-low' : ''}>
@@ -283,7 +277,7 @@ export default function SalesProjectionPage({ shopId }) {
             searchProps={{
               value: search,
               onChange: setSearch,
-              placeholder: "Search item, SKU, brand…",
+              placeholder: "Search item, brand, category…",
               resultCount: filtered.length,
               totalCount: allItems.length,
               resultLabel: "items",
@@ -318,7 +312,7 @@ export default function SalesProjectionPage({ shopId }) {
       <DataTable
         columns={spColumns}
         rows={paginatedRows}
-        rowKey="item_id"
+        rowKey="item_key"
         loading={loading}
         skeletonRows={8}
         minWidth={900}
@@ -379,7 +373,6 @@ export default function SalesProjectionPage({ shopId }) {
                     {r.category && <span style={{ fontSize:'0.75rem', fontWeight:700, padding:'2px 7px', borderRadius:4, background:'var(--th-violet-bg)', color:'var(--th-violet)', border:'1px solid var(--th-violet)' }}>{r.category}</span>}
                   </div>
                   <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:900, fontSize:'1.4rem', textTransform:'uppercase', letterSpacing:'0.03em', color:'var(--th-text-heading)', lineHeight:1.15 }}>{r.item_name}</div>
-                  {r.sku && <div style={{ fontSize:'0.8rem', color:'var(--th-text-faint)', marginTop:'0.15rem', fontFamily:'monospace', letterSpacing:'0.04em' }}>{r.sku}</div>}
                 </div>
                 <button onClick={() => setDetailItem(null)} style={{ background:'rgba(255,255,255,0.07)', border:'1px solid var(--th-border)', borderRadius:8, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--th-text-faint)', fontSize:'1rem', flexShrink:0, transition:'background 0.15s' }}>✕</button>
               </div>

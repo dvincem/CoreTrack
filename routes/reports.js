@@ -99,7 +99,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       FROM receivable_payments rp
       JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
       JOIN customer_master cm ON ar.customer_id = cm.customer_id
-      WHERE rp.shop_id = ? AND rp.is_void = 0 AND rp.payment_date = ?`,
+      WHERE rp.shop_id = ? AND rp.is_void = 0 AND rp.payment_date = ?
+        AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)`,
       [shop_id, targetDate]
     );
 

@@ -60,7 +60,7 @@ function ReceivablesPage({ shopId }) {
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState({
     customer_id: "", receivable_type: "GENERAL", description: "",
-    original_amount: "", down_payment: "", due_date: "", notes: ""
+    original_amount: "", down_payment: "", due_date: "", notes: "", is_opening_balance: false
   });
 
   // combined receivable detail modal
@@ -93,6 +93,11 @@ function ReceivablesPage({ shopId }) {
   const [balePaying, setBalePaying] = React.useState(false);
   const [baleHistPayments, setBaleHistPayments] = React.useState([]);
   const [baleHistLoading, setBaleHistLoading] = React.useState(false);
+  const [baleAddForm, setBaleAddForm] = React.useState({ amount: "", notes: "" });
+  const [baleAdding, setBaleAdding] = React.useState(false);
+  const [isAddingVale, setIsAddingVale] = React.useState(false);
+  const [pendingBaleAdd, setPendingBaleAdd] = React.useState(null);
+
 
   const [pendingRcv, setPendingRcv] = React.useState(null);
   const [pendingPay, setPendingPay] = React.useState(null);
@@ -178,6 +183,7 @@ function ReceivablesPage({ shopId }) {
           down_payment: parseFloat(fd.down_payment) || 0,
           due_date: fd.due_date || null,
           notes: fd.notes,
+          is_opening_balance: fd.is_opening_balance ? 1 : 0,
           created_by: "POS"
         })
       });
@@ -185,7 +191,7 @@ function ReceivablesPage({ shopId }) {
       if (data.error) { setFormError(data.error); setSaving(false); return; }
       showToast("Receivable saved successfully!");
       setShowForm(false);
-      setForm({ customer_id: "", receivable_type: "GENERAL", description: "", original_amount: "", down_payment: "", due_date: "", notes: "" });
+      setForm({ customer_id: "", receivable_type: "GENERAL", description: "", original_amount: "", down_payment: "", due_date: "", notes: "", is_opening_balance: false });
       loadReceivables();
     } catch (e) { setFormError(e.message); }
     setSaving(false);
@@ -359,6 +365,8 @@ function ReceivablesPage({ shopId }) {
   const openBaleDetail = (b) => {
     setBaleDetailTarget(b);
     setBalePayForm({ amount: "", payment_date: TODAY, notes: "" });
+    setBaleAddForm({ amount: "", notes: "" });
+    setIsAddingVale(false);
     setBalePayError("");
     setBaleHistPayments([]);
     setBaleHistLoading(true);
@@ -367,6 +375,7 @@ function ReceivablesPage({ shopId }) {
       .then(d => { setBaleHistPayments(Array.isArray(d) ? d : []); setBaleHistLoading(false); })
       .catch(() => setBaleHistLoading(false));
   };
+
   const closeBaleDetail = () => setBaleDetailTarget(null);
 
   const submitBalePayment = () => {
@@ -403,6 +412,35 @@ function ReceivablesPage({ shopId }) {
     } catch (e) { setBalePayError(e.message); }
     setBalePaying(false);
   };
+
+  const submitBaleAdd = () => {
+    setBalePayError("");
+    const amt = parseFloat(baleAddForm.amount);
+    if (!amt || amt <= 0) return setBalePayError("Enter a valid amount to add.");
+    setPendingBaleAdd({ amt, notes: baleAddForm.notes });
+  };
+
+  const confirmSubmitBaleAdd = async () => {
+    const { amt, notes: n } = pendingBaleAdd;
+    setPendingBaleAdd(null);
+    setBaleAdding(true);
+    try {
+      const res = await apiFetch(`${API_URL}/bale/${baleDetailTarget.bale_id}/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt, notes: n })
+      });
+      const data = await res.json();
+      if (data.error) { setBalePayError(data.error); setBaleAdding(false); return; }
+      showToast("Bale balance increased!");
+      loadBales();
+      setBaleDetailTarget(prev => ({ ...prev, amount: data.new_amount, balance_amount: data.new_balance, status: 'ACTIVE' }));
+      setBaleAddForm({ amount: "", notes: "" });
+      setIsAddingVale(false);
+    } catch (e) { setBalePayError(e.message); }
+    setBaleAdding(false);
+  };
+
 
   const rcvColumns = React.useMemo(() => [
     { key: 'customer_name', label: 'Customer', render: row => (
@@ -696,6 +734,22 @@ function ReceivablesPage({ shopId }) {
                 </div>
               </div>
 
+              {/* Opening balance flag */}
+              {parseFloat(form.down_payment) > 0 && (
+                <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", cursor: "pointer", padding: "0.5rem 0.65rem", background: form.is_opening_balance ? "var(--th-amber-bg)" : "var(--th-bg-input)", border: `1px solid ${form.is_opening_balance ? "var(--th-amber)" : "var(--th-border)"}`, borderRadius: "8px", marginBottom: "0.25rem", transition: "all 0.15s" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!form.is_opening_balance}
+                    onChange={e => setF("is_opening_balance", e.target.checked)}
+                    style={{ marginTop: "2px", accentColor: "var(--th-amber)", flexShrink: 0 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 700, color: form.is_opening_balance ? "var(--th-amber)" : "var(--th-text-primary)" }}>Opening balance record</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--th-text-dim)", marginTop: "2px" }}>The down payment is a pre-existing amount already collected before this system — it will not be counted as new cash in reports or financial health.</div>
+                  </div>
+                </label>
+              )}
+
               {(form.original_amount || form.down_payment) && (
                 <div style={{ background: "var(--th-rose-bg)", border: "1px solid var(--th-rose)", borderRadius: "8px", padding: "0.6rem 0.8rem", fontSize: "0.88rem" }}>
                   <span style={{ color: "var(--th-text-muted)" }}>Balance to collect: </span>
@@ -959,9 +1013,12 @@ function ReceivablesPage({ shopId }) {
             )}
 
             {/* Record payment form — only if ACTIVE */}
-            {baleDetailTarget.status !== "PAID" && (
+            {baleDetailTarget.status !== "PAID" && !isAddingVale && (
               <div style={{padding:"0.85rem 1.1rem",borderBottom:"1px solid var(--th-border)"}}>
-                <div style={{fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--th-amber)",marginBottom:"0.6rem"}}>Record Payment (Cash)</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.6rem"}}>
+                  <div style={{fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--th-amber)"}}>Record Payment (Cash)</div>
+                  <button onClick={() => setIsAddingVale(true)} style={{fontSize:"0.72rem",background:"none",border:"1px solid var(--th-amber)",color:"var(--th-amber)",padding:"0.15rem 0.5rem",borderRadius:4,cursor:"pointer"}}>+ Add More Vale</button>
+                </div>
                 {balePayError && <div className="rcv-form-error" style={{marginBottom:"0.5rem"}}>{balePayError}</div>}
                 <div style={{display:"flex",gap:"0.6rem",flexWrap:"wrap",alignItems:"flex-end"}}>
                   <div className="rcv-form-group" style={{flex:"1 1 110px",marginBottom:0}}>
@@ -989,6 +1046,34 @@ function ReceivablesPage({ shopId }) {
                 </div>
               </div>
             )}
+
+            {/* Add More Vale form */}
+            {isAddingVale && (
+              <div style={{padding:"0.85rem 1.1rem",borderBottom:"1px solid var(--th-border)",background:"var(--th-bg-alt)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.6rem"}}>
+                  <div style={{fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--th-orange)"}}>Add More Vale</div>
+                  <button onClick={() => setIsAddingVale(false)} style={{fontSize:"0.72rem",background:"none",border:"none",color:"var(--th-text-dim)",cursor:"pointer"}}>✕ Cancel</button>
+                </div>
+                {balePayError && <div className="rcv-form-error" style={{marginBottom:"0.5rem"}}>{balePayError}</div>}
+                <div style={{display:"flex",gap:"0.6rem",flexWrap:"wrap",alignItems:"flex-end"}}>
+                  <div className="rcv-form-group" style={{flex:"1 1 110px",marginBottom:0}}>
+                    <label className="rcv-form-label">Amount to Add</label>
+                    <input type="number" min="0.01" step="0.01" className="rcv-form-input" placeholder="₱ 0.00"
+                      value={baleAddForm.amount}
+                      onChange={e => setBaleAddForm(p => ({...p, amount: e.target.value}))}
+                      autoFocus />
+                  </div>
+                  <div className="rcv-form-group" style={{flex:"2 1 200px",marginBottom:0}}>
+                    <label className="rcv-form-label">Reason / Notes</label>
+                    <input type="text" className="rcv-form-input" placeholder="e.g. Additional advance" value={baleAddForm.notes} onChange={e => setBaleAddForm(p => ({...p, notes: e.target.value}))} />
+                  </div>
+                  <button className="rcv-btn-primary" style={{background:"var(--th-orange)",color:"#fff",whiteSpace:"nowrap",alignSelf:"flex-end"}} onClick={submitBaleAdd} disabled={baleAdding}>
+                    {baleAdding ? "Adding…" : "+ Add Vale"}
+                  </button>
+                </div>
+              </div>
+            )}
+
 
             {/* Payment history */}
             <div style={{padding:"0.6rem 1.1rem 0.3rem",fontSize:"0.72rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--th-text-faint)"}}>Payment History</div>
@@ -1092,6 +1177,25 @@ function ReceivablesPage({ shopId }) {
           </div>
         </div>
       )}
+
+      {/* Confirm: Add More Bale */}
+      {pendingBaleAdd && (
+        <div className="confirm-overlay">
+          <div className="confirm-box">
+            <div className="confirm-title">Confirm Add Vale</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Amount to Add</span><span className="confirm-detail-val" style={{color:"var(--th-orange)"}}>+{rcvCurrency(pendingBaleAdd.amt)}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">New Total Balance</span><span className="confirm-detail-val">{rcvCurrency(baleDetailTarget.balance_amount + pendingBaleAdd.amt)}</span></div>
+              {pendingBaleAdd.notes && <div className="confirm-detail-row"><span className="confirm-detail-label">Reason</span><span className="confirm-detail-val">{pendingBaleAdd.notes}</span></div>}
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setPendingBaleAdd(null)}>Cancel</button>
+              <button className="confirm-btn-ok" style={{background:"var(--th-orange)"}} onClick={confirmSubmitBaleAdd} disabled={baleAdding}>Yes, Add Vale</button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Toast */}
       {/* Void confirmation */}
