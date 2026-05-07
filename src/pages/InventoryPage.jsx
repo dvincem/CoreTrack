@@ -754,6 +754,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   const [loading, setLoading] = React.useState(false);
   const [toast, setToast] = React.useState(null);
   const [pendingOrder, setPendingOrder] = React.useState(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   const ITEMS_PER_PAGE = 10;
   const ORDER_MODAL_ITEMS_PER_PAGE = 10;
@@ -769,7 +770,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     perPage: ITEMS_PER_PAGE,
     enabled: !!shopId,
     extraParams: React.useMemo(() => ({ groupByDot: "true" }), []),
-    deps: [shopId],
+    deps: [shopId, refreshKey],
   });
   const filteredItems = items;
 
@@ -802,7 +803,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   React.useEffect(() => {
     fetchSuppliers();
     fetchKpi();
-  }, [shopId]);
+  }, [shopId, refreshKey]);
 
   // --- Persistence Logic ---
   React.useEffect(() => {
@@ -1158,6 +1159,8 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
         title: results.length > 1 ? `${results.length} Orders Created` : "Order Created",
         sub: results.length > 1 ? `Split across ${results.length} suppliers` : `Total: ${invCurrency(results[0].total_amount)}`,
       });
+      setRefreshKey(prev => prev + 1);
+      refetchItems();
     } catch (e) {
       setError(e.message);
     }

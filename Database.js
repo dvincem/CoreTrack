@@ -144,6 +144,23 @@ db.run(`CREATE TABLE IF NOT EXISTS brand_assets (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`, () => {});
 
+// Add pos_drafts table if it doesn't exist
+db.run(`CREATE TABLE IF NOT EXISTS pos_drafts (
+  draft_id TEXT PRIMARY KEY,
+  shop_id TEXT NOT NULL,
+  draft_name TEXT,
+  cart_data TEXT NOT NULL,
+  customer_id TEXT,
+  sale_notes TEXT,
+  invoice_number TEXT,
+  tireman_ids TEXT,
+  payment_splits TEXT,
+  split_mode BOOLEAN DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_by TEXT,
+  FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
+)`, () => {});
+
 // ─── Schema ───────────────────────────────────────────────────────────────────
 function initializeDatabase() {
   return new Promise((resolve, reject) => {

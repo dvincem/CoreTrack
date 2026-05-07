@@ -398,6 +398,97 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const cartColRef = React.useRef(null);
   const isResettingPersistence = React.useRef(false);
 
+  // --- Drafts Logic ---
+  const [drafts, setDrafts] = React.useState([]);
+  const [activeDraftId, setActiveDraftId] = React.useState(null);
+  const [showDraftsDrop, setShowDraftsDrop] = React.useState(false);
+
+  const fetchDrafts = async () => {
+    if (!shopId) return;
+    try {
+      const r = await apiFetch(`${API_URL}/pos-drafts/${shopId}`);
+      const d = await r.json();
+      if (Array.isArray(d)) setDrafts(d);
+    } catch (e) { console.error("Failed to fetch drafts", e); }
+  };
+
+  const saveAsDraft = async () => {
+    if (cart.length === 0) {
+      setError("Cannot save empty cart as draft");
+      return;
+    }
+    setLoading(true);
+    try {
+      const firstItem = cart[0].name || "Order";
+      const draftName = cart.length > 1 ? `${firstItem} +${cart.length - 1} items` : firstItem;
+
+      const r = await apiFetch(`${API_URL}/pos-drafts/${shopId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_id: activeDraftId,
+          draft_name: draftName,
+          cart_data: cart,
+          customer_id: selectedCustomer,
+          sale_notes: saleNotes,
+          invoice_number: invoiceNumber,
+          tireman_ids: selectedTiremen,
+          payment_splits: paymentSplits,
+          split_mode: splitMode,
+          created_by: authUser || "POS"
+        })
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Failed to save draft");
+
+      setActiveDraftId(res.draft_id);
+      fetchDrafts();
+      // Show success briefly via error state or just a console log for now
+      // Actually, let's use the error state for status messages briefly
+      setError("Draft saved successfully");
+      setTimeout(() => setError(""), 3000);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  const loadDraft = (d) => {
+    if (cart.length > 0 && !window.confirm("Overwrite current cart with this draft?")) return;
+    try {
+      const data = JSON.parse(d.cart_data);
+      setCart(data);
+      setSelectedCustomer(d.customer_id || "");
+      setCustSearch(customers.find(c => c.customer_id === d.customer_id)?.customer_name || "");
+      setSaleNotes(d.sale_notes || "");
+      setInvoiceNumber(d.invoice_number || "");
+      setSelectedTiremen(d.tireman_ids ? JSON.parse(d.tireman_ids) : []);
+      setPaymentSplits(d.payment_splits ? JSON.parse(d.payment_splits) : [{ method: "CASH", amount: "" }]);
+      setSplitMode(!!d.split_mode);
+      setActiveDraftId(d.draft_id);
+      setShowDraftsDrop(false);
+    } catch (e) {
+      console.error("Failed to parse draft data", e);
+      setError("Corrupted draft data");
+    }
+  };
+
+  const deleteDraft = async (e, draft_id) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this draft?")) return;
+    try {
+      const r = await apiFetch(`${API_URL}/pos-drafts/${shopId}/${draft_id}`, { method: "DELETE" });
+      if (r.ok) {
+        fetchDrafts();
+        if (activeDraftId === draft_id) setActiveDraftId(null);
+      }
+    } catch (e) { console.error("Failed to delete draft", e); }
+  };
+
+  React.useEffect(() => {
+    fetchDrafts();
+  }, [shopId]);
+
   // --- Persistence Logic ---
   React.useEffect(() => {
     if (!shopId) return;
@@ -681,6 +772,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     localStorage.removeItem(`th-pos-splitmode-${shopId}`);
     setCart([]);
     setSelectedCustomer("");
+    setCustSearch("");
     setSaleNotes("");
     setInvoiceNumber("");
     setSelectedTiremen([]);
@@ -690,6 +782,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     setCommissionOverride(null);
     setCreditDueDate("");
     setCreditDownPayment("");
+    setActiveDraftId(null);
     setTimeout(() => { isResettingPersistence.current = false; }, 100);
   }
 
@@ -819,6 +912,10 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       if (!r.ok) throw new Error(res.error || "Sale failed");
 
       const saleTotal = total;
+      if (activeDraftId) {
+        // Automatically delete the draft once converted to a real sale
+        apiFetch(`${API_URL}/pos-drafts/${shopId}/${activeDraftId}`, { method: "DELETE" }).then(() => fetchDrafts());
+      }
       clearCart();
       setToast({ amount: saleTotal });
       onRefresh();
@@ -1313,24 +1410,54 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           {/* Cart header */}
           <div className="pos-cart-header" style={{ padding: "0.4rem 1rem" }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
-              <div className="pos-cart-title" style={{ fontSize: '1.1rem' }}>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
+              <div style={{ position: 'relative' }}>
+                <div
+                  className={`pos-cart-title${showDraftsDrop ? ' active' : ''}`}
+                  style={{ fontSize: '1.1rem', cursor: drafts.length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={() => drafts.length > 0 && setShowDraftsDrop(!showDraftsDrop)}
                 >
-                  <circle cx="9" cy="21" r="1" />
-                  <circle cx="20" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                </svg>
-                Cart
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <circle cx="9" cy="21" r="1" />
+                      <circle cx="20" cy="21" r="1" />
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                    </svg>
+                    {drafts.length > 0 && (
+                      <span className="pos-cart-badge">{drafts.length}</span>
+                    )}
+                  </div>
+                  Cart
+                </div>
+
+                {showDraftsDrop && drafts.length > 0 && (
+                  <div className="pos-drafts-dropdown">
+                    <div className="pos-drafts-header">Saved Drafts</div>
+                    <div className="pos-drafts-list">
+                      {drafts.map(d => (
+                        <div key={d.draft_id} className={`pos-draft-item${activeDraftId === d.draft_id ? ' active' : ''}`} onClick={() => loadDraft(d)}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="pos-draft-name">{d.draft_name}</div>
+                            <div className="pos-draft-meta">
+                              {new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {JSON.parse(d.cart_data).length} items
+                            </div>
+                          </div>
+                          <button className="pos-draft-delete" onClick={(e) => deleteDraft(e, d.draft_id)} title="Delete Draft">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Handled By - Moved to Header */}
-              <div style={{ position: 'relative', flex: '0 1 180px' }}>
+              <div style={{ position: 'relative', flex: '0 1 130px', marginRight: ".5rem" }}>
                 <select
                   value={selectedHandlerId}
                   onChange={e => setSelectedHandlerId(e.target.value)}
@@ -1369,9 +1496,32 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             </div>
 
             {cart.length > 0 && (
-              <button className="pos-cart-clear" onClick={() => setShowClearCartModal(true)}>
-                Clear
-              </button>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  className="pos-cart-draft-btn"
+                  onClick={saveAsDraft}
+                  title="Save this set for later"
+                  style={{
+                    background: "rgba(168, 85, 247, 0.12)",
+                    border: "1px solid rgba(168, 85, 247, 0.3)",
+                    color: "var(--th-violet)",
+                    padding: "0.2rem 0.6rem",
+                    borderRadius: 6,
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.03em",
+                    cursor: "pointer",
+                    transition: "all 0.15s"
+                  }}
+                >
+                  Save Draft
+                </button>
+                <button className="pos-cart-clear" onClick={() => setShowClearCartModal(true)}>
+                  Clear
+                </button>
+              </div>
             )}
           </div>
 

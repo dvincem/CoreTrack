@@ -263,14 +263,25 @@ function RecentSales({ shopId, loading }) {
 
 function TopItems({ shopId }) {
   const [items, setItems] = React.useState([])
+  const [categories, setCategories] = React.useState([])
+  const [selectedCategory, setSelectedCategory] = React.useState('ALL')
 
   React.useEffect(() => {
     if (!shopId) return
-    apiFetch(`${API_URL}/dashboard-top-items/${shopId}`)
+    apiFetch(`${API_URL}/dashboard-categories/${shopId}`)
+      .then(r => r.json())
+      .then(d => setCategories(Array.isArray(d) ? d : []))
+      .catch(() => { })
+  }, [shopId])
+
+  React.useEffect(() => {
+    if (!shopId) return
+    apiFetch(`${API_URL}/dashboard-top-items/${shopId}?category=${selectedCategory}`)
       .then(r => r.json())
       .then(d => setItems(Array.isArray(d) ? d : []))
       .catch(() => { })
-  }, [shopId])
+  }, [shopId, selectedCategory])
+
 
   const maxQty = Math.max(...items.map(i => i.total_qty), 1)
 
@@ -281,7 +292,20 @@ function TopItems({ shopId }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 20 18 10" /><polyline points="12 20 12 4" /><polyline points="6 20 6 14" /></svg>
           Top Products
         </div>
-        <span className="th-panel-badge">This Month</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <select 
+            className="th-top-cat-select"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
+            <option value="ALL">ALL CATEGORIES</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          <span className="th-panel-badge">This Month</span>
+        </div>
+
       </div>
       {items.length === 0 ? (
         <div style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem', padding: '0.5rem 0' }}>No sales data yet.</div>

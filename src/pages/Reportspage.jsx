@@ -227,6 +227,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [showCashBreakdown, setShowCashBreakdown] = useState(false)
+  const [showSalesBreakdown, setShowSalesBreakdown] = useState(false)
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState([])
 
@@ -285,7 +286,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   )
   if (!data) return null
 
-  const { kpis, paymentSummary, cashPool = {}, transactions } = data
+  const { kpis, paymentSummary, cashPool = {}, transactions, salesBreakdown = [] } = data
 
   const filteredTxns = transactions.filter(t => {
     const q = search.toLowerCase()
@@ -366,10 +367,44 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
       {/* ── KPI rows ── */}
       <div className="th-section-label">Financial Summary</div>
       <div className="th-kpi-grid">
-        <KpiCard label="Gross Sales" value={compactCurrency(kpis.grossSales)} accent="orange" sub={`Profit: ${compactCurrency(kpis.salesProfit)}`} icon={SVG(<><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>)} />
+        <KpiCard
+          label="Gross Sales"
+          value={compactCurrency(kpis.grossSales)}
+          accent="orange"
+          sub={<span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            Profit: {compactCurrency(kpis.salesProfit)}
+            {salesBreakdown.length > 0 && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transition: 'transform 0.2s', transform: showSalesBreakdown ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.5, flexShrink: 0 }}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            )}
+          </span>}
+          icon={SVG(<><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>)}
+          onClick={() => salesBreakdown.length > 0 && setShowSalesBreakdown(v => !v)}
+          style={{ cursor: salesBreakdown.length > 0 ? 'pointer' : 'default', userSelect: 'none' }}
+        />
         <KpiCard label="Gross Services" value={compactCurrency(kpis.grossServices)} accent="violet" sub={`Net: ${compactCurrency(kpis.serviceIncome)}`} icon={SVG(<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>)} />
         <KpiCard label="Net Profit" value={compactCurrency(kpis.netProfit)} accent="emerald" sub="Calculated P&L" icon={SVG(<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>)} />
       </div>
+      {showSalesBreakdown && salesBreakdown.length > 0 && (
+        <div style={{ margin: '-0.25rem 0 0', padding: '0.65rem 0.9rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div style={{ color: 'var(--th-text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', fontSize: '0.65rem' }}>Gross Sales by Category</div>
+          {salesBreakdown.map((row, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--th-text-faint)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                {row.category}
+                <span style={{ color: 'var(--th-text-dim)', fontSize: '0.67rem' }}>× {row.qty} pc{row.qty !== 1 ? 's' : ''}</span>
+              </span>
+              <span style={{ fontWeight: 700, color: 'var(--th-orange)', fontVariantNumeric: 'tabular-nums' }}>{currency(row.total)}</span>
+            </div>
+          ))}
+          <div style={{ borderTop: '1px dashed var(--th-border)', marginTop: '0.15rem', paddingTop: '0.3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: 'var(--th-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>=  Total</span>
+            <span style={{ fontWeight: 900, color: 'var(--th-orange)', fontVariantNumeric: 'tabular-nums' }}>{currency(kpis.grossSales)}</span>
+          </div>
+        </div>
+      )}
 
       <div className="th-section-label">Operational Outflow</div>
       <div className="th-kpi-grid">

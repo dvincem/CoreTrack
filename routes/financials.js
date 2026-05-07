@@ -51,8 +51,8 @@ router.get("/dashboard-recent/:shop_id", (req, res) => {
 
 router.get("/dashboard-top-items/:shop_id", (req, res) => {
   const { shop_id } = req.params;
-  db.all(
-    `SELECT si.item_name, si.brand, si.category,
+  const { category } = req.query;
+  let sql = `SELECT si.item_name, si.brand, si.category,
        SUM(si.quantity) as total_qty,
        SUM(si.line_total) as total_revenue,
        COUNT(DISTINCT si.sale_id) as sale_count
@@ -60,12 +60,36 @@ router.get("/dashboard-top-items/:shop_id", (req, res) => {
      JOIN sale_header sh ON si.sale_id = sh.sale_id
      WHERE sh.shop_id = ? AND si.sale_type = 'PRODUCT'
        AND strftime('%Y-%m', sh.sale_datetime) = strftime('%Y-%m', 'now')
-     GROUP BY si.item_or_service_id
-     ORDER BY total_qty DESC LIMIT 5`,
+       AND sh.is_void = 0`;
+  
+  const params = [shop_id];
+  if (category && category !== 'ALL') {
+    sql += ` AND si.category = ?`;
+    params.push(category);
+  }
+  
+  sql += ` GROUP BY si.item_or_service_id
+     ORDER BY total_qty DESC LIMIT 5`;
+
+  db.all(sql, params, (err, rows) => res.json(err ? { error: err.message } : rows));
+});
+
+router.get("/dashboard-categories/:shop_id", (req, res) => {
+  const { shop_id } = req.params;
+  db.all(
+    `SELECT DISTINCT si.category
+     FROM sale_items si
+     JOIN sale_header sh ON si.sale_id = sh.sale_id
+     WHERE sh.shop_id = ? AND si.sale_type = 'PRODUCT'
+       AND strftime('%Y-%m', sh.sale_datetime) = strftime('%Y-%m', 'now')
+       AND sh.is_void = 0
+       AND si.category IS NOT NULL AND si.category != ''
+     ORDER BY si.category ASC`,
     [shop_id],
-    (err, rows) => res.json(err ? { error: err.message } : rows)
+    (err, rows) => res.json(err ? { error: err.message } : (rows || []).map(r => r.category))
   );
 });
+
 
 router.get("/receivables-kpi/:shop_id", (req, res) => {
   const { shop_id } = req.params;

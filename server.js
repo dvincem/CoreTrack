@@ -49,6 +49,7 @@ const credentialsRouter  = require("./routes/credentials");
 const reportsRouter      = require("./routes/reports");
 const profileRouter      = require("./routes/profile");
 const brandsRouter       = require("./routes/brands");
+const posDraftsRouter    = require("./routes/pos_drafts");
 
 app.use("/api", shopsRouter);
 app.use("/api", itemsRouter);
@@ -70,6 +71,7 @@ app.use("/api", credentialsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api", profileRouter);
 app.use("/api", brandsRouter);
+app.use("/api/pos-drafts", posDraftsRouter);
 const searchRouter = require("./routes/search");
 app.use("/api", searchRouter);
 

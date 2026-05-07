@@ -10,9 +10,9 @@ const JWT_SECRET = process.env.JWT_SECRET || "tirehub-dev-secret-change-in-produ
  * can read req.user.username if needed.
  */
 const SKIP_AUTH = ["/api/auth/login"];
-
-function authMiddleware(req, res, next) {
-  if (SKIP_AUTH.includes(req.path)) return next();
+ 
+ function authMiddleware(req, res, next) {
+   if (SKIP_AUTH.includes(req.path)) return next();
 
   const header = req.headers["authorization"] || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;

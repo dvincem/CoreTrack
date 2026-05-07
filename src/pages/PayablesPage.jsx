@@ -181,6 +181,7 @@ function PayablesPage({ shopId }) {
     total: payTotal,
     search: searchQuery, setSearch: setSearchQuery,
     loading,
+    refetch,
   } = usePaginatedResource({
     url: `${API_URL}/payables/${shopId}`,
     perPage: PAY_PAGE_SIZE,
@@ -221,6 +222,7 @@ function PayablesPage({ shopId }) {
   const [histPayments, setHistPayments] = React.useState([]);
   const [histLoading, setHistLoading] = React.useState(false);
   const [histRefresh, setHistRefresh] = React.useState(0);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   // View toggle
   const [viewMode, setViewMode] = React.useState("list"); // "list" | "calendar"
@@ -264,13 +266,16 @@ function PayablesPage({ shopId }) {
     return () => obs.disconnect();
   }, []);
 
-  const loadPayables = () => { /* hook owns data — kept as refetch stub if needed */ };
+  const loadPayables = () => {
+    refetch();
+    setRefreshKey(prev => prev + 1);
+  };
 
   React.useEffect(() => {
     apiFetch(`${API_URL}/suppliers?shop_id=${shopId}`).then(r => r.json()).then(d => setSuppliers(Array.isArray(d) ? d : [])).catch(() => { });
     // KPI counts
     apiFetch(`${API_URL}/payables-kpi/${shopId}`).then(r => r.json()).then(d => { if (!d.error) setKpi(d); }).catch(() => { });
-  }, [shopId]);
+  }, [shopId, refreshKey]);
 
   // Calendar: bounded fetch for visible month grid (including overflow days)
   React.useEffect(() => {
@@ -289,7 +294,7 @@ function PayablesPage({ shopId }) {
 
     apiFetch(`${API_URL}/payables/${shopId}?startDate=${start}&endDate=${end}`)
       .then(r => r.json()).then(d => setCalPayables(Array.isArray(d) ? d : [])).catch(() => { });
-  }, [shopId, calMonth]);
+  }, [shopId, calMonth, refreshKey]);
 
   /* Suggestions from current page */
   React.useEffect(() => {

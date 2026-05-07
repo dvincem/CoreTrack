@@ -43,6 +43,7 @@ function ReceivablesPage({ shopId }) {
     total: rcvTotal,
     search: searchQuery, setSearch: setSearchQuery,
     loading,
+    refetch,
   } = usePaginatedResource({
     url: `${API_URL}/receivables/${shopId}`,
     perPage: RCV_PAGE_SIZE,
@@ -105,6 +106,7 @@ function ReceivablesPage({ shopId }) {
   const [pendingBalePay, setPendingBalePay] = React.useState(null);
   const [voidTarget, setVoidTarget] = React.useState(null);
   const [voidReason, setVoidReason] = React.useState("");
+  const [refreshKey, setRefreshKey] = React.useState(0);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
 
   React.useEffect(() => { const obs = new MutationObserver(() => forceUpdate());
@@ -117,7 +119,11 @@ function ReceivablesPage({ shopId }) {
     setTimeout(() => setToast(null), 2800);
   };
 
-  const loadReceivables = () => { /* hook owns — kept for call sites that invoke refetch */ };
+  const loadReceivables = React.useCallback(() => {
+    refetch();
+    loadBales();
+    setRefreshKey(prev => prev + 1);
+  }, [refetch, loadBales]);
 
   const loadBales = React.useCallback(() => {
     setBaleLoading(true);
@@ -135,7 +141,7 @@ function ReceivablesPage({ shopId }) {
     apiFetch(`${API_URL}/receivables-kpi/${shopId}`)
       .then(r => r.json()).then(d => { if (!d.error) setKpi(d); }).catch(() => {});
     loadBales();
-  }, [shopId, loadBales]);
+  }, [shopId, loadBales, refreshKey]);
 
   // Stats from KPI endpoint
   const totalOrig    = kpi?.totalOrig    || 0;

@@ -158,6 +158,22 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       ...formattedManualCash
     ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+    // Gross Sales breakdown by category
+    const salesBreakdown = await dbAll(
+      `SELECT
+        COALESCE(si.category, 'UNCATEGORIZED') AS category,
+        SUM(si.line_total) AS total,
+        SUM(si.quantity)   AS qty
+       FROM sale_items si
+       JOIN sale_header sh ON si.sale_id = sh.sale_id
+       WHERE sh.shop_id = ? AND sh.is_void = 0
+         AND si.sale_type IN ('PRODUCT', 'RECAP')
+         AND sh.business_date = ?
+       GROUP BY COALESCE(si.category, 'UNCATEGORIZED')
+       ORDER BY total DESC`,
+      [shop_id, targetDate]
+    );
+
     res.json({
       date: targetDate,
       kpis: {
@@ -170,6 +186,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         commissions: summary.totalCommissions,
         netProfit: summary.netProfit
       },
+      salesBreakdown,
       paymentSummary: [
         { method: 'CASH', total: summary.cashOnHand },
         { method: 'DIGITAL', total: summary.digitalTotal },

@@ -273,6 +273,39 @@
   padding: 0.1rem 0.5rem;
 }
 
+.th-top-cat-select {
+  background: var(--th-bg-card-alt);
+  border: 1px solid var(--th-border-mid);
+  color: var(--th-text-dim);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  border-radius: 20px;
+  padding: 0.1rem 1.4rem 0.1rem 0.6rem;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+}
+
+.th-top-cat-select:hover {
+  border-color: var(--th-orange);
+  color: var(--th-text-body);
+  background-color: var(--th-bg-hover);
+}
+
+.th-top-cat-select option {
+  background: #0f172a;
+  color: #fff;
+}
+
+
 /* â”€â”€ Layout rows â”€â”€ */
 .th-bottom-row {
   display: grid;
