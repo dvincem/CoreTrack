@@ -43,6 +43,8 @@ const _explicitOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
   : ['http://localhost:3000', 'http://localhost:5173'];
 
+const _allowAll = _explicitOrigins.includes('*');
+
 function isPrivateLanOrigin(origin) {
   if (!origin) return false;
   try {
@@ -61,8 +63,7 @@ function isPrivateLanOrigin(origin) {
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (_explicitOrigins.includes(origin) || isPrivateLanOrigin(origin)) {
+    if (!origin || _allowAll || _explicitOrigins.includes(origin) || isPrivateLanOrigin(origin)) {
       return callback(null, true);
     }
     callback(new Error('CORS: origin not allowed'));
