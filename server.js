@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const path = require("path");
+const fs = require("fs");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -198,20 +199,6 @@ app.listen(PORT, "0.0.0.0", async () => {
   console.log(`${"=".repeat(70)}`);
   console.log(`Local:   http://localhost:${PORT}`);
   console.log(`Database: tire_shop.db`);
-  
-  // Diagnostic: Check dist folder
-  const distPath = path.join(__dirname, "dist");
-  if (fs.existsSync(distPath)) {
-    console.log(`\n📁 Dist folder found at: ${distPath}`);
-    const files = fs.readdirSync(distPath);
-    console.log(`   Contents: ${files.join(", ")}`);
-    if (files.includes("assets")) {
-      const assets = fs.readdirSync(path.join(distPath, "assets"));
-      console.log(`   Assets: ${assets.length} files found.`);
-    }
-  } else {
-    console.log(`\n❌ Dist folder NOT found at: ${distPath}`);
-  }
   
   console.log(`${"=".repeat(70)}\n`);
 });
