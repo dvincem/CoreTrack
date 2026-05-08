@@ -1018,6 +1018,8 @@ function initializeDatabase() {
             END;`,
             triggerErrCallback
           );
+        }
+      );
     });
   });
 }
