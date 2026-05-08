@@ -29,7 +29,7 @@
   justify-content: space-between;
   gap: 0.65rem;
   border-bottom: 1px solid var(--th-border);
-  padding-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
   margin-bottom: 0;
 }
 
@@ -421,7 +421,7 @@
   border: 1px solid rgba(249, 115, 22, 0.3);
   padding: 0.4rem 0.75rem;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Two-table layout */

@@ -253,10 +253,10 @@
   gap: 0.85rem;
 }
 
-.sl-root .sl-header-row {
+.sl-header-row {
   padding: 0;
   gap: 0.35rem;
-  margin: 0;
+  margin-bottom: .5rem;
   align-items: center;
 }
 
@@ -1756,19 +1756,19 @@
 }
 
 .qr-in {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: space-around;
-    gap: .5rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: space-around;
+  gap: .5rem;
 }
 
 @media (max-width: 640px) {
-    .qr-in {
-      display: flex;
-      flex-direction: column;
-      flex-wrap: nowrap;
-      gap: 0.75rem;
+  .qr-in {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.75rem;
   }
 
   .qr-in-width {
@@ -1777,7 +1777,7 @@
   }
 }
 
-.qr-in-width{
+.qr-in-width {
   min-width: 0;
   flex: 1;
 }
@@ -1803,8 +1803,13 @@
   white-space: nowrap;
 }
 
-.qr-lines-hcell.right { text-align: right; }
-.qr-lines-hcell.center { text-align: center; }
+.qr-lines-hcell.right {
+  text-align: right;
+}
+
+.qr-lines-hcell.center {
+  text-align: center;
+}
 
 /* ── Each line item ── */
 .qr-line-card {
@@ -1881,12 +1886,14 @@
   padding: 0.3rem 0.5rem !important;
   height: 34px !important;
   width: 100% !important;
-  min-width: 0; /* Prevent long text from expanding column */
+  min-width: 0;
+  /* Prevent long text from expanding column */
 }
 
 /* ── Input cells (cols 3-6) ── */
 .qr-card-inputs-row {
-  display: contents; /* participates in parent grid */
+  display: contents;
+  /* participates in parent grid */
 }
 
 .qr-card-field {
@@ -1898,7 +1905,8 @@
 }
 
 .qr-card-label {
-  display: none; /* hidden on desktop — header row serves as labels */
+  display: none;
+  /* hidden on desktop — header row serves as labels */
 }
 
 .qr-card-na {
@@ -1969,7 +1977,8 @@
   }
 
   .qr-lines-header {
-    display: none; /* hide desktop header — field labels shown inline */
+    display: none;
+    /* hide desktop header — field labels shown inline */
   }
 
   .qr-line-card {
@@ -2034,7 +2043,8 @@
 
   .qr-card-subtotal-val {
     font-size: 0.9rem;
-    padding-top: 0.3rem; /* align with inputs */
+    padding-top: 0.3rem;
+    /* align with inputs */
   }
 
   /* Don't show delete inside item row on mobile (it's in the item row already) */

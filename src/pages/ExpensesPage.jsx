@@ -212,10 +212,10 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
 
   function hideForm() { setShowExpForm(false) }
 
-  function cancelEdit() { 
-    setForm(BLANK_FORM); 
-    setEditingId(null); 
-    setFormError(''); 
+  function cancelEdit() {
+    setForm(BLANK_FORM);
+    setEditingId(null);
+    setFormError('');
     setShowExpForm(false);
     localStorage.removeItem(`th-exp-draft-${shopId}`);
     localStorage.removeItem(`th-exp-open-${shopId}`);
@@ -507,7 +507,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
       )}
 
       {/* Expenses table */}
-      <div className="exp-section">Expenses List</div>
+      <div className="th-section-label">Expenses List</div>
       <DataTable
         columns={expColumns}
         rows={expenses}

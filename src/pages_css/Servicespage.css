@@ -20,7 +20,7 @@
   flex-wrap: wrap;
   gap: 0.65rem;
   border-bottom: 1px solid var(--th-border);
-  padding-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
 }
 
 .svc-title {

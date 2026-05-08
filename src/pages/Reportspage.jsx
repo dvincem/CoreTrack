@@ -322,8 +322,6 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
     CASH_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
     GCASH_IN: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     GCASH_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
-    GCASH_IN: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
-    GCASH_OUT: 'bg-red-500/10 text-red-500 border-red-500/20',
   }
 
   const txnCols = [
