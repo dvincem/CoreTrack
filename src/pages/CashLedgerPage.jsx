@@ -129,7 +129,8 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
     setLoading(true)
     try {
       const r = await apiFetch(`${API_URL}/cash-flow/${shopId}?startDate=${startDate}&endDate=${endDate}`)
-      setRows((await r.json()) || [])
+      const data = await r.json()
+      setRows(data?.unified || [])
     } catch { setRows([]) }
     setLoading(false)
   }

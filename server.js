@@ -178,35 +178,33 @@ app.get("*", (_req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", async () => {
-  const os = require('os');
-  function getLocalIP() {
-    const interfaces = os.networkInterfaces();
-    for (const devName in interfaces) {
-      const iface = interfaces[devName];
-      for (let i = 0; i < iface.length; i++) {
-        const alias = iface[i];
-        if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
-          return alias.address;
-        }
-      }
-    }
-    return 'localhost';
-  }
-
-  console.log(`\n${"=".repeat(70)}`);
-  console.log(`CoreTrack Server Running`);
-  console.log(`${"=".repeat(70)}`);
-  console.log(`Local:   http://localhost:${PORT}`);
-  console.log(`Database: tire_shop.db`);
-  
-  console.log(`${"=".repeat(70)}\n`);
-});
-
 initializeDatabase()
   .then(() => {
-    console.log("✅ Database structure ready.");
+    console.log("✅ Database structure ready and seeded.");
+    app.listen(PORT, "0.0.0.0", async () => {
+      const os = require('os');
+      function getLocalIP() {
+        const interfaces = os.networkInterfaces();
+        for (const devName in interfaces) {
+          const iface = interfaces[devName];
+          for (let i = 0; i < iface.length; i++) {
+            const alias = iface[i];
+            if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+              return alias.address;
+            }
+          }
+        }
+        return 'localhost';
+      }
+
+      console.log(`\n${"=".repeat(70)}`);
+      console.log(`CoreTrack Server Running`);
+      console.log(`${"=".repeat(70)}`);
+      console.log(`Local:   http://localhost:${PORT}`);
+      console.log(`Database: tire_shop.db`);
+      console.log(`${"=".repeat(70)}\n`);
+    });
   })
   .catch((err) => {
-    console.error("Initialization error:", err);
+    console.error("❌ Initialization error. Server not started:", err);
   });
