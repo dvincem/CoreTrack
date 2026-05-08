@@ -961,6 +961,39 @@ function initializeDatabase() {
           );
         },
       );
+      
+      // Auto-Demo Account Creation (v2.2)
+      // Check if any shop exists. If not, create a default "Demo Shop" and an admin user "admin/password123".
+      db.get("SELECT COUNT(*) as count FROM shop_master", (shopErr, row) => {
+        if (!shopErr && row && row.count === 0) {
+          console.log("🛠️  Initial setup: Creating Demo Shop and Admin User...");
+          const bcrypt = require("bcrypt");
+          const demoShopId = `SHOP-${Date.now()}`;
+          const demoStaffId = `STF-${Date.now()}`;
+          const demoCredId = `CRD-${Date.now()}`;
+          
+          db.serialize(async () => {
+            const pinHash = await bcrypt.hash("password123", 12);
+            
+            db.run(`INSERT INTO shop_master (shop_id, shop_code, shop_name, address) 
+                    VALUES (?, 'DEMO', 'Demo Tire Shop', '123 Demo St, Metro Manila')`, [demoShopId]);
+            
+            db.run(`INSERT INTO staff_master (staff_id, staff_code, full_name, role) 
+                    VALUES (?, 'ADMIN', 'System Administrator', 'ADMIN')`, [demoStaffId]);
+            
+            db.run(`INSERT INTO user_credentials (credential_id, staff_id, username, pin_hash, must_change_pin) 
+                    VALUES (?, ?, 'admin', ?, 0)`, [demoCredId, demoStaffId, pinHash]);
+            
+            db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'SUPERADMIN')`, [demoCredId]);
+            db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'ADMIN')`, [demoCredId]);
+            
+            console.log("✅ Demo account created: admin / password123");
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      });
     });
   });
 }
