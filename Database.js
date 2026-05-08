@@ -962,18 +962,18 @@ function initializeDatabase() {
         },
       );
       
-      // Auto-Demo Account Creation (v2.2)
-      // Check if any shop exists. If not, create a default "Demo Shop" and an admin user "admin/password123".
+      // Auto-Demo Account & Data Seeding (v2.2)
       db.get("SELECT COUNT(*) as count FROM shop_master", (shopErr, row) => {
         if (!shopErr && row && row.count === 0) {
-          console.log("🛠️  Initial setup: Creating Demo Shop and Admin User...");
+          console.log("🛠️  Initial setup: Seeding Demo Data...");
           const bcrypt = require("bcryptjs");
-          const demoShopId = `SHOP-${Date.now()}`;
-          const demoStaffId = `STF-${Date.now()}`;
-          const demoCredId = `CRD-${Date.now()}`;
+          const demoShopId = `SHOP-DEMO-001`;
+          const demoStaffId = `STF-ADMIN-001`;
+          const demoCredId = `CRD-ADMIN-001`;
           
           bcrypt.hash("password123", 12).then(pinHash => {
             db.serialize(() => {
+              // 1. Core Account
               db.run(`INSERT INTO shop_master (shop_id, shop_code, shop_name, address) 
                       VALUES (?, 'DEMO', 'Demo Tire Shop', '123 Demo St, Metro Manila')`, [demoShopId]);
               
@@ -986,6 +986,28 @@ function initializeDatabase() {
               db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'SUPERADMIN')`, [demoCredId]);
               db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'ADMIN')`, [demoCredId]);
               
+              // 2. Sample Inventory
+              const items = [
+                ['ITM-001', 'SKU-BR-195', 'Bridgestone Turanza 195/65R15', 'Tires', 'Bridgestone', 'Turanza', '195/65R15', 15, 3500, 4500],
+                ['ITM-002', 'SKU-MI-205', 'Michelin Primacy 205/55R16', 'Tires', 'Michelin', 'Primacy', '205/55R16', 16, 4200, 5800],
+                ['ITM-003', 'SKU-SVC-ALIGN', 'Wheel Alignment Service', 'Services', null, null, null, null, 0, 800]
+              ];
+              
+              const itemStmt = db.prepare(`INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price) VALUES (?,?,?,?,?,?,?,?,?,?)`);
+              const stockStmt = db.prepare(`INSERT INTO current_stock (shop_id, item_id, current_quantity) VALUES (?,?,?)`);
+              
+              items.forEach(item => {
+                itemStmt.run(item);
+                if (item[3] !== 'Services') stockStmt.run([demoShopId, item[0], 20]);
+              });
+              
+              itemStmt.finalize();
+              stockStmt.finalize();
+              
+              // 3. Sample Customer
+              db.run(`INSERT INTO customer_master (customer_id, shop_id, customer_code, customer_name, contact_number) 
+                      VALUES ('CUST-001', ?, 'C-001', 'John Demo', '09171234567')`, [demoShopId]);
+
               console.log("✅ Demo account created: admin / password123");
               resolve();
             });
