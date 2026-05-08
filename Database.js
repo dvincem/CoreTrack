@@ -967,7 +967,7 @@ function initializeDatabase() {
       db.get("SELECT COUNT(*) as count FROM shop_master", (shopErr, row) => {
         if (!shopErr && row && row.count === 0) {
           console.log("🛠️  Initial setup: Creating Demo Shop and Admin User...");
-          const bcrypt = require("bcrypt");
+          const bcrypt = require("bcryptjs");
           const demoShopId = `SHOP-${Date.now()}`;
           const demoStaffId = `STF-${Date.now()}`;
           const demoCredId = `CRD-${Date.now()}`;
