@@ -3,17 +3,20 @@ const router  = express.Router()
 const bcrypt  = require('bcrypt')
 const { db }  = require('../Database')
 
-const SUPERADMIN_USERNAME = process.env.TH_SUPERADMIN_USERNAME || "superadmin";
-const SUPERADMIN_PASSWORD = process.env.TH_SUPERADMIN_PASSWORD || "th-super-2025!";
+const { getDynamicSuperadminPassword } = require('../lib/security');
+const SUPERADMIN_USERNAME = process.env.TH_SUPERADMIN_USERNAME;
 
-// GET /api/superadmin-info — owner-level only (defined early, function body uses hoisted helpers)
+// GET /api/superadmin-info — owner-level only
 router.get('/superadmin-info', async (req, res) => {
   const callerPower = await getCallerPower(req);
   if (callerPower < 80 && !req.user?.is_superadmin) return res.status(403).json({ error: 'Forbidden' });
-  res.json({ username: SUPERADMIN_USERNAME, password: SUPERADMIN_PASSWORD });
+  res.json({ 
+    username: SUPERADMIN_USERNAME, 
+    password: getDynamicSuperadminPassword() // Rotating 30-min password
+  });
 });
 
-const SALT_ROUNDS = 10
+const SALT_ROUNDS = 12
 
 function dbGet(sql, p = []) { return new Promise((r, j) => db.get(sql, p, (e, row) => e ? j(e) : r(row))) }
 function dbAll(sql, p = []) { return new Promise((r, j) => db.all(sql, p, (e, rows) => e ? j(e) : r(rows || []))) }
@@ -248,7 +251,7 @@ router.post('/auth/change-credentials', async (req, res) => {
   const { username, current_pin, new_username, new_pin } = req.body
   if (!username || !current_pin) return res.status(400).json({ error: 'username and current_pin required' })
   if (!new_username && !new_pin) return res.status(400).json({ error: 'Provide new_username or new_pin' })
-  if (new_pin && !/^\d{4,8}$/.test(new_pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' })
+  if (new_pin && (new_pin.length < 4 || new_pin.length > 32)) return res.status(400).json({ error: 'PIN/Password must be 4–32 characters' })
   if (new_username && !/^[a-z0-9._]{3,30}$/.test(new_username)) return res.status(400).json({ error: 'Username must be 3–30 lowercase alphanumeric characters, dots, or underscores' })
   try {
     const cred = await dbGet('SELECT * FROM user_credentials WHERE username = ? AND is_active = 1', [username])
@@ -281,7 +284,7 @@ router.post('/auth/change-credentials', async (req, res) => {
 router.post('/auth/change-pin', async (req, res) => {
   const { username, current_pin, new_pin } = req.body
   if (!username || !current_pin || !new_pin) return res.status(400).json({ error: 'username, current_pin, new_pin required' })
-  if (!/^\d{4,8}$/.test(new_pin)) return res.status(400).json({ error: 'PIN must be 4–8 digits' })
+  if (!new_pin || new_pin.length < 4 || new_pin.length > 32) return res.status(400).json({ error: 'PIN/Password must be 4–32 characters' })
   try {
     const cred = await dbGet('SELECT * FROM user_credentials WHERE username = ? AND is_active = 1', [username])
     if (!cred) return res.status(404).json({ error: 'Account not found' })

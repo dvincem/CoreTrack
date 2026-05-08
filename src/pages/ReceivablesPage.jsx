@@ -119,12 +119,6 @@ function ReceivablesPage({ shopId }) {
     setTimeout(() => setToast(null), 2800);
   };
 
-  const loadReceivables = React.useCallback(() => {
-    refetch();
-    loadBales();
-    setRefreshKey(prev => prev + 1);
-  }, [refetch, loadBales]);
-
   const loadBales = React.useCallback(() => {
     setBaleLoading(true);
     apiFetch(`${API_URL}/bale/${shopId}?status=ALL`)
@@ -132,6 +126,12 @@ function ReceivablesPage({ shopId }) {
       .then(d => { setBales(Array.isArray(d) ? d : []); setBaleLoading(false); })
       .catch(() => { setBales([]); setBaleLoading(false); });
   }, [shopId]);
+
+  const loadReceivables = React.useCallback(() => {
+    refetch();
+    loadBales();
+    setRefreshKey(prev => prev + 1);
+  }, [refetch, loadBales]);
 
   React.useEffect(() => {
     apiFetch(`${API_URL}/customers/${shopId}`)

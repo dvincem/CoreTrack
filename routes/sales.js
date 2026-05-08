@@ -228,9 +228,12 @@ router.post("/sales/complete", async (req, res) => {
                 recordTiremanCommission(shop_id, tireman_ids, tireman_commission_total, sale_id, created_by);
                 recordBalancingLabor(shop_id, tireman_ids, tireman_balancing_total, sale_id, created_by);
                 recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE'), created_by);
-                if (payment_method === 'CREDIT') {
+                const splits = payment_splits || [];
+                const creditSplit = splits.find(s => s.method === 'CREDIT');
+                if (creditSplit || payment_method === 'CREDIT') {
+                  const creditAmt = creditSplit ? creditSplit.amount : total_amount;
                   const desc = saleItems.map(i => i.item_name).slice(0, 3).join(', ');
-                  recordCreditReceivable(shop_id, customer_id, sale_id, total_amount, credit_down_payment, credit_due_date, desc, created_by)
+                  recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by)
                     .then(() => res.json({ sale_id, total_amount, item_count: saleItems.length, status: "success", message: "Sale completed successfully" }))
                     .catch((rcvErr) => {
                       console.error('receivable insert error:', rcvErr.message);

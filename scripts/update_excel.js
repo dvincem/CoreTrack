@@ -57,12 +57,15 @@ function dbAll(sql) {
 }
 
 async function main() {
-  let wb;
+  let wb = XLSX.utils.book_new();
   if (fs.existsSync(excelPath)) {
-    wb = XLSX.readFile(excelPath);
-    console.log("Loaded existing workbook:", excelPath);
+    try {
+      wb = XLSX.readFile(excelPath);
+      console.log("Loaded existing workbook:", excelPath);
+    } catch {
+      console.log("Could not read existing workbook, creating fresh");
+    }
   } else {
-    wb = XLSX.utils.book_new();
     console.log("Creating new workbook");
   }
 
@@ -76,16 +79,11 @@ async function main() {
     }
 
     const sheetName = table.toUpperCase();
-    // Remove old sheet
     const idx = wb.SheetNames.indexOf(sheetName);
-    if (idx !== -1) wb.SheetNames.splice(idx, 1);
-    delete wb.Sheets[sheetName];
-
-    const ws = rows.length > 0
-      ? XLSX.utils.json_to_sheet(rows)
-      : XLSX.utils.aoa_to_sheet([]);
-
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    if (idx !== -1) { wb.SheetNames.splice(idx, 1); delete wb.Sheets[sheetName]; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    wb.Sheets[sheetName] = ws;
+    wb.SheetNames.push(sheetName);
     console.log(`  ✓ ${sheetName} — ${rows.length} rows`);
   }
 

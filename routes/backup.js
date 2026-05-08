@@ -6,6 +6,32 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 
+// ── Google Cloud Storage (optional off-site backup) ────────────────────────
+const GCS_BUCKET  = process.env.GCS_BUCKET_NAME;
+const GCS_KEY_FILE = process.env.GCS_KEY_FILE;
+let _gcsStorage = null;
+if (GCS_BUCKET && GCS_KEY_FILE) {
+  try {
+    const { Storage } = require('@google-cloud/storage');
+    _gcsStorage = new Storage({ keyFilename: GCS_KEY_FILE });
+    console.log('[Backup] GCS off-site backup enabled — bucket:', GCS_BUCKET);
+  } catch (e) {
+    console.warn('[Backup] Failed to init @google-cloud/storage:', e.message);
+  }
+}
+
+async function uploadToGCS(filePath) {
+  if (!_gcsStorage || !GCS_BUCKET) return;
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const dest = `backups/CoreTrack_${ts}.xlsx`;
+  try {
+    await _gcsStorage.bucket(GCS_BUCKET).upload(filePath, { destination: dest });
+    console.log(`[Backup] Uploaded to GCS: gs://${GCS_BUCKET}/${dest}`);
+  } catch (e) {
+    console.error('[Backup] GCS upload failed:', e.message);
+  }
+}
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 // Tables to export, in dependency order (parents before children)
@@ -81,37 +107,28 @@ function sanitizeRows(rows) {
 async function runBackupToFile(targetPath = null) {
   const excelPath = targetPath || path.join(__dirname, "..", "backup.xlsx");
 
-  let wb;
+  let wb = XLSX.utils.book_new();
   if (fs.existsSync(excelPath)) {
-    try {
-      wb = XLSX.readFile(excelPath);
-    } catch (e) {
-      wb = XLSX.utils.book_new();
-    }
-  } else {
-    wb = XLSX.utils.book_new();
+    try { wb = XLSX.readFile(excelPath); } catch { /* start fresh on corrupt file */ }
   }
 
   for (const table of EXPORT_TABLES) {
     let rows;
     try {
       rows = await dbAll(`SELECT * FROM ${table}`);
-    } catch (e) {
+    } catch {
       continue;
     }
     const sheetName = table.toUpperCase();
     const idx = wb.SheetNames.indexOf(sheetName);
-    if (idx !== -1) wb.SheetNames.splice(idx, 1);
-    delete wb.Sheets[sheetName];
-
-    const safeRows = sanitizeRows(rows);
-    const ws = safeRows.length > 0
-      ? XLSX.utils.json_to_sheet(safeRows)
-      : XLSX.utils.aoa_to_sheet([]);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    if (idx !== -1) { wb.SheetNames.splice(idx, 1); delete wb.Sheets[sheetName]; }
+    const ws = XLSX.utils.json_to_sheet(sanitizeRows(rows));
+    wb.Sheets[sheetName] = ws;
+    wb.SheetNames.push(sheetName);
   }
 
   XLSX.writeFile(wb, excelPath);
+  uploadToGCS(excelPath).catch(() => {}); // fire-and-forget; errors logged inside
   return { ok: true, tables: EXPORT_TABLES.length };
 }
 
@@ -141,8 +158,7 @@ router.get("/backup/download", async (req, res) => {
     for (const table of EXPORT_TABLES) {
       let rows;
       try { rows = await dbAll(`SELECT * FROM ${table}`); } catch { continue; }
-      const safeRows = sanitizeRows(rows);
-      const ws = safeRows.length > 0 ? XLSX.utils.json_to_sheet(safeRows) : XLSX.utils.aoa_to_sheet([[]]);
+      const ws = XLSX.utils.json_to_sheet(sanitizeRows(rows));
       XLSX.utils.book_append_sheet(wb, ws, table.toUpperCase());
     }
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });

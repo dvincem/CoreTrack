@@ -115,9 +115,8 @@ function ManageRolesModal({ staff, callerPower, onClose, onSaved }) {
 /* ── Superadmin Info Card ── */
 function SuperadminCard() {
   const [info, setInfo] = React.useState(null)
-  const [visible, setVisible] = React.useState(false)
-  const [copied, setCopied] = React.useState(false)
   const [userCopied, setUserCopied] = React.useState(false)
+  const [passCopied, setPassCopied] = React.useState(false)
 
   React.useEffect(() => {
     const token = localStorage.getItem('th-token')
@@ -166,38 +165,31 @@ function SuperadminCard() {
             </button>
             {userCopied && <span style={{ fontSize: '0.6rem', color: 'var(--th-sky)', fontWeight: 700, animation: 'cpIn 0.2s' }}>COPIED!</span>}
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize:'0.72rem', color:'var(--th-text-faint)' }}>Password: </span>
-            <code style={{ fontSize:'0.88rem', color:'var(--th-text-primary)', letterSpacing: visible ? 0 : '0.15em' }}>
-              {visible ? info.password : '••••••••••'}
-            </code>
-            <button onClick={() => setVisible(v => !v)}
-              style={{ background:'none', border:'none', cursor:'pointer', color:'var(--th-text-faint)', fontSize:'0.75rem', padding:'0 0.25rem' }}>
-              {visible ? 'hide' : 'show'}
+            <code style={{ fontSize:'0.88rem', color:'var(--th-text-primary)', letterSpacing:'0.15em' }}>••••••••••••</code>
+            <button 
+              title="Copy Rotating Password (Valid for 30 mins)"
+              onClick={() => {
+                copyToClipboard(info.password)
+                setPassCopied(true)
+                setTimeout(() => setPassCopied(false), 2000)
+              }}
+              style={{
+                background: 'none', border: 'none', color: 'var(--th-text-faint)',
+                cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center',
+                transition: 'color 0.15s', lineHeight: 1
+              }}
+              onMouseOver={e => e.currentTarget.style.color = 'var(--th-orange)'}
+              onMouseOut={e => e.currentTarget.style.color = 'var(--th-text-faint)'}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-              <button 
-                title="Copy Password"
-                onClick={() => {
-                  copyToClipboard(info.password)
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 2000)
-                }}
-                style={{
-                  background: 'none', border: 'none', color: 'var(--th-text-faint)',
-                  cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center',
-                  transition: 'color 0.15s', lineHeight: 1
-                }}
-                onMouseOver={e => e.currentTarget.style.color = 'var(--th-orange)'}
-                onMouseOut={e => e.currentTarget.style.color = 'var(--th-text-faint)'}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-              </button>
-              {copied && <span style={{ fontSize: '0.65rem', color: 'var(--th-orange)', fontWeight: 700, animation: 'cpIn 0.2s' }}>COPIED!</span>}
-            </div>
+            {passCopied && <span style={{ fontSize: '0.6rem', color: 'var(--th-orange)', fontWeight: 700, animation: 'cpIn 0.2s' }}>COPIED!</span>}
           </div>
         </div>
       </div>

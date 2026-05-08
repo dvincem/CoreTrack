@@ -4,6 +4,7 @@ import { API_URL, apiFetch } from "../lib/config";
 import Pagination from '../components/Pagination'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
+import DataTable from '../components/DataTable'
 
 /* ─── CSS ──────────────────────────────────────────────────────────────────── */
 ;
@@ -140,6 +141,13 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
   const [pendingCustReturn, setPendingCustReturn] = useState(null);
   const [pendingSuppReturn, setPendingSuppReturn] = useState(null);
 
+  /* ── Legacy stock return (no PO) ────────────────────────────────── */
+  const [legacyMode, setLegacyMode] = useState(false);
+  const [masterQuery, setMasterQuery] = useState("");
+  const [masterResults, setMasterResults] = useState([]);
+  const [masterSearching, setMasterSearching] = useState(false);
+  const [selectedMasterItem, setSelectedMasterItem] = useState(null);
+
   /* ── Load history on tab change ─────────────────────────────────── */
   const loadHistory = useCallback(() => {
     setHistLoading(true);
@@ -246,13 +254,13 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
       original_sale_id: selectedSale.sale_id,
     }));
     setPendingCustReturn({
-      items, reason: custReason, notes: custNotes, saleName: selectedSale.sale_id,
+      items, reason: custReason, notes: custNotes, saleName: selectedSale?.sale_id,
       return_scenario: returnScenario, refund_method: refundMethod,
       // For DEFECTIVE_REPLACE_NOW the replacement is the same item from stock (1:1 swap)
       replacement_item_id: returnScenario === "DEFECTIVE_REPLACE_NOW" ? toReturn[0]?.item.item_id : selectedReplItem?.item_id,
       replacement_qty: toReturn.reduce((s, c) => s + parseFloat(c.qty), 0),
       warranty_ref: warrantyRef, warranty_sent_at: warrantySentAt,
-      customer_name: selectedSale.customer_name,
+      customer_name: selectedSale?.customer_name,
     });
   };
 
@@ -398,7 +406,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
 
   const selectOrder = (order) => {
     setSelectedOrder(order);
-    setSuppSuggestions([]); setShowSuppSugs(false);
+    setLegacyMode(false);
     setSuppQuery(order.order_id);
     setSelectedOrderItem(null);
     setSuppError("");
@@ -410,6 +418,37 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
       .catch(() => setOrderItemsLoading(false));
   };
 
+  /* ── Master item search (legacy stock) ────────────────────────── */
+  useEffect(() => {
+    if (!masterQuery.trim() || !legacyMode) { setMasterResults([]); return; }
+    const t = setTimeout(() => {
+      setMasterSearching(true);
+      apiFetch(`${API_URL}/returns/${shopId}/stock-search?q=${encodeURIComponent(masterQuery)}`)
+        .then(r => r.json())
+        .then(d => { setMasterResults(Array.isArray(d) ? d : []); setMasterSearching(false); })
+        .catch(() => setMasterSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [masterQuery, shopId, legacyMode]);
+
+  const selectMasterItem = (item) => {
+    setSelectedMasterItem(item);
+    setMasterQuery(item.item_name || item.sku);
+    setMasterResults([]);
+    setSuppQty(1);
+    setSuppError("");
+    // Map master item to selectedOrderItem format for reuse
+    setSelectedOrderItem({
+      item_id: item.item_id,
+      item_name: item.item_name,
+      sku: item.sku,
+      unit_cost: item.avg_cost || 0,
+      supplier_id: item.supplier_id || null,
+      supplier_name: item.supplier_name || "Unknown",
+      returnable_qty: item.on_hand || 999
+    });
+  };
+
   const submitSupplierReturn = () => {
     if (!selectedOrderItem) { setSuppError("Select an item to return."); return; }
     if (!suppQty || suppQty <= 0) { setSuppError("Quantity must be greater than 0."); return; }
@@ -419,15 +458,15 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
     }
     setSuppError("");
     setPendingSuppReturn({
-      item_id: selectedOrderItem.item_id,
-      itemName: selectedOrderItem.item_name || selectedOrderItem.item_id,
+      item_id: selectedOrderItem?.item_id,
+      itemName: selectedOrderItem?.item_name || selectedOrderItem?.item_id,
       quantity: parseFloat(suppQty),
-      unit_cost: selectedOrderItem.unit_cost,
-      supplier_id: selectedOrderItem.supplier_id,
+      unit_cost: selectedOrderItem?.unit_cost,
+      supplier_id: selectedOrderItem?.supplier_id,
       reason: suppReason,
       notes: suppNotes,
-      original_order_id: selectedOrder.order_id,
-      original_order_item_id: selectedOrderItem.order_item_id,
+      original_order_id: selectedOrder?.order_id || null,
+      original_order_item_id: selectedOrderItem?.order_item_id || null,
       expect_replacement: expectReplacement,
     });
   };
@@ -478,7 +517,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
   };
 
   const submitReplacement = async () => {
-    const isTire = /^(PCR|SUV|LT|TBR|OTR|MC)/i.test(replModal.sku || "");
+    const isTire = /^(PCR|SUV|LT|TBR|OTR|MC)/i.test(replModal?.sku || "");
     if (!replDr.trim()) { setReplError("DR number is required."); return; }
     if (isTire && !replDot.trim()) { setReplError("DOT number is required for tire items."); return; }
     if (isTire && !/^\d{4}$/.test(replDot.trim())) { setReplError("DOT number must be exactly 4 digits."); return; }
@@ -600,10 +639,10 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
               <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: "rgba(249,115,22,0.07)", border: "1px solid rgba(249,115,22,0.25)", borderRadius: 7 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--th-orange)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>
-                  {selectedSale.invoice_number || selectedSale.sale_id}
+                  {selectedSale?.invoice_number || selectedSale?.sale_id}
                 </span>
                 <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
-                  {selectedSale.customer_name || "Walk-in"} · {fmtDate(selectedSale.sale_datetime)}
+                  {selectedSale?.customer_name || "Walk-in"} · {fmtDate(selectedSale?.sale_datetime)}
                 </span>
                 <button
                   style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--th-text-dim)", fontSize: "0.95rem" }}
@@ -847,42 +886,89 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
           <div className="ret-card">
             <div className="ret-card-title">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Step 1 — Find the Purchase Order
+              Step 1 — Find the Stock
             </div>
-            <label className="ret-label">Search by Order ID (RECEIVED orders only)</label>
-            <div className="ret-search-wrap">
-              <input
-                className="ret-input"
-                style={{ paddingRight: suppQuery ? "2rem" : undefined }}
-                placeholder="e.g. ORD-1234567890…"
-                value={suppQuery}
-                onChange={(e) => { setSuppQuery(e.target.value); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}
-                onFocus={() => suppQuery && !selectedOrder && setShowSuppSugs(suppSuggestions.length > 0)}
-                onBlur={() => setTimeout(() => setShowSuppSugs(false), 180)}
-                autoComplete="off"
-              />
-              {suppQuery && (
-                <button className="ret-search-clear" onClick={() => { setSuppQuery(""); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}>×</button>
-              )}
-              {showSuppSugs && suppSuggestions.length > 0 && (
-                <div className="ret-suggestions">
-                  {suppSuggestions.map((o) => (
-                    <button key={o.order_id} className="ret-sug-item" onMouseDown={() => selectOrder(o)}>
-                      <span className="ret-sug-id">{o.order_id}</span>
-                      <span className="ret-sug-meta">{o.received_at ? "Received " + new Date(o.received_at).toLocaleDateString("en-PH") : ""} · {currency(o.total_amount)}</span>
-                    </button>
-                  ))}
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              <button 
+                className={`ret-btn ${!legacyMode ? 'ret-btn-sky' : 'ret-btn-outline'}`}
+                style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}
+                onClick={() => { setLegacyMode(false); setSelectedOrder(null); setSelectedOrderItem(null); setSelectedMasterItem(null); setSuppQuery(""); }}
+              >Search by Purchase Order</button>
+              <button 
+                className={`ret-btn ${legacyMode ? 'ret-btn-orange' : 'ret-btn-outline'}`}
+                style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}
+                onClick={() => { setLegacyMode(true); setSelectedOrder(null); setSelectedOrderItem(null); setSelectedMasterItem(null); setMasterQuery(""); }}
+              >Legacy / No PO Return</button>
+            </div>
+
+            {!legacyMode ? (
+              <>
+                <label className="ret-label">Search by Order ID (RECEIVED orders only)</label>
+                <div className="ret-search-wrap">
+                  <input
+                    className="ret-input"
+                    style={{ paddingRight: suppQuery ? "2rem" : undefined }}
+                    placeholder="e.g. ORD-1234567890…"
+                    value={suppQuery}
+                    onChange={(e) => { setSuppQuery(e.target.value); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}
+                    onFocus={() => suppQuery && !selectedOrder && setShowSuppSugs(suppSuggestions.length > 0)}
+                    onBlur={() => setTimeout(() => setShowSuppSugs(false), 180)}
+                    autoComplete="off"
+                  />
+                  {suppQuery && (
+                    <button className="ret-search-clear" onClick={() => { setSuppQuery(""); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}>×</button>
+                  )}
+                  {showSuppSugs && suppSuggestions.length > 0 && (
+                    <div className="ret-suggestions">
+                      {suppSuggestions.map((o) => (
+                        <button key={o.order_id} className="ret-sug-item" onMouseDown={() => selectOrder(o)}>
+                          <span className="ret-sug-id">{o.order_id}</span>
+                          <span className="ret-sug-meta">{o.received_at ? "Received " + new Date(o.received_at).toLocaleDateString("en-PH") : ""} · {currency(o.total_amount)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            {selectedOrder && (
-              <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: "rgba(56,189,248,0.07)", border: "1px solid rgba(56,189,248,0.2)", borderRadius: 7 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>{selectedOrder.order_id}</span>
-                <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>Received {fmtDate(selectedOrder.received_at)}</span>
+              </>
+            ) : (
+              <>
+                <label className="ret-label">Search Master Inventory (Brand, Size, SKU…)</label>
+                <div className="ret-search-wrap">
+                  <input
+                    className="ret-input"
+                    placeholder="e.g. 205/55R16, Bridgestone…"
+                    value={masterQuery}
+                    onChange={(e) => { setMasterQuery(e.target.value); setSelectedMasterItem(null); setSelectedOrderItem(null); }}
+                    autoComplete="off"
+                  />
+                  {masterSearching && <div className="ret-search-spinner" style={{ right: '0.5rem', top: '0.5rem' }}></div>}
+                  {masterResults.length > 0 && !selectedMasterItem && (
+                    <div className="ret-suggestions">
+                      {masterResults.map((m) => (
+                        <button key={m.item_id} className="ret-sug-item" onMouseDown={() => selectMasterItem(m)}>
+                          <div style={{ fontWeight: 600 }}>{m.item_name}</div>
+                          <span className="ret-sug-meta">{m.sku} · Stock: {m.on_hand} · {m.supplier_name || "No Supplier"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {(selectedOrder || selectedMasterItem) && (
+              <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: legacyMode ? "rgba(249,115,22,0.07)" : "rgba(56,189,248,0.07)", border: `1px solid ${legacyMode ? "rgba(249,115,22,0.2)" : "rgba(56,189,248,0.2)"}`, borderRadius: 7 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={legacyMode ? "var(--th-orange)" : "#38bdf8"} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>
+                  {legacyMode ? selectedMasterItem?.item_name : selectedOrder?.order_id}
+                </span>
+                <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
+                  {legacyMode ? (selectedMasterItem?.sku || "Legacy Stock") : `Received ${fmtDate(selectedOrder?.received_at)}`}
+                </span>
                 <button
                   style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--th-text-dim)", fontSize: "0.95rem" }}
-                  onClick={() => { setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); setSuppQuery(""); }}
+                  onClick={() => { setSelectedOrder(null); setSelectedMasterItem(null); setOrderItems([]); setSelectedOrderItem(null); setSuppQuery(""); setMasterQuery(""); }}
                 >✕</button>
               </div>
             )}
@@ -1035,139 +1121,122 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
           </div>
 
           <div className="ret-card" style={{ padding: 0 }}>
-            {histLoading ? (
-              <div className="ret-empty"><div className="ret-empty-text">Loading…</div></div>
-            ) : filteredHistory.length === 0 ? (
-              <div className="ret-empty">
-                <svg className="ret-empty-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-4.98" />
-                </svg>
-                <div className="ret-empty-title">No Returns</div>
-                <div className="ret-empty-text">No returns found</div>
-              </div>
-            ) : (
-              <div>
-              <div className="ret-table-wrap">
-                <table className="ret-table">
-                  <thead>
-                    <tr>
-                      <th>Return ID</th>
-                      <th>Type / Scenario</th>
-                      <th>Item</th>
-                      <th>Qty</th>
-                      <th>Reason</th>
-                      <th>Status</th>
-                      <th>Linked To</th>
-                      <th>Date</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      // Build map: customer return id → linked auto supplier return
-                      const autoSuppMap = {};
-                      histReturns.forEach(r => {
-                        if (r.return_type === "SUPPLIER_RETURN" && r.replacement_return_id?.startsWith("RET-CUST")) {
-                          autoSuppMap[r.replacement_return_id] = r;
-                        }
-                      });
-                      // Skip auto-created supplier return rows (they merge into the customer row)
-                      const autoSuppIds = new Set(Object.values(autoSuppMap).map(r => r.return_id));
+            <DataTable
+              loading={histLoading}
+              rows={(() => {
+                const autoSuppMap = {};
+                histReturns.forEach(r => {
+                  if (r.return_type === "SUPPLIER_RETURN" && r.replacement_return_id?.startsWith("RET-CUST")) {
+                    autoSuppMap[r.replacement_return_id] = r;
+                  }
+                });
+                const autoSuppIds = new Set(Object.values(autoSuppMap).map(r => r.return_id));
+                return filteredHistory.filter(r => !autoSuppIds.has(r.return_id));
+              })()}
+              rowKey="return_id"
+              currentPage={histPage}
+              totalPages={Math.ceil(filteredHistory.length / HIST_PAGE_SIZE)}
+              onPageChange={setHistPage}
+              columns={[
+                { key: 'return_id', label: 'Return ID', width: 140, render: (r) => (
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.85rem" }}>
+                    {r.return_id}
+                  </span>
+                )},
+                { key: 'return_type', label: 'Type / Scenario', width: 180, render: (r) => (
+                  <>
+                    <span className={`ret-badge ${r.return_type === "CUSTOMER_RETURN" ? "ret-badge-orange" : r.return_type === "SUPPLIER_REPLACEMENT" ? "ret-badge-green" : "ret-badge-sky"}`}>
+                      {TYPE_LABELS[r.return_type] || r.return_type}
+                    </span>
+                    {r.return_scenario && SCENARIO_META[r.return_scenario] && (
+                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-faint)", marginTop: "0.2rem" }}>
+                        {SCENARIO_META[r.return_scenario].icon} {SCENARIO_META[r.return_scenario].label}
+                      </div>
+                    )}
+                    {r.customer_name && (
+                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>👤 {r.customer_name}</div>
+                    )}
+                  </>
+                )},
+                { key: 'item_name', label: 'Item', render: (r) => (
+                  <>
+                    <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{r.item_name}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>{r.sku}</div>
+                  </>
+                )},
+                { key: 'quantity', label: 'Qty', align: 'center', width: 60, render: (r) => (
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{r.quantity}</span>
+                )},
+                { key: 'reason', label: 'Reason', render: (r) => (
+                  <span style={{ fontSize: "0.82rem" }}>{r.reason}</span>
+                )},
+                { key: 'status', label: 'Status', width: 130, render: (r) => (
+                  <span className={`ret-badge ${STATUS_BADGE[r.status] || "ret-badge-slate"}`}>
+                    {STATUS_LABEL[r.status] || r.status?.replace(/_/g, " ")}
+                  </span>
+                )},
+                { key: 'linked', label: 'Linked To', render: (r) => (
+                  <div style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
+                    {r.original_sale_id && <div>Sale: {r.original_sale_id}</div>}
+                    {r.original_order_id && <div>Order: {r.original_order_id}</div>}
+                    {r.linked_inventory_tx_id && (
+                      <div style={{ color: "var(--th-text-faint)", fontSize: "0.7rem" }}>Tx: {r.linked_inventory_tx_id}</div>
+                    )}
+                  </div>
+                )},
+                { key: 'created_at', label: 'Date', width: 140, render: (r) => (
+                  <span style={{ fontSize: "0.78rem", whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</span>
+                )},
+                { key: 'actions', label: '', align: 'right', width: 160, render: (r) => {
+                  // Re-calculate linkedSupp inside the render for current row
+                  const autoSuppMap = {};
+                  histReturns.forEach(hr => {
+                    if (hr.return_type === "SUPPLIER_RETURN" && hr.replacement_return_id === r.return_id) {
+                      autoSuppMap[r.return_id] = hr;
+                    }
+                  });
+                  const linkedSupp = autoSuppMap[r.return_id];
 
-                      return filteredHistory
-                        .filter(r => !autoSuppIds.has(r.return_id))
-                        .slice((histPage - 1) * HIST_PAGE_SIZE, histPage * HIST_PAGE_SIZE)
-                        .map((r) => {
-                          const linkedSupp = autoSuppMap[r.return_id]; // auto supplier return linked to this customer return
-                          return (
-                            <tr key={r.return_id}>
-                              <td>
-                                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.85rem" }}>
-                                  {r.return_id}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`ret-badge ${r.return_type === "CUSTOMER_RETURN" ? "ret-badge-orange" : r.return_type === "SUPPLIER_REPLACEMENT" ? "ret-badge-green" : "ret-badge-sky"}`}>
-                                  {TYPE_LABELS[r.return_type] || r.return_type}
-                                </span>
-                                {r.return_scenario && SCENARIO_META[r.return_scenario] && (
-                                  <div style={{ fontSize: "0.7rem", color: "var(--th-text-faint)", marginTop: "0.2rem" }}>
-                                    {SCENARIO_META[r.return_scenario].icon} {SCENARIO_META[r.return_scenario].label}
-                                  </div>
-                                )}
-                                {r.customer_name && (
-                                  <div style={{ fontSize: "0.7rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>👤 {r.customer_name}</div>
-                                )}
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{r.item_name}</div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>{r.sku}</div>
-                              </td>
-                              <td style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{r.quantity}</td>
-                              <td style={{ fontSize: "0.82rem" }}>{r.reason}</td>
-                              <td>
-                                <span className={`ret-badge ${STATUS_BADGE[r.status] || "ret-badge-slate"}`}>
-                                  {STATUS_LABEL[r.status] || r.status?.replace(/_/g, " ")}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
-                                {r.original_sale_id && <div>Sale: {r.original_sale_id}</div>}
-                                {r.original_order_id && <div>Order: {r.original_order_id}</div>}
-                                {r.linked_inventory_tx_id && (
-                                  <div style={{ color: "var(--th-text-faint)", fontSize: "0.7rem" }}>Tx: {r.linked_inventory_tx_id}</div>
-                                )}
-                              </td>
-                              <td style={{ fontSize: "0.78rem", whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
-                              <td style={{ whiteSpace: "nowrap", display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.7rem 0.5rem" }}>
-                                {/* Standalone supplier return awaiting replacement */}
-                                {r.return_type === "SUPPLIER_RETURN" && r.status === "REPLACEMENT_PENDING" && !r.replacement_return_id?.startsWith("RET-CUST") && (
-                                  <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(r)}>
-                                    Receive Replacement
-                                  </button>
-                                )}
-                                {/* Customer return awaiting warranty verdict */}
-                                {r.return_type === "CUSTOMER_RETURN" && r.status === "WARRANTY_PENDING" && (
-                                  <button className="ret-btn ret-btn-sky ret-btn-sm" onClick={() => { setWarrantyModal(r); setWarrantyResult("COVERED"); setWarrantyNotes(""); }}>
-                                    Record Warranty Result
-                                  </button>
-                                )}
-                                {/* Customer return reserved — replacement arrived, waiting for customer to claim */}
-                                {r.return_type === "CUSTOMER_RETURN" && r.status === "READY_FOR_PICKUP" && (
-                                  <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
-                                    onClick={() => submitHandover(r)}>
-                                    ✓ Complete Handover
-                                  </button>
-                                )}
-                                {/* Customer return with linked auto-supplier return — show both buttons */}
-                                {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && linkedSupp && (
-                                  <>
-                                    <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(linkedSupp)}>
-                                      Receive Replacement
-                                    </button>
-                                    <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
-                                      onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
-                                      Fulfill Replacement
-                                    </button>
-                                  </>
-                                )}
-                                {/* Customer return REPLACEMENT_PENDING with no linked supplier (e.g. warranty covered) */}
-                                {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && !linkedSupp && (
-                                  <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
-                                    onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
-                                    Fulfill Replacement
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination currentPage={histPage} totalPages={Math.ceil(filteredHistory.length/HIST_PAGE_SIZE)} onPageChange={setHistPage} />
-              </div>
-            )}
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.2rem 0" }}>
+                      {r.return_type === "SUPPLIER_RETURN" && r.status === "REPLACEMENT_PENDING" && !r.replacement_return_id?.startsWith("RET-CUST") && (
+                        <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(r)}>
+                          Receive Replacement
+                        </button>
+                      )}
+                      {r.return_type === "CUSTOMER_RETURN" && r.status === "WARRANTY_PENDING" && (
+                        <button className="ret-btn ret-btn-sky ret-btn-sm" onClick={() => { setWarrantyModal(r); setWarrantyResult("COVERED"); setWarrantyNotes(""); }}>
+                          Record Warranty Result
+                        </button>
+                      )}
+                      {r.return_type === "CUSTOMER_RETURN" && r.status === "READY_FOR_PICKUP" && (
+                        <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
+                          onClick={() => submitHandover(r)}>
+                          ✓ Complete Handover
+                        </button>
+                      )}
+                      {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && linkedSupp && (
+                        <>
+                          <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(linkedSupp)}>
+                            Receive Replacement
+                          </button>
+                          <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
+                            onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
+                            Fulfill Replacement
+                          </button>
+                        </>
+                      )}
+                      {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && !linkedSupp && (
+                        <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
+                          onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
+                          Fulfill Replacement
+                        </button>
+                      )}
+                    </div>
+                  );
+                }}
+              ]}
+            />
           </div>
         </div>
       )}
@@ -1222,6 +1291,47 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingCustReturn(null)}>Cancel</button>
               <button className="confirm-btn-ok" onClick={confirmCustomerReturn}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONFIRM SUPPLIER RETURN ───────────────────────────────────── */}
+      {pendingSuppReturn && (
+        <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setPendingSuppReturn(null)}>
+          <div className="confirm-box" style={{ borderTop: "4px solid var(--th-sky)" }}>
+            <div className="confirm-title">Confirm Supplier Return</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Item</span>
+                <span className="confirm-detail-val">{pendingSuppReturn.itemName}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Qty to Return</span>
+                <span className="confirm-detail-val">{pendingSuppReturn.quantity}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Reason</span>
+                <span className="confirm-detail-val" style={{ textTransform: 'capitalize' }}>{pendingSuppReturn.reason.toLowerCase()}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Source</span>
+                <span className="confirm-detail-val">{pendingSuppReturn.original_order_id || "Legacy Stock / No PO"}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Expectation</span>
+                <span className="confirm-detail-val">{pendingSuppReturn.expect_replacement ? "Awaiting Replacement" : "Full Return (No replacement)"}</span>
+              </div>
+              {pendingSuppReturn.notes && (
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Notes</span>
+                  <span className="confirm-detail-val" style={{ fontSize: '0.75rem' }}>{pendingSuppReturn.notes}</span>
+                </div>
+              )}
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setPendingSuppReturn(null)}>Cancel</button>
+              <button className="confirm-btn-ok" style={{ background: "var(--th-sky)" }} onClick={confirmSupplierReturn}>Confirm Return</button>
             </div>
           </div>
         </div>

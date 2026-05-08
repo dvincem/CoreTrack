@@ -12,17 +12,22 @@
  */
 const path = require("path");
 const XLSX = require("xlsx");
+const fs = require("fs");
 
 const excelPath = path.join(__dirname, "..", "backup.xlsx");
-const wb = XLSX.readFile(excelPath);
 
-function getSheet(name) { return XLSX.utils.sheet_to_json(wb.Sheets[name] || {}); }
-function setSheet(name, rows) {
-  const idx = wb.SheetNames.indexOf(name);
-  if (idx !== -1) wb.SheetNames.splice(idx, 1);
-  delete wb.Sheets[name];
+// ── xlsx helpers ─────────────────────────────────────────────────────────────
+function getSheet(wb, name) {
+  return XLSX.utils.sheet_to_json(wb.Sheets[name] || {});
+}
+
+function setSheet(wb, name, rows) {
   const ws = rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([[]]);
-  XLSX.utils.book_append_sheet(wb, ws, name);
+  if (wb.SheetNames.includes(name)) {
+    wb.Sheets[name] = ws;
+  } else {
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
 }
 
 // Tire category names
@@ -48,71 +53,67 @@ const INIT_DOT = {
   "ITEM-RECAP-001":"4521","ITEM-RECAP-002":"3820","ITEM-RECAP-003":"2419",
 };
 
-// ── 1. ITEM_MASTER ─────────────────────────────────────────────────────────────
-const items = getSheet("ITEM_MASTER").map(row => {
-  // Parent tire items (no parent_item_id, is a tire category)
-  if (!row.parent_item_id && TIRE_CATS.has(row.category) && !row.dot_number) {
-    row.dot_number = PARENT_DOT[row.item_id] || "2025";
-  }
-  return row;
-});
-setSheet("ITEM_MASTER", items);
-console.log("✓ ITEM_MASTER updated");
+async function main() {
+  const wb = XLSX.readFile(excelPath);
 
-// ── 2. INVENTORY_LEDGER ────────────────────────────────────────────────────────
-// Build a map of item_id → category from item_master
-const catMap = {};
-for (const row of items) catMap[row.item_id] = row.category;
+  // ── 1. ITEM_MASTER ───────────────────────────────────────────────────────────────────────────
+  const items = getSheet(wb, "ITEM_MASTER").map(row => {
+    if (!row.parent_item_id && TIRE_CATS.has(row.category) && !row.dot_number) {
+      row.dot_number = PARENT_DOT[row.item_id] || "2025";
+    }
+    return row;
+  });
+  setSheet(wb, "ITEM_MASTER", items);
+  console.log("✓ ITEM_MASTER updated");
 
-const ledger = getSheet("INVENTORY_LEDGER").map(row => {
-  if (row.dot_number) return row; // already has DOT, skip
+  // ── 2. INVENTORY_LEDGER ──────────────────────────────────────────────────────
+  const catMap = {};
+  for (const row of items) catMap[row.item_id] = row.category;
 
-  const cat = catMap[row.item_id];
-  if (!TIRE_CATS.has(cat)) return row; // not a tire, skip
+  const ledger = getSheet(wb, "INVENTORY_LEDGER").map(row => {
+    if (row.dot_number) return row;
+    const cat = catMap[row.item_id];
+    if (!TIRE_CATS.has(cat)) return row;
+    const id  = String(row.inventory_ledger_id || "");
+    const rid = String(row.reference_id || "");
+    if (id.startsWith("INV-INIT-") || rid.startsWith("PO-INIT-")) {
+      row.dot_number = INIT_DOT[row.item_id] || "2024";
+    } else if (id.startsWith("INV-RST-") || rid.startsWith("PO-RST-")) {
+      row.dot_number = PARENT_DOT[row.item_id] || "2025";
+    } else if (row.transaction_type === "SALE" || row.transaction_type === "ADJUSTMENT") {
+      row.dot_number = INIT_DOT[row.item_id] || "2024";
+    } else {
+      row.dot_number = PARENT_DOT[row.item_id] || "2025";
+    }
+    return row;
+  });
+  setSheet(wb, "INVENTORY_LEDGER", ledger);
+  console.log("✓ INVENTORY_LEDGER updated");
 
-  const id  = String(row.inventory_ledger_id || "");
-  const rid = String(row.reference_id || "");
-
-  if (id.startsWith("INV-INIT-") || rid.startsWith("PO-INIT-")) {
+  // ── 3. SALE_ITEMS ────────────────────────────────────────────────────────────
+  const saleItems = getSheet(wb, "SALE_ITEMS").map(row => {
+    if (row.dot_number) return row;
+    const cat = catMap[row.item_id];
+    if (!TIRE_CATS.has(cat)) return row;
     row.dot_number = INIT_DOT[row.item_id] || "2024";
-  } else if (id.startsWith("INV-RST-") || rid.startsWith("PO-RST-")) {
-    row.dot_number = PARENT_DOT[row.item_id] || "2025";
-  } else if (row.transaction_type === "SALE" || row.transaction_type === "ADJUSTMENT") {
-    // FIFO: sold/adjusted oldest DOT first
-    row.dot_number = INIT_DOT[row.item_id] || "2024";
-  } else {
-    row.dot_number = PARENT_DOT[row.item_id] || "2025";
-  }
-  return row;
-});
-setSheet("INVENTORY_LEDGER", ledger);
-console.log("✓ INVENTORY_LEDGER updated");
+    return row;
+  });
+  setSheet(wb, "SALE_ITEMS", saleItems);
+  console.log("✓ SALE_ITEMS updated");
 
-// ── 3. SALE_ITEMS ─────────────────────────────────────────────────────────────
-// sale_items reference item_id — add dot_number where missing for tires
-const saleItems = getSheet("SALE_ITEMS").map(row => {
-  if (row.dot_number) return row;
-  const cat = catMap[row.item_id];
-  if (!TIRE_CATS.has(cat)) return row;
-  // FIFO: sold from oldest DOT first
-  row.dot_number = INIT_DOT[row.item_id] || "2024";
-  return row;
-});
-setSheet("SALE_ITEMS", saleItems);
-console.log("✓ SALE_ITEMS updated");
+  // ── Write (atomic: write to tmp then rename) ─────────────────────────────────
+  const tmpPath = excelPath.replace(".xlsx", "_tmp.xlsx");
+  XLSX.writeFile(wb, tmpPath);
+  if (fs.existsSync(excelPath)) fs.unlinkSync(excelPath);
+  fs.renameSync(tmpPath, excelPath);
 
-// ── Write ──────────────────────────────────────────────────────────────────────
-const fs = require("fs");
-const tmpPath = excelPath.replace(".xlsx", "_tmp.xlsx");
-XLSX.writeFile(wb, tmpPath);
-if (fs.existsSync(excelPath)) fs.unlinkSync(excelPath);
-fs.renameSync(tmpPath, excelPath);
+  const updatedItems  = items.filter(r => TIRE_CATS.has(r.category) && !r.parent_item_id && r.dot_number).length;
+  const updatedLedger = ledger.filter(r => TIRE_CATS.has(catMap[r.item_id]) && r.dot_number).length;
+  const updatedSales  = saleItems.filter(r => TIRE_CATS.has(catMap[r.item_id]) && r.dot_number).length;
+  console.log(`\n✅ Done:`);
+  console.log(`   ITEM_MASTER parent tire rows with DOT: ${updatedItems}`);
+  console.log(`   INVENTORY_LEDGER tire rows with DOT:   ${updatedLedger}`);
+  console.log(`   SALE_ITEMS tire rows with DOT:         ${updatedSales}`);
+}
 
-// Summary
-const updatedItems  = items.filter(r => TIRE_CATS.has(r.category) && !r.parent_item_id && r.dot_number).length;
-const updatedLedger = ledger.filter(r => TIRE_CATS.has(catMap[r.item_id]) && r.dot_number).length;
-const updatedSales  = saleItems.filter(r => TIRE_CATS.has(catMap[r.item_id]) && r.dot_number).length;
-console.log(`\n✅ Done:`);
-console.log(`   ITEM_MASTER parent tire rows with DOT: ${updatedItems}`);
-console.log(`   INVENTORY_LEDGER tire rows with DOT:   ${updatedLedger}`);
-console.log(`   SALE_ITEMS tire rows with DOT:         ${updatedSales}`);
+main().catch((err) => { console.error(err); process.exit(1); });

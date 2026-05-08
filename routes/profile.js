@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const { db } = require('../Database');
 
-const SALT_ROUNDS = 10;
+const SALT_ROUNDS = 12;
 
 function dbGet(sql, p = []) { return new Promise((r, j) => db.get(sql, p, (e, row) => e ? j(e) : r(row))) }
 function dbRun(sql, p = []) { return new Promise((r, j) => db.run(sql, p, function(e) { e ? j(e) : r(this) })) }

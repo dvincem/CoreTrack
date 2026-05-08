@@ -49,8 +49,8 @@ router.post('/system/setup', async (req, res) => {
   if (!shop_name?.trim())   return res.status(400).json({ error: 'Shop name is required.' });
   if (!full_name?.trim())   return res.status(400).json({ error: 'Owner full name is required.' });
   if (!username?.trim())    return res.status(400).json({ error: 'Username is required.' });
-  if (!pin || !/^\d{4,8}$/.test(pin)) {
-    return res.status(400).json({ error: 'PIN must be 4–8 digits.' });
+  if (!pin || pin.length < 4 || pin.length > 32) {
+    return res.status(400).json({ error: 'PIN/Password must be 4–32 characters.' });
   }
   if (!/^[a-z0-9._]{3,30}$/.test(username)) {
     return res.status(400).json({ error: 'Username: 3–30 chars, lowercase letters, numbers, dots, or underscores.' });

@@ -8,17 +8,19 @@ const XLSX = require("xlsx");
 const fs = require("fs");
 
 const excelPath = path.join(__dirname, "..", "backup.xlsx");
-const wb = XLSX.readFile(excelPath);
 
-function getSheet(name) {
+// ── xlsx helpers ─────────────────────────────────────────────────────────────
+function getSheet(wb, name) {
   return XLSX.utils.sheet_to_json(wb.Sheets[name] || {});
 }
-function setSheet(name, rows) {
-  const idx = wb.SheetNames.indexOf(name);
-  if (idx !== -1) wb.SheetNames.splice(idx, 1);
-  delete wb.Sheets[name];
+
+function setSheet(wb, name, rows) {
   const ws = rows.length > 0 ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([[]]);
-  XLSX.utils.book_append_sheet(wb, ws, name);
+  if (wb.SheetNames.includes(name)) {
+    wb.Sheets[name] = ws;
+  } else {
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
 }
 
 const SHOP_ID = "SHOP-001";
@@ -56,12 +58,15 @@ const TIRE_VARIANTS = [
 ];
 
 // ── Load existing sheets ───────────────────────────────────────────────────────
-const itemMaster      = getSheet("ITEM_MASTER");
-const inventoryLedger = getSheet("INVENTORY_LEDGER");
-const currentStock    = getSheet("CURRENT_STOCK");
-const priceHistory    = getSheet("ITEM_PRICE_HISTORY");
+async function main() {
+  const wb = XLSX.readFile(excelPath);
 
-// Remove previously seeded DOT variants
+  const itemMaster      = getSheet(wb, "ITEM_MASTER");
+  const inventoryLedger = getSheet(wb, "INVENTORY_LEDGER");
+  const currentStock    = getSheet(wb, "CURRENT_STOCK");
+  const priceHistory    = getSheet(wb, "ITEM_PRICE_HISTORY");
+
+  // Remove previously seeded DOT variants
 const cleanItems  = itemMaster.filter(r => !String(r.item_id || "").includes("-DOT"));
 const cleanLedger = inventoryLedger.filter(r => !String(r.inventory_ledger_id || "").startsWith("INV-DOT-"));
 const cleanStock  = currentStock.filter(r => !String(r.item_id || "").includes("-DOT"));
@@ -173,21 +178,24 @@ for (const tire of TIRE_VARIANTS) {
 }
 
 // Write back
-setSheet("ITEM_MASTER",        newItems);
-setSheet("INVENTORY_LEDGER",   newLedger);
-setSheet("CURRENT_STOCK",      newStock);
-setSheet("ITEM_PRICE_HISTORY", newPH);
+  setSheet(wb, "ITEM_MASTER",        newItems);
+  setSheet(wb, "INVENTORY_LEDGER",   newLedger);
+  setSheet(wb, "CURRENT_STOCK",      newStock);
+  setSheet(wb, "ITEM_PRICE_HISTORY", newPH);
 
-XLSX.writeFile(wb, excelPath);
+  XLSX.writeFile(wb, excelPath);
 
-const added = newItems.length - cleanItems.length;
-console.log(`\n✅ DOT variants seeded — ${added} new variants added across all tire categories:\n`);
-const byCat = {};
-for (const tire of TIRE_VARIANTS) {
-  if (!byCat[tire.category]) byCat[tire.category] = [];
-  for (const d of tire.dots) byCat[tire.category].push(`${tire.parentId}-DOT${d.dot}  ${tire.name} [DOT ${d.dot}]  stock=${d.stock}`);
+  const added = newItems.length - cleanItems.length;
+  console.log(`\n✅ DOT variants seeded — ${added} new variants added across all tire categories:\n`);
+  const byCat = {};
+  for (const tire of TIRE_VARIANTS) {
+    if (!byCat[tire.category]) byCat[tire.category] = [];
+    for (const d of tire.dots) byCat[tire.category].push(`${tire.parentId}-DOT${d.dot}  ${tire.name} [DOT ${d.dot}]  stock=${d.stock}`);
+  }
+  for (const [cat, lines] of Object.entries(byCat)) {
+    console.log(`  [${cat}]`);
+    lines.forEach(l => console.log(`    ${l}`));
+  }
 }
-for (const [cat, lines] of Object.entries(byCat)) {
-  console.log(`  [${cat}]`);
-  lines.forEach(l => console.log(`    ${l}`));
-}
+
+main().catch((err) => { console.error(err); process.exit(1); });
