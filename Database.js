@@ -972,22 +972,25 @@ function initializeDatabase() {
           const demoStaffId = `STF-${Date.now()}`;
           const demoCredId = `CRD-${Date.now()}`;
           
-          db.serialize(async () => {
-            const pinHash = await bcrypt.hash("password123", 12);
-            
-            db.run(`INSERT INTO shop_master (shop_id, shop_code, shop_name, address) 
-                    VALUES (?, 'DEMO', 'Demo Tire Shop', '123 Demo St, Metro Manila')`, [demoShopId]);
-            
-            db.run(`INSERT INTO staff_master (staff_id, staff_code, full_name, role) 
-                    VALUES (?, 'ADMIN', 'System Administrator', 'ADMIN')`, [demoStaffId]);
-            
-            db.run(`INSERT INTO user_credentials (credential_id, staff_id, username, pin_hash, must_change_pin) 
-                    VALUES (?, ?, 'admin', ?, 0)`, [demoCredId, demoStaffId, pinHash]);
-            
-            db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'SUPERADMIN')`, [demoCredId]);
-            db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'ADMIN')`, [demoCredId]);
-            
-            console.log("✅ Demo account created: admin / password123");
+          bcrypt.hash("password123", 12).then(pinHash => {
+            db.serialize(() => {
+              db.run(`INSERT INTO shop_master (shop_id, shop_code, shop_name, address) 
+                      VALUES (?, 'DEMO', 'Demo Tire Shop', '123 Demo St, Metro Manila')`, [demoShopId]);
+              
+              db.run(`INSERT INTO staff_master (staff_id, staff_code, full_name, role) 
+                      VALUES (?, 'ADMIN', 'System Administrator', 'ADMIN')`, [demoStaffId]);
+              
+              db.run(`INSERT INTO user_credentials (credential_id, staff_id, username, pin_hash, must_change_pin) 
+                      VALUES (?, ?, 'admin', ?, 0)`, [demoCredId, demoStaffId, pinHash]);
+              
+              db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'SUPERADMIN')`, [demoCredId]);
+              db.run(`INSERT INTO user_system_roles (credential_id, role) VALUES (?, 'ADMIN')`, [demoCredId]);
+              
+              console.log("✅ Demo account created: admin / password123");
+              resolve();
+            });
+          }).catch(err => {
+            console.error("❌ Failed to hash demo password:", err);
             resolve();
           });
         } else {
