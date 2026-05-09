@@ -787,11 +787,92 @@ function SectionTopItems({ shopId, startDate, endDate, isOpen }) {
 }
 
 /* ─────────────────────────────────────────────
+   CUSTOM HORIZONTAL BAR CHART (SVG, no deps)
+───────────────────────────────────────────── */
+function HorizontalBarChart({ data, valueFormatter, labelFormatter, width, height }) {
+  if (!data || !data.length || !width || !height) return null
+
+  const LEFT   = 116     // px reserved for y-axis labels
+  const RIGHT  = 8       // px right padding
+  const TOP    = 8       // px top padding
+  const TICK_H = 22      // px reserved below bars for x-axis tick labels
+  const TICK_N = 4       // number of x-axis ticks
+
+  const plotH  = height - TOP - TICK_H
+  const totalSlots = data.length
+  const GAP    = Math.max(6, Math.round(plotH * 0.12 / totalSlots))
+  const BAR_H  = Math.max(12, Math.floor((plotH - GAP * (totalSlots - 1)) / totalSlots))
+
+  const plotW  = width - LEFT - RIGHT
+  const maxVal = Math.max(...data.map(d => d.value), 1)
+
+  const ticks = Array.from({ length: TICK_N + 1 }, (_, i) => ({
+    x: LEFT + (plotW / TICK_N) * i,
+    val: (maxVal / TICK_N) * i,
+  }))
+
+  return (
+    <svg width={width} height={height} style={{ display: 'block' }}>
+      {/* ── Grid lines + x-axis labels ── */}
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line
+            x1={t.x} y1={TOP}
+            x2={t.x} y2={TOP + plotH}
+            stroke="var(--th-border)" strokeWidth={1}
+          />
+          <text
+            x={t.x} y={TOP + plotH + 16}
+            textAnchor="middle" fontSize={9}
+            fill="var(--th-text-faint)" fontFamily="var(--font-body)"
+          >
+            {valueFormatter(t.val)}
+          </text>
+        </g>
+      ))}
+
+      {/* ── Bars ── */}
+      {data.map((d, i) => {
+        const y    = TOP + i * (BAR_H + GAP)
+        const barW = Math.max(4, (d.value / maxVal) * plotW)
+        const labelX = LEFT + barW + 6
+        const labelFits = labelX + 55 < width
+        return (
+          <g key={d.name || i}>
+            <text
+              x={LEFT - 8} y={y + BAR_H / 2 + 4}
+              textAnchor="end" fontSize={10}
+              fill="var(--th-text-faint)" fontFamily="var(--font-body)"
+            >
+              {labelFormatter ? labelFormatter(d) : d.name}
+            </text>
+            <rect x={LEFT} y={y} width={plotW} height={BAR_H} rx={5} fill="var(--th-bg-input)" />
+            <rect x={LEFT} y={y} width={barW}  height={BAR_H} rx={5} fill="#38bdf8" />
+            {labelFits && (
+              <text
+                x={labelX} y={y + BAR_H / 2 + 4}
+                fontSize={10} fill="var(--th-text-faint)"
+                fontFamily="var(--font-body)"
+              >
+                {valueFormatter(d.value)}
+              </text>
+            )}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+/* ─────────────────────────────────────────────
    SECTION: INVENTORY
 ───────────────────────────────────────────── */
 function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate, activePreset, applyPreset, isOpen, children }) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
+  const chartContainerRef = React.useRef(null)
+  const [chartWidth, setChartWidth] = useState(0)
+  const [chartHeight, setChartHeight] = useState(0)
 
   useEffect(() => {
     if (!isOpen) return
@@ -803,6 +884,17 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
       .catch(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [shopId, isOpen])
+
+  useEffect(() => {
+    const el = chartContainerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      setChartWidth(entries[0].contentRect.width)
+      setChartHeight(entries[0].contentRect.height)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [loading])
 
   if (loading) return <div className="rpt-loading">Loading Inventory…</div>
 
@@ -826,19 +918,15 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
       </div>
 
       <div className="rpt-grid-3">
-        <div className="rpt-card" style={{ minHeight: 380 }}>
+        <div className="rpt-card">
           <div className="rpt-card-head"><span className="rpt-card-title">Highest Value Inventory (Top 5)</span></div>
-          <div className="rpt-card-body" style={{ paddingTop: 0 }}>
-            <div style={{ width: '100%', height: 280 }}>
-              <BarChart
-                dataset={chartData}
-                yAxis={[{ scaleType: 'band', dataKey: 'name', tickLabelStyle: { fontSize: 10, fill: 'var(--th-text-faint)' } }]}
-                xAxis={[{ valueFormatter: v => fmtK(v), tickLabelStyle: { fontSize: 10, fill: 'var(--th-text-faint)' } }]}
-                series={[{ dataKey: 'value', color: '#38bdf8', valueFormatter: v => fmt(v) }]}
-                layout="horizontal"
-                margin={{ top: 10, right: 30, left: 100, bottom: 40 }}
-                slotProps={{ legend: { hidden: true } }}
-                borderRadius={4}
+          <div className="rpt-card-body rpt-card-body--fill" style={{ paddingTop: 0 }}>
+            <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }}>
+              <HorizontalBarChart
+                data={chartData}
+                width={chartWidth}
+                height={chartHeight || Math.max(160, chartData.length * 52 + 50)}
+                valueFormatter={v => fmtK(v)}
               />
             </div>
           </div>

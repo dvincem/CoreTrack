@@ -263,6 +263,14 @@
   border: 1px solid var(--th-border);
   border-radius: 11px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.rpt-card-body--fill {
+  flex: 1;
+  min-height: 0;
+  padding: 0.5rem;
 }
 
 .rpt-card-head {
@@ -310,6 +318,7 @@
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 0.5rem;
+  align-items: stretch;
 }
 
 @media (max-width: 640px) {
