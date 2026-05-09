@@ -210,7 +210,7 @@ function RecentSales({ shopId, loading }) {
         </div>
         {sales.length > 0 && <span className="th-panel-badge">{sales.length}</span>}
       </div>
-      
+
       <div className="th-recent-scroll-wrap" style={{ flex: 1, overflowY: 'auto', marginRight: '-0.4rem', paddingRight: '0.4rem' }}>
         {loading ? (
           <table className="th-recent-table"><tbody><SkeletonRows rows={5} cols={2} widths={['w80', 'w30']} /></tbody></table>
@@ -293,7 +293,7 @@ function TopItems({ shopId }) {
           Top Products
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <select 
+          <select
             className="th-top-cat-select"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -463,7 +463,7 @@ function DashboardPage({ shopId, shopName, businessDate }) {
 
       {/* Today KPIs */}
       <div className="th-section-label">Today</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Today's Sales" value={fmt(data.today_sales || 0)} accent="orange"
           sub="Revenue today" loading={loading}
           icon={SVG(<><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>)} />
@@ -477,7 +477,7 @@ function DashboardPage({ shopId, shopName, businessDate }) {
 
       {/* Month KPIs */}
       <div className="th-section-label">This Month</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Month Sales" value={fmtK(data.month_sales || 0)} accent="emerald"
           sub={`${data.month_transactions || 0} transactions`} loading={loading}
           icon={SVG(<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>)} />
@@ -491,7 +491,7 @@ function DashboardPage({ shopId, shopName, businessDate }) {
 
       {/* Inventory KPIs */}
       <div className="th-section-label">Inventory</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Total Items" value={(data.total_items || 0).toLocaleString()} accent="sky"
           sub="Active SKUs" loading={loading}
           icon={SVG(<><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></>)} />
