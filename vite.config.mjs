@@ -13,8 +13,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
+    chunkSizeWarningLimit: 2000,
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
