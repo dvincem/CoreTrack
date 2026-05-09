@@ -200,7 +200,7 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
       return (b.time || '').localeCompare(a.time || '');
     });
 
-    res.json(unified);
+    res.json({ unified });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -118,8 +118,21 @@ textarea {
 /* ── KPI ROW / GRID CONTAINERS ────────────────────────── */
 .th-kpi-grid {
   display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.th-kpi-grid3 {
+  display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .th-kpi-grid3 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
 }
 
 @media (max-width: 768px) {

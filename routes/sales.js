@@ -143,6 +143,32 @@ router.post("/sales/complete", async (req, res) => {
     const sale_id = `SALE-${Date.now()}`;
     const sale_datetime = new Date().toISOString();
     const business_date = await getEffectiveYYYYMMDD(shop_id);
+
+    // Validate that requested products have sufficient stock
+    const requestedQuantities = {};
+    for (const item of items) {
+      if (item.sale_type === "PRODUCT" && !item.is_custom) {
+        requestedQuantities[item.item_or_service_id] = (requestedQuantities[item.item_or_service_id] || 0) + item.quantity;
+      }
+    }
+    const stockErrors = [];
+    for (const [itemId, qty] of Object.entries(requestedQuantities)) {
+      const row = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT cs.current_quantity, im.item_name FROM current_stock cs JOIN item_master im ON cs.item_id = im.item_id WHERE cs.shop_id = ? AND cs.item_id = ?`,
+          [shop_id, itemId],
+          (err, r) => err ? reject(err) : resolve(r)
+        );
+      });
+      const currentQty = row ? row.current_quantity : 0;
+      if (currentQty < qty) {
+        stockErrors.push(`${row ? row.item_name : itemId} (Requested: ${qty}, Available: ${currentQty})`);
+      }
+    }
+    if (stockErrors.length > 0) {
+      return res.status(400).json({ error: "Insufficient stock for: " + stockErrors.join(", ") });
+    }
+
     let total_amount = 0;
     const saleItems = [];
     for (const item of items) {

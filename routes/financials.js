@@ -319,6 +319,27 @@ router.get("/bale/:bale_id/payments", (req, res) => {
   );
 });
 
+router.post("/bale/:bale_id/add", (req, res) => {
+  const { bale_id } = req.params;
+  const { amount, notes } = req.body;
+  const amt = parseFloat(amount);
+  if (!amt || amt <= 0) return res.status(400).json({ error: "Enter a valid amount to add." });
+
+  db.get(`SELECT amount, balance_amount FROM bale_book WHERE bale_id = ?`, [bale_id], (err, row) => {
+    if (err || !row) return res.status(400).json({ error: "Bale not found" });
+    const newAmount = (row.amount || 0) + amt;
+    const newBalance = (row.balance_amount || 0) + amt;
+    db.run(
+      `UPDATE bale_book SET amount = ?, balance_amount = ?, notes = COALESCE(?, notes), status = 'ACTIVE' WHERE bale_id = ?`,
+      [newAmount, newBalance, notes || null, bale_id],
+      (err2) => {
+        if (err2) return res.status(400).json({ error: err2.message });
+        res.json({ new_amount: newAmount, new_balance: newBalance, message: "Bale balance increased" });
+      }
+    );
+  });
+});
+
 router.get("/payables-kpi/:shop_id", (req, res) => {
   const { shop_id } = req.params;
   db.get(
@@ -862,133 +883,235 @@ router.get("/financial-health/:shop_id", (req, res) => {
 ══════════════════════════════════════════ */
 router.get('/sales-projection/:shop_id', (req, res) => {
   const { shop_id } = req.params;
-  const history   = Math.max(1, parseInt(req.query.history  || 30));
-  const horizon   = Math.max(1, parseInt(req.query.horizon  || 30));
+  const history   = Math.max(1, parseInt(req.query.history   || 30));
+  const horizon   = Math.max(1, parseInt(req.query.horizon   || 30));
   const lead_time = Math.max(1, parseInt(req.query.lead_time || 14));
 
-  const today    = new Date().toISOString().split('T')[0];
+  const today     = new Date().toISOString().split('T')[0];
   const histStart = new Date(Date.now() - history * 86400000).toISOString().split('T')[0];
 
-  // 1. Sales velocity grouped by brand/design/size (DOT-agnostic)
-  const velocitySQL = `
-    SELECT
-      im.brand                AS brand,
-      im.design               AS design,
-      im.size                 AS size,
-      MAX(si.category)        AS category,
-      SUM(si.quantity)        AS total_qty_sold,
-      SUM(si.line_total)      AS total_revenue,
-      AVG(si.unit_price)      AS avg_unit_price,
-      COUNT(DISTINCT si.sale_id) AS tx_count,
-      CAST(SUM(si.quantity) AS REAL) / ? AS avg_daily_qty,
-      CAST(SUM(si.line_total) AS REAL) / ? AS avg_daily_revenue
-    FROM sale_items si
-    JOIN sale_header sh ON si.sale_id = sh.sale_id
-    JOIN item_master im ON si.item_or_service_id = im.item_id
-    WHERE sh.shop_id = ?
-      AND si.sale_type = 'PRODUCT'
-      AND (si.is_custom IS NULL OR si.is_custom = 0)
+  // Velocity (table) window: always the sliding history window — unaffected by preset
+  const velStart = histStart;
+  const velEnd   = today;
+
+  // KPI window: optional preset override — only affects net-profit hero metrics
+  const kpiEnd   = req.query.endDate   || today;
+  const kpiStart = req.query.startDate || histStart;
+
+  // Step 1a — trading days for velocity / table
+  db.get(`
+    SELECT COUNT(DISTINCT DATE(sh.sale_datetime)) AS n
+    FROM sale_header sh
+    WHERE sh.shop_id = ? AND sh.is_void = 0
       AND DATE(sh.sale_datetime) BETWEEN ? AND ?
-    GROUP BY im.brand, im.design, im.size
-    HAVING SUM(si.quantity) > 0
-    ORDER BY avg_daily_qty DESC
-  `;
+  `, [shop_id, velStart, velEnd], (tdVelErr, tdVelRow) => {
+    if (tdVelErr) return res.status(500).json({ error: tdVelErr.message });
+    const velTradingDays = Math.max(1, tdVelRow?.n || 1);
 
-  // 2. Current stock summed across all DOT variants per brand/design/size
-  const stockSQL = `
-    SELECT im.brand, im.design, im.size, SUM(cs.current_quantity) AS total_stock
-    FROM current_stock cs
-    JOIN item_master im ON cs.item_id = im.item_id
-    WHERE cs.shop_id = ?
-    GROUP BY im.brand, im.design, im.size
-  `;
+    // Step 1b — trading days for KPI window (may differ from velocity window)
+    db.get(`
+      SELECT COUNT(DISTINCT DATE(sh.sale_datetime)) AS n
+      FROM sale_header sh
+      WHERE sh.shop_id = ? AND sh.is_void = 0
+        AND DATE(sh.sale_datetime) BETWEEN ? AND ?
+    `, [shop_id, kpiStart, kpiEnd], (tdKpiErr, tdKpiRow) => {
+      if (tdKpiErr) return res.status(500).json({ error: tdKpiErr.message });
+      const kpiTradingDays = Math.max(1, tdKpiRow?.n || 1);
 
-  // 3. Reorder point — max across all DOT variants per brand/design/size
-  const reorderSQL = `
-    SELECT brand, design, size, MAX(reorder_point) AS reorder_point
-    FROM item_master
-    GROUP BY brand, design, size
-  `;
+      // Step 2 — per-SKU velocity (always uses vel window, vel trading days as denominator)
+      const velocitySQL = `
+        SELECT
+          im.brand                AS brand,
+          im.design               AS design,
+          im.size                 AS size,
+          MAX(si.category)        AS category,
+          SUM(si.quantity)        AS total_qty_sold,
+          SUM(si.line_total)      AS total_revenue,
+          AVG(si.unit_price)      AS avg_unit_price,
+          COUNT(DISTINCT si.sale_id) AS tx_count,
+          CAST(SUM(si.quantity)   AS REAL) / ? AS avg_daily_qty,
+          CAST(SUM(si.line_total) AS REAL) / ? AS avg_daily_revenue
+        FROM sale_items si
+        JOIN sale_header sh ON si.sale_id = sh.sale_id
+        JOIN item_master im ON si.item_or_service_id = im.item_id
+        WHERE sh.shop_id = ?
+          AND sh.is_void = 0
+          AND si.sale_type = 'PRODUCT'
+          AND (si.is_custom IS NULL OR si.is_custom = 0)
+          AND DATE(sh.sale_datetime) BETWEEN ? AND ?
+        GROUP BY im.brand, im.design, im.size
+        HAVING SUM(si.quantity) > 0
+        ORDER BY avg_daily_qty DESC
+      `;
 
-  db.all(velocitySQL, [history, history, shop_id, histStart, today], (err, velocityRows) => {
-    if (err) return res.status(500).json({ error: err.message });
+      // Step 3 — net profit KPI queries (use KPI window, not velocity window)
+      const qProduct = `
+        SELECT
+          COALESCE(SUM(si.line_total), 0) AS product_revenue,
+          COALESCE(SUM(si.quantity * COALESCE(si.unit_cost, im.unit_cost, 0)), 0) AS product_cogs,
+          COALESCE(SUM(si.line_total - si.quantity * COALESCE(si.unit_cost, im.unit_cost, 0)), 0) AS product_gross
+        FROM sale_items si
+        JOIN sale_header sh ON si.sale_id = sh.sale_id
+        LEFT JOIN item_master im ON si.item_or_service_id = im.item_id
+        WHERE sh.shop_id = ? AND si.sale_type IN ('PRODUCT','RECAP')
+          AND sh.is_void = 0 AND DATE(sh.sale_datetime) BETWEEN ? AND ?`;
 
-    db.all(stockSQL, [shop_id], (err2, stockRows) => {
-      if (err2) return res.status(500).json({ error: err2.message });
+      const qCommission = `
+        SELECT COALESCE(SUM(commission_amount), 0) AS total_commission
+        FROM labor_log
+        WHERE shop_id = ? AND is_void = 0 AND commission_amount > 0
+          AND DATE(business_date) BETWEEN ? AND ?`;
 
-      db.all(reorderSQL, [], (err3, reorderRows) => {
-        if (err3) return res.status(500).json({ error: err3.message });
+      const qService = `
+        SELECT
+          COALESCE(SUM(total_amount), 0)     AS service_revenue,
+          COALESCE(SUM(total_amount / 2), 0) AS service_margin
+        FROM labor_log
+        WHERE shop_id = ? AND is_void = 0 AND commission_amount = 0
+          AND DATE(business_date) BETWEEN ? AND ?`;
 
-        const stockMap   = Object.fromEntries(stockRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r.total_stock]));
-        const reorderMap = Object.fromEntries(reorderRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r]));
+      const qExpenses = `
+        SELECT COALESCE(SUM(e.amount), 0) AS total_expenses
+        FROM expenses e
+        WHERE e.shop_id = ? AND e.is_void = 0
+          AND DATE(e.expense_date) BETWEEN ? AND ?`;
 
-        const items = velocityRows.map(v => {
-          const key        = `${v.brand}|${v.design}|${v.size}`;
-          const stock      = stockMap[key] || 0;
-          const dailyQty   = v.avg_daily_qty || 0;
-          const dailyRev   = v.avg_daily_revenue || 0;
-          const reorderPt  = reorderMap[key]?.reorder_point || 5;
+      const stockSQL = `
+        SELECT im.brand, im.design, im.size, SUM(cs.current_quantity) AS total_stock
+        FROM current_stock cs
+        JOIN item_master im ON cs.item_id = im.item_id
+        WHERE cs.shop_id = ?
+        GROUP BY im.brand, im.design, im.size
+      `;
 
-          // Days of stock remaining at current sales pace
-          const days_remaining = dailyQty > 0 ? Math.floor(stock / dailyQty) : 9999;
+      const reorderSQL = `
+        SELECT brand, design, size, MAX(reorder_point) AS reorder_point
+        FROM item_master
+        GROUP BY brand, design, size
+      `;
 
-          // Projected depletion date
-          const depletion_date = dailyQty > 0
-            ? new Date(Date.now() + days_remaining * 86400000).toISOString().split('T')[0]
-            : null;
+      db.all(velocitySQL, [velTradingDays, velTradingDays, shop_id, velStart, velEnd], (err, velocityRows) => {
+        if (err) return res.status(500).json({ error: err.message });
 
-          // Suggested reorder: cover lead_time + horizon demand, minus current stock
-          const demand_in_horizon  = Math.ceil(dailyQty * (lead_time + horizon));
-          const suggested_reorder  = Math.max(0, demand_in_horizon - stock);
+        db.all(stockSQL, [shop_id], (err2, stockRows) => {
+          if (err2) return res.status(500).json({ error: err2.message });
 
-          // Projected revenue for the horizon
-          const projected_revenue = Math.round(dailyRev * horizon * 100) / 100;
+          db.all(reorderSQL, [], (err3, reorderRows) => {
+            if (err3) return res.status(500).json({ error: err3.message });
 
-          // Status — based on current stock quantity
-          let status = 'OK';
-          if (stock <= 0)       status = 'OUT_OF_STOCK';
-          else if (stock <= 2)  status = 'CRITICAL';
-          else if (stock <= 3)  status = 'WARNING';
+            db.get(qProduct, [shop_id, kpiStart, kpiEnd], (e1, r1) => {
+              if (e1) return res.status(500).json({ error: e1.message });
 
-          return {
-            item_key:          key,
-            item_name:         [v.brand, v.design, v.size].filter(Boolean).join(' '),
-            brand:             v.brand,
-            design:            v.design,
-            size:              v.size,
-            category:          v.category,
-            current_stock:     stock,
-            total_qty_sold:    Math.round(v.total_qty_sold * 10) / 10,
-            total_revenue:     Math.round(v.total_revenue * 100) / 100,
-            avg_unit_price:    Math.round(v.avg_unit_price * 100) / 100,
-            tx_count:          v.tx_count,
-            avg_daily_qty:     Math.round(dailyQty * 100) / 100,
-            avg_daily_revenue: Math.round(dailyRev * 100) / 100,
-            days_remaining:    days_remaining === 9999 ? null : days_remaining,
-            depletion_date,
-            suggested_reorder,
-            projected_revenue,
-            reorder_point:     reorderPt,
-            status,
-          };
+              db.get(qCommission, [shop_id, kpiStart, kpiEnd], (e2, r2) => {
+                if (e2) return res.status(500).json({ error: e2.message });
+
+                db.get(qService, [shop_id, kpiStart, kpiEnd], (e3, r3) => {
+                  if (e3) return res.status(500).json({ error: e3.message });
+
+                  db.get(qExpenses, [shop_id, kpiStart, kpiEnd], (e5, r5) => {
+                    if (e5) return res.status(500).json({ error: e5.message });
+
+                    // ── Net profit (same formula as profits page) ──────────────
+                    const product_revenue  = r1.product_revenue  || 0;
+                    const product_gross    = r1.product_gross    || 0;
+                    const total_commission = r2.total_commission || 0;
+                    const service_revenue  = r3.service_revenue  || 0;
+                    const service_margin   = r3.service_margin   || 0;
+                    const total_expenses   = r5.total_expenses   || 0;
+
+                    const net_tire_profit = product_gross - total_commission;
+                    const net_profit      = net_tire_profit + service_margin - total_expenses;
+                    const total_revenue   = product_revenue + service_revenue;
+
+                    // KPI averages use kpiTradingDays (preset window)
+                    const avg_daily_net_profit = net_profit / kpiTradingDays;
+                    const projected_net_profit = Math.round(avg_daily_net_profit * horizon * 100) / 100;
+                    const avg_daily_revenue    = total_revenue / kpiTradingDays;
+                    const projected_revenue    = Math.round(avg_daily_revenue * horizon * 100) / 100;
+
+                    // ── Per-SKU items (velocity window) ────────────────────────
+                    const stockMap   = Object.fromEntries(stockRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r.total_stock]));
+                    const reorderMap = Object.fromEntries(reorderRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r]));
+
+                    const items = velocityRows.map(v => {
+                      const key       = `${v.brand}|${v.design}|${v.size}`;
+                      const stock     = stockMap[key] || 0;
+                      const dailyQty  = v.avg_daily_qty || 0;
+                      const dailyRev  = v.avg_daily_revenue || 0;
+                      const reorderPt = reorderMap[key]?.reorder_point || 5;
+
+                      const days_remaining = dailyQty > 0 ? Math.floor(stock / dailyQty) : 9999;
+                      const depletion_date = dailyQty > 0
+                        ? new Date(Date.now() + days_remaining * 86400000).toISOString().split('T')[0]
+                        : null;
+                      const demand_in_horizon = Math.ceil(dailyQty * (lead_time + horizon));
+                      const suggested_reorder = Math.max(0, demand_in_horizon - stock);
+                      const item_projected_rev = Math.round(dailyRev * horizon * 100) / 100;
+
+                      let status = 'OK';
+                      if (stock <= 0)      status = 'OUT_OF_STOCK';
+                      else if (stock <= 2) status = 'CRITICAL';
+                      else if (stock <= 3) status = 'WARNING';
+
+                      return {
+                        item_key:          key,
+                        item_name:         [v.brand, v.design, v.size].filter(Boolean).join(' '),
+                        brand:             v.brand,
+                        design:            v.design,
+                        size:              v.size,
+                        category:          v.category,
+                        current_stock:     stock,
+                        total_qty_sold:    Math.round(v.total_qty_sold * 10) / 10,
+                        total_revenue:     Math.round(v.total_revenue * 100) / 100,
+                        avg_unit_price:    Math.round(v.avg_unit_price * 100) / 100,
+                        tx_count:          v.tx_count,
+                        avg_daily_qty:     Math.round(dailyQty * 100) / 100,
+                        avg_daily_revenue: Math.round(dailyRev * 100) / 100,
+                        days_remaining:    days_remaining === 9999 ? null : days_remaining,
+                        depletion_date,
+                        suggested_reorder,
+                        projected_revenue: item_projected_rev,
+                        reorder_point:     reorderPt,
+                        status,
+                      };
+                    });
+
+                    // ── Summary ────────────────────────────────────────────────
+                    const summary = {
+                      history_days:             history,
+                      // Velocity / table window
+                      vel_range_start:          velStart,
+                      vel_range_end:            velEnd,
+                      trading_days:             velTradingDays,
+                      // KPI / hero window (driven by preset)
+                      kpi_range_start:          kpiStart,
+                      kpi_range_end:            kpiEnd,
+                      kpi_trading_days:         kpiTradingDays,
+                      horizon_days:             horizon,
+                      lead_time_days:           lead_time,
+                      total_items_tracked:      items.length,
+                      out_of_stock:             items.filter(i => i.status === 'OUT_OF_STOCK').length,
+                      critical:                 items.filter(i => i.status === 'CRITICAL').length,
+                      warning:                  items.filter(i => i.status === 'WARNING').length,
+                      ok:                       items.filter(i => i.status === 'OK').length,
+                      items_needing_reorder:    items.filter(i => i.suggested_reorder > 0).length,
+                      // Net profit projection (hero metric) — based on KPI window
+                      net_profit_historical:    Math.round(net_profit * 100) / 100,
+                      avg_daily_net_profit:     Math.round(avg_daily_net_profit * 100) / 100,
+                      projected_net_profit,
+                      // Total revenue for reference
+                      total_revenue_historical: Math.round(total_revenue * 100) / 100,
+                      avg_daily_revenue:        Math.round(avg_daily_revenue * 100) / 100,
+                      projected_revenue,
+                    };
+
+                    res.json({ summary, items });
+                  });
+                });
+              });
+            });
+          });
         });
-
-        // Summary stats
-        const summary = {
-          history_days:        history,
-          horizon_days:        horizon,
-          lead_time_days:      lead_time,
-          total_items_tracked: items.length,
-          out_of_stock:        items.filter(i => i.status === 'OUT_OF_STOCK').length,
-          critical:            items.filter(i => i.status === 'CRITICAL').length,
-          warning:             items.filter(i => i.status === 'WARNING').length,
-          ok:                  items.filter(i => i.status === 'OK').length,
-          total_projected_revenue: Math.round(items.reduce((s, i) => s + i.projected_revenue, 0) * 100) / 100,
-          avg_daily_revenue_total: Math.round(items.reduce((s, i) => s + i.avg_daily_revenue, 0) * 100) / 100,
-          items_needing_reorder:   items.filter(i => i.suggested_reorder > 0).length,
-        };
-
-        res.json({ summary, items });
       });
     });
   });

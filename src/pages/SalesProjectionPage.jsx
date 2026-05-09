@@ -15,6 +15,35 @@ function fmtDate(d) {
   catch { return d }
 }
 
+function isoDate(d) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dy = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dy}`
+}
+
+function buildPresets() {
+  const now = new Date()
+  const today = isoDate(now)
+
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - now.getDay())
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const qtrStart   = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+  const halfStart  = new Date(now.getFullYear(), now.getMonth() < 6 ? 0 : 6, 1)
+  const yearStart  = new Date(now.getFullYear(), 0, 1)
+
+  return [
+    { key: 'today',   label: 'Today',      start: today,                  end: today },
+    { key: 'week',    label: 'This Week',   start: isoDate(weekStart),     end: today },
+    { key: 'month',   label: 'This Month',  start: isoDate(monthStart),    end: today },
+    { key: 'quarter', label: 'This Quarter',start: isoDate(qtrStart),      end: today },
+    { key: 'half',    label: 'Half Year',   start: isoDate(halfStart),     end: today },
+    { key: 'year',    label: 'This Year',   start: isoDate(yearStart),     end: today },
+    { key: 'custom',  label: 'Last 30d',    start: null,                   end: null  },
+  ]
+}
+
 const STATUS_CFG = {
   OUT_OF_STOCK: { label: 'Out of Stock', color: 'var(--th-rose)',    bg: 'var(--th-rose-bg)',    sort: 0 },
   CRITICAL:     { label: 'Critical',     color: 'var(--th-rose)',    bg: 'var(--th-rose-bg)',    sort: 1 },
@@ -56,15 +85,29 @@ export default function SalesProjectionPage({ shopId }) {
   const [sortAsc,   setSortAsc]   = React.useState(true)
   const [catFilter, setCatFilter] = React.useState('ALL')
   const [detailItem, setDetailItem] = React.useState(null)
+  const [activePreset, setActivePreset] = React.useState('custom')
+  const [startDate, setStartDate] = React.useState(null)
+  const [endDate,   setEndDate]   = React.useState(null)
   
   const [page, setPage] = React.useState(1)
   const pageSize = 10
+
+  const PRESETS = React.useMemo(() => buildPresets(), [])
+
+  function selectPreset(preset) {
+    setActivePreset(preset.key)
+    setStartDate(preset.start)
+    setEndDate(preset.end)
+  }
 
   async function load() {
     if (!shopId) return
     setLoading(true); setError('')
     try {
-      const r = await apiFetch(`${API_URL}/sales-projection/${shopId}?history=${history}&horizon=${horizon}&lead_time=${leadTime}`)
+      let url = `${API_URL}/sales-projection/${shopId}?history=${history}&horizon=${horizon}&lead_time=${leadTime}`
+      if (startDate) url += `&startDate=${startDate}`
+      if (endDate)   url += `&endDate=${endDate}`
+      const r = await apiFetch(url)
       const json = await r.json()
       if (!r.ok) throw new Error(json.error || 'Failed to load')
       setData(json)
@@ -72,7 +115,7 @@ export default function SalesProjectionPage({ shopId }) {
     setLoading(false)
   }
 
-  React.useEffect(() => { load() }, [shopId, history, horizon, leadTime])
+  React.useEffect(() => { load() }, [shopId, history, horizon, leadTime, startDate, endDate])
 
   const summary = data?.summary || {}
   const allItems = data?.items || []
@@ -218,29 +261,43 @@ export default function SalesProjectionPage({ shopId }) {
                 : <><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>Stock Healthy</>
               }
             </div>
-            <div className={`fh-net-amount ${heroVc}`}>{fmt(summary.total_projected_revenue)}</div>
-            <div className="fh-net-label">Projected Revenue · next {horizon} days</div>
+            <div className={`fh-net-amount ${heroVc}`}>{fmt(summary.projected_net_profit)}</div>
+            <div className="fh-net-label">Projected Net Income · next {horizon} days</div>
             <div className="fh-net-compare">
-              <span>Avg daily {fmt(summary.avg_daily_revenue_total)}</span>
-              <span className="fh-net-pct fl">based on {history}d</span>
+              <span>Avg daily {fmt(summary.avg_daily_net_profit)}</span>
+              <span className="fh-net-pct fl">{summary.kpi_trading_days || 0} trading days · {summary.kpi_range_start} → {summary.kpi_range_end}</span>
             </div>
           </div>
           <div className="fh-hero-right">
             <KpiCard label="Out of Stock" value={String(oos)} accent="rose" sub="need immediate reorder" />
             <KpiCard label="Critical / Warning" value={String((summary.critical || 0) + (summary.warning || 0))} accent="amber" sub="stock running low" />
             <KpiCard label="Need Reorder" value={String(summary.items_needing_reorder)} accent="emerald" sub="items to purchase" />
-            <KpiCard label="Avg Daily Revenue" value={fmt(summary.avg_daily_revenue_total)} accent="violet" sub={`based on ${history}d history`} />
+            <KpiCard label="Avg Daily Net Profit" value={fmt(summary.avg_daily_net_profit)} accent="violet" sub={`${summary.kpi_trading_days || 0} trading days`} />
           </div>
         </div>
       ) : null}
 
       {error && <div className="sp-error">{error}</div>}
 
-      {/* ── Controls ── */}
+      {/* ── Controls (single card) ── */}
       <div className="sp-controls-bar">
+        <div className="sp-ctrl-group" style={{ flex: '1 1 auto' }}>
+          <div className="sp-ctrl-label">History Window</div>
+          <div className="sp-ctrl-pills">
+            {PRESETS.map(p => (
+              <button
+                key={p.key}
+                className={`sp-ctrl-pill${activePreset === p.key ? ' active' : ''}`}
+                onClick={() => selectPreset(p)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="sp-ctrl-group">
           <div className="sp-ctrl-label">
-            History <span style={{ textTransform: 'none', letterSpacing: '0', marginLeft: '0.25rem' }}>— How far back to look</span>
+            Table History <span style={{ textTransform: 'none', letterSpacing: '0', marginLeft: '0.25rem' }}>— Velocity window</span>
           </div>
           <div className="sp-ctrl-pills">
             {[30, 60, 90].map(d => (
@@ -250,7 +307,7 @@ export default function SalesProjectionPage({ shopId }) {
         </div>
         <div className="sp-ctrl-group">
           <div className="sp-ctrl-label">
-            Horizon <span style={{ textTransform: 'none', letterSpacing: '0', marginLeft: '0.25rem' }}>— How far forward to prepare for</span>
+            Horizon <span style={{ textTransform: 'none', letterSpacing: '0', marginLeft: '0.25rem' }}>— How far forward</span>
           </div>
           <div className="sp-ctrl-pills">
             {[7, 14, 30, 60, 90].map(d => (
@@ -260,7 +317,7 @@ export default function SalesProjectionPage({ shopId }) {
         </div>
         <div className="sp-ctrl-group">
           <div className="sp-ctrl-label">
-            Lead Time <span style={{ textTransform: 'none', letterSpacing: '0', marginLeft: '0.25rem' }}>— How long deliveries take</span>
+            Lead Time <span style={{ textTransform: 'none', letterSpacing: '0', marginLeft: '0.25rem' }}>— Delivery days</span>
           </div>
           <div className="sp-ctrl-pills">
             {[1, 2, 3, 4, 5].map(d => (
@@ -327,7 +384,7 @@ export default function SalesProjectionPage({ shopId }) {
 
       {data && filtered.length > 0 && (
         <div className="sp-table-footer">
-          Showing {filtered.length} of {allItems.length} items · Based on last {history} days · Projecting {horizon} days ahead · Lead time {leadTime} days
+          Showing {filtered.length} of {allItems.length} items · {summary.trading_days || 0} trading days in velocity window (last {history}d) · KPI window: {summary.kpi_range_start} → {summary.kpi_range_end} · Projecting {horizon} days ahead · Lead time {leadTime} days
         </div>
       )}
 

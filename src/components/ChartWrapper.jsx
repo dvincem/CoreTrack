@@ -55,19 +55,46 @@ export const ChartThemeProvider = ({ children }) => {
 export const useChartTheme = () => useContext(ChartThemeContext)
 
 // 3. Custom Tooltip
-export const ChartTooltip = ({ itemData, series, valueFormatter }) => {
+export const ChartTooltip = (props) => {
+  const { itemData, series, slotProps } = props
   const { chartStyles } = useChartTheme()
-  if (!itemData || !series) return null
+  
+  if (!itemData || !series || !series[0]) return null
   
   const s = series[0]
   const idx = itemData.dataIndex
-  const val = s.data[idx].value
-  const label = s.data[idx].label
+  const item = s.data[idx]
+  if (!item) return null
+
+  const val = item.value
+  const label = item.label
+  const valueFormatter = slotProps?.tooltip?.valueFormatter
 
   return (
-    <div className="bg-[var(--th-bg-card-alt)] border border-[var(--th-border-strong)] p-4 rounded-xl shadow-2xl min-w-[160px]">
-      <div className="text-[10px] font-bold text-[var(--th-text-faint)] uppercase tracking-wider mb-1">{label}</div>
-      <div className="text-xl font-black text-[var(--th-text-primary)]">
+    <div style={{
+      background: 'var(--th-bg-card-alt)',
+      border: '1px solid var(--th-border-strong)',
+      padding: '12px 16px',
+      borderRadius: '12px',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4)',
+      minWidth: '160px',
+      pointerEvents: 'none',
+      zIndex: 9999
+    }}>
+      <div style={{
+        fontSize: '10px',
+        fontWeight: 'bold',
+        color: 'var(--th-text-faint)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        marginBottom: '4px'
+      }}>{label}</div>
+      <div style={{
+        fontSize: '18px',
+        fontWeight: '900',
+        color: 'var(--th-text-primary)',
+        fontFamily: 'var(--font-body)'
+      }}>
         {valueFormatter ? valueFormatter(val) : val}
       </div>
     </div>
@@ -108,11 +135,15 @@ export const RevenueDonutChart = ({ items, valueFormatter, palette }) => {
               strokeWidth: 2,
               highlightScope: { faded: 'global', highlighted: 'item' },
               faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
+              valueFormatter: valueFormatter
             },
           ]}
+          slots={{
+            tooltip: ChartTooltip
+          }}
           slotProps={{
-            legend: { hidden: true }, // Custom legend handled below
-            tooltip: { content: (props) => <ChartTooltip {...props} valueFormatter={valueFormatter} /> }
+            legend: { hidden: true },
+            tooltip: { valueFormatter }
           }}
           height={280}
         />

@@ -82,6 +82,7 @@ function PayrollPage({ shopId, setPageContext }) {
       if (!data.error) {
         setBaleDeduct(prev => ({ ...prev, [staffId]: { open: false, amount: '100', saving: false } }))
         loadBales()
+        fetchAll()
       } else {
         setBaleDeduct(prev => ({ ...prev, [staffId]: { ...state, saving: false } }))
       }

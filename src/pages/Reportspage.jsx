@@ -47,9 +47,9 @@ function presets() {
   const ago = n => { const d = new Date(today); d.setDate(d.getDate() - n); return fmtD(d) }
 
   const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay())
-  const weekEnd   = new Date(today); weekEnd.setDate(today.getDate() + (6 - today.getDay()))
+  const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + (6 - today.getDay()))
   const monthStart = new Date(year, month, 1)
-  const monthEnd   = new Date(year, month + 1, 0)
+  const monthEnd = new Date(year, month + 1, 0)
 
   const startOf = unit => {
     const d = new Date(today)
@@ -107,7 +107,7 @@ function FilterStrip({ startDate, endDate, setStartDate, setEndDate, activePrese
    CUSTOM CHART TOOLTIP
 ───────────────────────────────────────────── */
 function CustomTooltip({ itemData, series }) {
-  if (!itemData || !series) return null
+  if (!itemData || !series || !series[0]) return null
   const s = series[0]
   const idx = itemData.dataIndex
   const val = s.data[idx]
@@ -115,16 +115,56 @@ function CustomTooltip({ itemData, series }) {
   const date = s.xAxisData?.[idx] || ''
   const pct = prevVal ? (((val - prevVal) / prevVal) * 100).toFixed(2) : null
   const isUp = pct === null || parseFloat(pct) >= 0
+
   return (
-    <div className="custom-tooltip">
-      <div className="tooltip-date">
+    <div style={{
+      background: 'var(--th-bg-card)',
+      border: '1px solid var(--th-border-strong)',
+      borderRadius: '10px',
+      padding: '10px 14px',
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+      minWidth: '140px',
+      pointerEvents: 'none',
+      zIndex: 9999
+    }}>
+      <div style={{
+        fontSize: '11px',
+        color: 'var(--th-text-dim)',
+        marginBottom: '4px'
+      }}>
         {date ? new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
       </div>
-      <div className="tooltip-value">{fmt(val)}</div>
-      <div className="tooltip-footer">
-        <span className="tooltip-label">Daily Revenue</span>
+      <div style={{
+        fontFamily: 'var(--font-body)',
+        fontWeight: '900',
+        fontSize: '18px',
+        color: 'var(--th-text-heading)',
+        marginBottom: '6px'
+      }}>{fmt(val)}</div>
+
+      <div style={{
+        fontSize: '11px',
+        color: 'var(--th-text-faint)',
+        marginTop: '6px',
+        borderTop: '1px solid var(--th-border)',
+        paddingTop: '6px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        <span style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily Revenue</span>
         {pct !== null && (
-          <span className={`tooltip-badge ${isUp ? '' : 'down'}`}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '2px',
+            padding: '1px 6px',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: 800,
+            background: isUp ? 'var(--th-emerald-bg)' : 'var(--th-rose-bg)',
+            color: isUp ? 'var(--th-emerald)' : 'var(--th-rose)'
+          }}>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
               style={{ transform: isUp ? 'none' : 'rotate(180deg)' }}>
@@ -189,7 +229,8 @@ function Sparkline({ data, color = '#0891B2' }) {
             '.MuiLineElement-root': { strokeWidth: 2.5, filter: lineGlow },
           }}
           margin={{ top: 10, right: 20, left: 35, bottom: 10 }}
-          slotProps={{ legend: { hidden: true }, tooltip: { content: props => <CustomTooltip {...props} /> } }}
+          slots={{ tooltip: CustomTooltip }}
+          slotProps={{ legend: { hidden: true } }}
         />
       </ThemeProvider>
     </div>
@@ -364,7 +405,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
 
       {/* ── KPI rows ── */}
       <div className="th-section-label">Financial Summary</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard
           label="Gross Sales"
           value={compactCurrency(kpis.grossSales)}
@@ -405,7 +446,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
       )}
 
       <div className="th-section-label">Operational Outflow</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Expenses" value={compactCurrency(kpis.expenses)} accent="rose" sub="Total outflows" icon={SVG(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /></>)} />
         <KpiCard label="Purchases" value={compactCurrency(kpis.purchases)} accent="orange" sub="Inventory spend" icon={SVG(<><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></>)} />
         <KpiCard label="Commissions" value={compactCurrency(kpis.commissions)} accent="amber" sub="Staff incentives" icon={SVG(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></>)} />
@@ -481,19 +522,19 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
             {showCashBreakdown && (
               <div style={{ margin: '0 0 0.25rem', padding: '0.65rem 0.75rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 {[
-                  kpis.grossSales      > 0 && { label: 'Gross Sales',        value: kpis.grossSales,               sign: '+', color: 'var(--th-emerald)' },
-                  kpis.serviceIncome   > 0 && { label: 'Net Services',       value: kpis.serviceIncome,            sign: '+', color: 'var(--th-emerald)' },
-                  cashPool.manualCashIn   > 0 && { label: 'Manual Cash In',   value: cashPool.manualCashIn,   sign: '+', color: 'var(--th-emerald)' },
-                  cashPool.manualGcashIn  > 0 && { label: 'GCash In',          value: cashPool.manualGcashIn,  sign: '+', color: 'var(--th-emerald)' },
+                  kpis.grossSales > 0 && { label: 'Gross Sales', value: kpis.grossSales, sign: '+', color: 'var(--th-emerald)' },
+                  kpis.serviceIncome > 0 && { label: 'Net Services', value: kpis.serviceIncome, sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.manualCashIn > 0 && { label: 'Manual Cash In', value: cashPool.manualCashIn, sign: '+', color: 'var(--th-emerald)' },
+                  cashPool.manualGcashIn > 0 && { label: 'GCash In', value: cashPool.manualGcashIn, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.collectionsTotal > 0 && { label: 'Receivable Collections', value: cashPool.collectionsTotal, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.baleRepaymentsTotal > 0 && { label: 'Bale Repayments', value: cashPool.baleRepaymentsTotal, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.digitalFromSales > 0 && { label: 'Non-Cash Sales (GCash/Card)', value: cashPool.digitalFromSales, sign: '−', color: 'var(--th-rose)' },
-                  cashPool.manualGcashOut > 0 && { label: 'GCash Out',         value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
-                  cashPool.purchasesDeducted   > 0 && { label: 'Purchases',         value: cashPool.purchasesDeducted,   sign: '−', color: 'var(--th-rose)' },
-                  cashPool.commissionsDeducted > 0 && { label: 'Commissions',       value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
-                  cashPool.expensesDeducted    > 0 && { label: 'Expenses',          value: cashPool.expensesDeducted,    sign: '−', color: 'var(--th-rose)' },
+                  cashPool.manualGcashOut > 0 && { label: 'GCash Out', value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.purchasesDeducted > 0 && { label: 'Purchases', value: cashPool.purchasesDeducted, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.commissionsDeducted > 0 && { label: 'Commissions', value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.expensesDeducted > 0 && { label: 'Expenses', value: cashPool.expensesDeducted, sign: '−', color: 'var(--th-rose)' },
                   cashPool.payablePaymentsTotal > 0 && { label: 'Payable Payments', value: cashPool.payablePaymentsTotal, sign: '−', color: 'var(--th-rose)' },
-                  cashPool.manualCashOut  > 0 && { label: 'Manual Cash Out',  value: cashPool.manualCashOut,  sign: '−', color: 'var(--th-rose)' },
+                  cashPool.manualCashOut > 0 && { label: 'Manual Cash Out', value: cashPool.manualCashOut, sign: '−', color: 'var(--th-rose)' },
                 ].filter(Boolean).map((row, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: 'var(--th-text-faint)' }}>{row.label}</span>
@@ -570,7 +611,7 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
         sales.forEach(s => { const dow = dowNames[new Date(s.sale_datetime).getDay()]; dowMap[dow] += s.total_amount })
         const dowChart = dowNames.map(d => ({ label: d, value: dowMap[d] }))
         const totalRevenue = sales.reduce((a, s) => a + s.total_amount, 0)
-        
+
         // Average Sale: Only include transactions up to today's date
         const now = new Date()
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -593,7 +634,7 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
 
       <div className="th-section-label">Overview — {startDate} → {endDate}</div>
 
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Total Revenue" value={fmtK(data.revenue)} accent="sky" icon={SVG(<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>)} />
         <KpiCard label="Transactions" value={data.txnCount} accent="violet" icon={SVG(<><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /></>)} />
         <KpiCard label="Average Sale" value={fmtK(data.avgSale)} accent="emerald" icon={SVG(<><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>)} />
@@ -774,10 +815,9 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
 
   return (
     <>
-      <div className="th-section-label">Inventory Status</div>
 
       <FilterStrip startDate={startDate} endDate={endDate} setStartDate={setStartDate} setEndDate={setEndDate} activePreset={activePreset} applyPreset={applyPreset} />
-
+      <div className="th-section-label">Inventory Status</div>
       <div className="th-kpi-grid">
         <KpiCard label="Total Stock Value" value={fmtK(totalValue)} accent="sky" sub="Based on unit cost" icon={SVG(<><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>)} />
         <KpiCard label="Active Items" value={totalItems} accent="violet" icon={SVG(<><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /></>)} />
@@ -937,7 +977,7 @@ function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
         </div>
       </div>
 
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Receivables" value={fmtK(data.open_receivables)} accent="sky" sub={`${data.open_receivables_count} accounts`} icon={SVG(<><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></>)} />
         <KpiCard label="Payables" value={fmtK(data.period_payables_balance)} accent="rose" sub={`${data.period_payables_count} due in period`} icon={SVG(<><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></>)} />
         <KpiCard label="Total Expenses" value={fmtK(data.expenses_total)} accent="rose" icon={SVG(<><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></>)} />
@@ -1046,7 +1086,7 @@ function SectionExpenses({ shopId, startDate, endDate, isOpen, children }) {
 
   return (
     <>
-      <div className="rpt-section-label">Expense Overview</div>
+      <div className="th-section-label">Expense Overview</div>
       <div className={children ? 'rpt-grid-3' : ''}>
         <div className="rpt-card" style={{ minHeight: 340 }}>
           <div className="rpt-card-head"><span className="rpt-card-title">Daily Expense Trend</span></div>
@@ -1105,7 +1145,7 @@ function SectionStaff({ shopId, startDate, endDate, isOpen }) {
   return (
     <>
       <div className="th-section-label">Operations & Staff</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Total Services" value={totalServices} accent="sky" icon={SVG(<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>)} />
         <KpiCard label="Total Commissions" value={fmtK(totalCommission)} accent="rose" icon={SVG(<><circle cx="12" cy="8" r="7" /><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" /></>)} />
         <KpiCard label="Top Earner" value={topEarner ? topEarner.full_name : '—'} accent="emerald" sub={topEarner ? fmtK(topEarner.gross_earnings) : ''} icon={SVG(<><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></>)} />
@@ -1148,7 +1188,7 @@ function SectionReturns({ shopId, startDate, endDate, isOpen }) {
   return (
     <>
       <div className="th-section-label">Returns Management</div>
-      <div className="th-kpi-grid">
+      <div className="th-kpi-grid3">
         <KpiCard label="Customer Returns" value={custReturns} accent="rose" icon={SVG(<><path d="M2.5 2v6h6" /><path d="M2.66 15.57a10 10 0 1 0 .57-8.38" /></>)} />
         <KpiCard label="Supplier Returns" value={suppReturns} accent="violet" icon={SVG(<><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></>)} />
         <KpiCard label="Est. Impact Value" value={fmtK(totalValue)} accent="amber" sub="Based on unit cost" icon={SVG(<><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>)} />
