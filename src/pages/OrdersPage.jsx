@@ -4,6 +4,7 @@ import Pagination from "../components/Pagination";
 import SearchInput from "../components/SearchInput";
 import { API_URL, currency, apiFetch } from "../lib/config";
 import usePaginatedResource from "../hooks/usePaginatedResource";
+import { useSearchPrefill } from "../hooks/useSearchPrefill";
 
 /* ============================================================
    TIREHUB — ENHANCED ORDERS PAGE
@@ -3305,6 +3306,12 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
   // Re-render on theme change
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+
+  const prefill = useSearchPrefill('orders')
+  React.useEffect(() => {
+    if (prefill.q) setSearchQuery(prefill.q)
+    if (prefill.action === 'openAdd') setShowCreateOrderModal(true)
+  }, [])
 
   React.useEffect(() => {
     const obs = new MutationObserver(() => forceUpdate());

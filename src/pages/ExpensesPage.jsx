@@ -7,6 +7,7 @@ import { DataTable } from '../components/DataTable'
 import Modal from '../components/Modal'
 import usePaginatedResource from '../hooks/usePaginatedResource'
 import FilterHeader from '../components/FilterHeader'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 
 
@@ -68,6 +69,12 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
   const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
+
+  const prefill = useSearchPrefill('expenses')
+  React.useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+    if (prefill.action === 'openAdd') setShowExpForm(true)
+  }, [])
 
   // Selected expense for detail modal
   const [selectedExpense, setSelectedExpense] = React.useState(null)

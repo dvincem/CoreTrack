@@ -397,8 +397,89 @@ function useLiveClock() {
   return time
 }
 
+/* ── Goals Widget (manager/owner only) ── */
+function paceStatus(on_pace, pace_pct) {
+  if (on_pace == null) return null
+  if (on_pace) return 'on-track'
+  return (pace_pct != null && pace_pct >= 10) ? 'at-risk' : 'behind'
+}
+
+function DashGoalBar({ label, actual, target, on_pace, pace_pct }) {
+  const status = paceStatus(on_pace, pace_pct)
+  const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0
+  const fill = status === 'on-track' ? 'var(--th-emerald)' : status === 'at-risk' ? 'var(--th-rose)' : 'var(--th-amber)'
+  const chipLabel = status === 'on-track' ? '✓ On Track' : status === 'at-risk' ? 'At Risk' : 'Behind'
+  const chipCls = status === 'on-track' ? 'dg-chip dg-chip--green' : status === 'at-risk' ? 'dg-chip dg-chip--red' : 'dg-chip dg-chip--amber'
+  return (
+    <div className="dg-bar">
+      <div className="dg-bar-head">
+        <span className="dg-bar-label">{label}</span>
+        <span className={chipCls}>{chipLabel}</span>
+      </div>
+      <div className="dg-bar-track">
+        <div className="dg-bar-fill" style={{ width: `${pct}%`, background: fill }} />
+      </div>
+      <div className="dg-bar-foot">
+        <span className="dg-bar-actual">{fmtK(actual)}</span>
+        <span className="dg-bar-target">/ {fmtK(target)} · {pct}%</span>
+      </div>
+    </div>
+  )
+}
+
+function GoalsMiniCard({ label, data }) {
+  const hasRevGoal = data?.revenue_target != null
+  const hasPrfGoal = data?.profit_target != null
+  if (!hasRevGoal && !hasPrfGoal) {
+    return (
+      <div className="dg-card">
+        <div className="dg-card-label">{label}</div>
+        <div className="dg-card-unset">No goals set</div>
+      </div>
+    )
+  }
+  return (
+    <div className="dg-card">
+      <div className="dg-card-label-row">
+        <span className="dg-card-label">{label}</span>
+        {data?.days_remaining != null && <span className="dg-days">{data.days_remaining}d left</span>}
+      </div>
+      {hasRevGoal && (
+        <DashGoalBar label="Gross Sales" actual={data.actual_revenue} target={data.revenue_target} on_pace={data.revenue_on_pace} pace_pct={data.revenue_pace_pct} />
+      )}
+      {hasPrfGoal && (
+        <DashGoalBar label="Net Profit" actual={data.actual_profit} target={data.profit_target} on_pace={data.profit_on_pace} pace_pct={data.profit_pace_pct} />
+      )}
+    </div>
+  )
+}
+
+function GoalsWidget({ shopId }) {
+  const [progress, setProgress] = React.useState(null)
+  React.useEffect(() => {
+    if (!shopId) return
+    apiFetch(`${API_URL}/goals-progress/${shopId}`).then(r => r.json()).then(setProgress).catch(() => {})
+  }, [shopId])
+
+  if (!progress) return null
+  const { monthly, quarterly, annual } = progress
+  const anyGoal = [monthly, quarterly, annual].some(p => p?.revenue_target != null || p?.profit_target != null)
+  if (!anyGoal) return null
+
+  return (
+    <>
+      <div className="th-section-label">Revenue Goals</div>
+      <div className="dg-grid">
+        <GoalsMiniCard label="This Month"   data={monthly} />
+        <GoalsMiniCard label="This Quarter" data={quarterly} />
+        <GoalsMiniCard label="This Year"    data={annual} />
+      </div>
+    </>
+  )
+}
+
 /* ── Main ── */
-function DashboardPage({ shopId, shopName, businessDate }) {
+function DashboardPage({ shopId, shopName, businessDate, userPower = 0 }) {
   const [, forceUpdate] = React.useReducer(x => x + 1, 0)
   React.useEffect(() => {
     const obs = new MutationObserver(() => forceUpdate())
@@ -508,6 +589,9 @@ function DashboardPage({ shopId, shopName, businessDate }) {
         <MonthlyChart shopId={shopId} />
         <RecentSales shopId={shopId} loading={loading} />
       </div>
+
+      {/* Revenue Goals (manager/owner only) */}
+      {userPower >= 60 && <GoalsWidget shopId={shopId} />}
 
       {/* Top Products + Status */}
       <div className="th-bottom-row">

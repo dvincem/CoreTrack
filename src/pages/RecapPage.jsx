@@ -7,6 +7,7 @@ import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import { SERVICE_ROLES } from './StaffManagementPage'
 import usePaginatedResource from '../hooks/usePaginatedResource'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
   /* ============================================================
      TIREHUB — ENHANCED RECAP TIRES PAGE
@@ -248,6 +249,12 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const [selectedRecapItem, setSelectedRecapItem] = React.useState(null)
   const [recapIntakeForm, setRecapIntakeForm] = React.useState({ design: 'Topcap', supplier_id: '', recap_cost: '', expected_selling_price: '' })
   const [recapIntaking, setRecapIntaking] = React.useState(false)
+
+  const prefill = useSearchPrefill('recap')
+  React.useEffect(() => {
+    if (prefill.q) setSearchQuery(prefill.q)
+    if (prefill.action === 'openAdd') setShowNewJobForm(true)
+  }, [])
 
   React.useEffect(() => {
     apiFetch(`${API_URL}/items/${shopId}?category=RECAPPING`)

@@ -7,6 +7,7 @@ import FilterHeader from '../components/FilterHeader'
 import { DataTable } from '../components/DataTable'
 import Modal from '../components/Modal'
 import usePaginatedResource from '../hooks/usePaginatedResource'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
   /* ============================================================
      TIREHUB — ENHANCED PAYABLES PAGE
@@ -245,6 +246,12 @@ function PayablesPage({ shopId }) {
   const [weekBulkPending, setWeekBulkPending] = React.useState(null); // { items, total, method, date }
   const [weekBulkMethod, setWeekBulkMethod] = React.useState("CASH");
   const [weekBulkPaying, setWeekBulkPaying] = React.useState(false);
+
+  const prefill = useSearchPrefill('payables')
+  React.useEffect(() => {
+    if (prefill.q) setSearchQuery(prefill.q)
+    if (prefill.action === 'openAdd') setShowForm(true)
+  }, [])
 
   React.useEffect(() => {
     if (selectedWeek) {

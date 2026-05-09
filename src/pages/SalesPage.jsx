@@ -6,6 +6,7 @@ import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import usePaginatedResource from '../hooks/usePaginatedResource'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 
 
@@ -48,6 +49,10 @@ function SalesPage({ shopId, isShopClosed }) {
   const [inlineEditingField, setInlineEditingField] = React.useState(null) // customer, payment, invoice, notes
   const [inlineEditVal, setInlineEditVal] = React.useState('')
 
+  const prefill = useSearchPrefill('sales')
+  React.useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+  }, [])
 
   React.useEffect(() => {
     apiFetch(`${API_URL}/staff/${shopId}`)

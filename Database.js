@@ -144,6 +144,20 @@ db.run(`CREATE TABLE IF NOT EXISTS brand_assets (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`, () => {});
 
+// Add revenue_goals table if it doesn't exist (safe migration)
+db.run(`CREATE TABLE IF NOT EXISTS revenue_goals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  shop_id TEXT NOT NULL,
+  period_type TEXT NOT NULL CHECK(period_type IN ('monthly','quarterly','annual')),
+  period_key TEXT NOT NULL,
+  revenue_target REAL,
+  profit_target REAL,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(shop_id, period_type, period_key),
+  FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
+)`, () => {});
+
 // Add pos_drafts table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS pos_drafts (
   draft_id TEXT PRIMARY KEY,

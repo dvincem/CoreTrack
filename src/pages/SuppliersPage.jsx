@@ -6,6 +6,7 @@ import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import DataTable from '../components/DataTable'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 
 
@@ -55,6 +56,12 @@ function SuppliersPage({ shopId }) {
 
   // Delete brand confirm
   const [deleteBrand, setDeleteBrand] = React.useState(null)
+
+  const prefill = useSearchPrefill('suppliers')
+  React.useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+    if (prefill.action === 'openAdd') setShowAdd(true)
+  }, [])
 
   // Click outside to close types dropdown
   React.useEffect(() => {

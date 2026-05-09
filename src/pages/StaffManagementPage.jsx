@@ -7,6 +7,7 @@ import FilterHeader from '../components/FilterHeader'
 import Pagination from '../components/Pagination'
 import Modal from '../components/Modal'
 import usePaginatedResource from '../hooks/usePaginatedResource'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 /* ============================================================
    TIREHUB — STAFF MANAGEMENT PAGE (UNIFIED)
@@ -193,6 +194,12 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [successMsg, setSuccessMsg] = useState('');
   const [wsMenu, setWsMenu] = useState(null);
+
+  const prefill = useSearchPrefill('staff-management')
+  useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+    if (prefill.action === 'openAdd') setShowAdd(true)
+  }, [])
 
   useEffect(() => {
     if (!shopId) return;

@@ -2,6 +2,7 @@ import '../pages_css/PurchasesPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch } from '../lib/config'
 import SearchInput from '../components/SearchInput'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 import DataTable from '../components/DataTable'
 import KpiCard from '../components/KpiCard'
 import FilterHeader from '../components/FilterHeader'
@@ -158,6 +159,11 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const [dbDesigns, setDbDesigns] = React.useState([])
   const [dbSizes, setDbSizes] = React.useState([])
   const [activeSug, setActiveSug] = React.useState(null) // { idx, field }
+
+  const prefill = useSearchPrefill('purchases')
+  React.useEffect(() => {
+    if (prefill.action === 'openAdd') setShowModal(true)
+  }, [])
 
   React.useEffect(() => {
     fetchSuppliers()

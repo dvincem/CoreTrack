@@ -1635,3 +1635,137 @@
     bottom: 0.75rem;
   }
 }
+
+/* ─────────────────────────────────────────────
+   DASHBOARD GOALS WIDGET
+───────────────────────────────────────────── */
+.dg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.dg-card {
+  background: var(--th-bg-card);
+  border: 1px solid var(--th-border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dg-card-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dg-card-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--th-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dg-card-unset {
+  font-size: 0.78rem;
+  color: var(--th-text-muted);
+  font-style: italic;
+}
+
+.dg-days {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--th-sky) 12%, var(--th-bg-card));
+  color: var(--th-sky);
+  border: 1px solid var(--th-sky);
+  white-space: nowrap;
+}
+
+.dg-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.dg-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+.dg-bar-label {
+  font-size: 0.7rem;
+  color: var(--th-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dg-chip {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.dg-chip--green {
+  background: color-mix(in srgb, var(--th-emerald) 12%, var(--th-bg-card));
+  color: var(--th-emerald);
+  border: 1px solid var(--th-emerald);
+}
+.dg-chip--amber {
+  background: color-mix(in srgb, var(--th-amber) 12%, var(--th-bg-card));
+  color: var(--th-amber);
+  border: 1px solid var(--th-amber);
+}
+.dg-chip--red {
+  background: color-mix(in srgb, var(--th-rose) 12%, var(--th-bg-card));
+  color: var(--th-rose);
+  border: 1px solid var(--th-rose);
+}
+
+.dg-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--th-border);
+  overflow: hidden;
+}
+
+.dg-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  min-width: 0;
+}
+
+.dg-bar-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.dg-bar-actual {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--th-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dg-bar-target {
+  font-size: 0.72rem;
+  color: var(--th-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .dg-grid {
+    grid-template-columns: 1fr;
+  }
+}

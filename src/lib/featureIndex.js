@@ -205,6 +205,7 @@ export const FEATURE_INDEX = [
     keywords: ['bale', 'salary advance', 'cash advance', 'advance', 'loan deduction', 'payroll deduction', 'bale deduction', 'bale staff', 'record bale'],
     page: 'payroll',
     category: 'Action',
+    action: 'openBale',
   },
   {
     label: 'Add Commission',
@@ -233,6 +234,7 @@ export const FEATURE_INDEX = [
     keywords: ['attendance', 'mark attendance', 'record attendance', 'staff attendance', 'present', 'absent', 'leave', 'attendance log'],
     page: 'staff-management',
     category: 'Action',
+    action: 'openAttendance',
   },
   {
     label: 'Add New Customer',
@@ -240,6 +242,7 @@ export const FEATURE_INDEX = [
     keywords: ['add customer', 'new customer', 'create customer', 'register customer', 'customer registration', 'add client'],
     page: 'customers',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Add Vehicle Plate',
@@ -247,6 +250,7 @@ export const FEATURE_INDEX = [
     keywords: ['add vehicle', 'add plate', 'vehicle plate', 'plate number', 'register vehicle', 'vehicle registration'],
     page: 'customers',
     category: 'Action',
+    action: 'openVehicle',
   },
   {
     label: 'Add New Supplier',
@@ -254,6 +258,7 @@ export const FEATURE_INDEX = [
     keywords: ['add supplier', 'new supplier', 'create supplier', 'register supplier', 'new vendor'],
     page: 'suppliers',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Add New Product / Item',
@@ -261,6 +266,7 @@ export const FEATURE_INDEX = [
     keywords: ['add item', 'new item', 'add product', 'new product', 'create item', 'add tire', 'new tire', 'add sku', 'create product', 'add inventory item'],
     page: 'products',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Adjust Stock / Inventory',
@@ -268,6 +274,7 @@ export const FEATURE_INDEX = [
     keywords: ['adjust stock', 'stock adjustment', 'manual stock', 'inventory adjustment', 'correct stock', 'add stock', 'reduce stock'],
     page: 'inventory',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Create Purchase Order',
@@ -275,6 +282,7 @@ export const FEATURE_INDEX = [
     keywords: ['create order', 'new order', 'create po', 'purchase order', 'raise order', 'order from supplier'],
     page: 'orders',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Receive Goods / GRN',
@@ -282,6 +290,7 @@ export const FEATURE_INDEX = [
     keywords: ['receive goods', 'grn', 'goods received', 'receive delivery', 'record receipt', 'stock in', 'receive items', 'goods receipt note'],
     page: 'purchases',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Record an Expense',
@@ -289,6 +298,7 @@ export const FEATURE_INDEX = [
     keywords: ['record expense', 'add expense', 'new expense', 'log expense', 'enter expense', 'expense entry'],
     page: 'expenses',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Add Payable / Bill',
@@ -296,6 +306,7 @@ export const FEATURE_INDEX = [
     keywords: ['add payable', 'new payable', 'add bill', 'record payable', 'vendor bill', 'supplier bill', 'new ap', 'add accounts payable'],
     page: 'payables',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Pay a Supplier',
@@ -303,6 +314,7 @@ export const FEATURE_INDEX = [
     keywords: ['pay supplier', 'settle payable', 'supplier payment', 'pay bill', 'payable payment', 'record payment to supplier'],
     page: 'payables',
     category: 'Action',
+    action: 'openPay',
   },
   {
     label: 'Add Receivable / Customer Credit',
@@ -310,6 +322,7 @@ export const FEATURE_INDEX = [
     keywords: ['add receivable', 'new receivable', 'create receivable', 'customer credit', 'add ar', 'charge customer', 'open credit'],
     page: 'receivables',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Collect Customer Payment',
@@ -317,6 +330,7 @@ export const FEATURE_INDEX = [
     keywords: ['collect payment', 'receive payment', 'customer payment', 'receivable payment', 'settle receivable', 'payment collection'],
     page: 'receivables',
     category: 'Action',
+    action: 'openCollect',
   },
   {
     label: 'Recap Tire Intake',
@@ -324,6 +338,7 @@ export const FEATURE_INDEX = [
     keywords: ['recap intake', 'intake recap', 'new recap', 'add recap', 'register recap', 'retread intake', 'casing intake'],
     page: 'recap',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Process a Return',
@@ -331,6 +346,7 @@ export const FEATURE_INDEX = [
     keywords: ['process return', 'new return', 'add return', 'warranty return', 'refund item', 'return product', 'replacement item'],
     page: 'returns',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Add Staff Member',
@@ -338,6 +354,7 @@ export const FEATURE_INDEX = [
     keywords: ['add staff', 'new staff', 'new employee', 'hire staff', 'add employee', 'register employee', 'add tireman', 'add technician'],
     page: 'staff-management',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Compute Payroll / Salary',
@@ -345,6 +362,7 @@ export const FEATURE_INDEX = [
     keywords: ['compute payroll', 'compute salary', 'generate payroll', 'payroll computation', 'salary calculation', 'process payroll', 'staff pay'],
     page: 'payroll',
     category: 'Action',
+    action: 'openCompute',
   },
   {
     label: 'Change User PIN / Password',
@@ -366,6 +384,7 @@ export const FEATURE_INDEX = [
     keywords: ['add service', 'new service', 'create service', 'service type', 'add vulcanizing', 'add balancing', 'service rate', 'service price'],
     page: 'services',
     category: 'Action',
+    action: 'openAdd',
   },
   {
     label: 'Close Day / End of Day',

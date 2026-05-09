@@ -6,6 +6,7 @@ import KpiCard from '../components/KpiCard'
 import DataTable from '../components/DataTable'
 import ItemHistoryModal from '../components/ItemHistoryModal'
 import usePaginatedResource from '../hooks/usePaginatedResource'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 /* ============================================================
    TIREHUB — ENHANCED INVENTORY PAGE
@@ -799,6 +800,12 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   // Quick Order mode
   const [quickOrderMode, setQuickOrderMode] = React.useState(false);
   const [quickSelected, setQuickSelected] = React.useState(new Set());
+
+  const prefill = useSearchPrefill('inventory')
+  React.useEffect(() => {
+    if (prefill.q) setSearchQuery(prefill.q)
+    if (prefill.action === 'openAdd') setShowCreateOrderModal(true)
+  }, [])
 
   React.useEffect(() => {
     fetchSuppliers();

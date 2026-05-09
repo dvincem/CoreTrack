@@ -936,6 +936,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       let rate = 0;
       if (cat === 'PCR' || cat === 'MOTORCYCLE') { rate = 60; rateLabel = 'PCR/Motorcycle install'; }
       else if (cat === 'SUV' || cat === 'LT') { rate = 100; rateLabel = 'SUV/LT install'; }
+      else if (cat === 'LTB') { rate = 150; rateLabel = 'LTB install'; }
       else if (cat === 'TBR' || cat === 'TRUCK') { rate = 100; rateLabel = 'Truck install'; }
       else if (cat === 'RECAP') { rate = 70; rateLabel = 'Recap tire install'; }
       else if (cat === 'TIRE') { rate = 60; rateLabel = 'Tire install'; }

@@ -6,6 +6,7 @@ import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import { DataTable } from '../components/DataTable'
 import usePaginatedResource from '../hooks/usePaginatedResource'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 /* ============================================================
    TIREHUB — RECEIVABLES PAGE (with entry form + payments)
@@ -108,6 +109,12 @@ function ReceivablesPage({ shopId }) {
   const [voidReason, setVoidReason] = React.useState("");
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+
+  const prefill = useSearchPrefill('receivables')
+  React.useEffect(() => {
+    if (prefill.q) setSearchQuery(prefill.q)
+    if (prefill.action === 'openAdd') setShowForm(true)
+  }, [])
 
   React.useEffect(() => { const obs = new MutationObserver(() => forceUpdate());
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });

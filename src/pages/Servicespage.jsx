@@ -4,6 +4,7 @@ import { API_URL, apiFetch } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
   /* ============================================================
      TIREHUB — SERVICES PAGE
@@ -66,6 +67,11 @@ function Servicespage() {
   const [toasts, setToasts] = React.useState([]);
 
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+
+  const prefill = useSearchPrefill('services')
+  React.useEffect(() => {
+    if (prefill.action === 'openAdd') setFormOpen(true)
+  }, [])
 
   React.useEffect(() => {
     if (!document.documentElement.getAttribute("data-theme")) {

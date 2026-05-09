@@ -407,11 +407,14 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
     const targetPage = result.page;
     if (!targetPage) return;
 
-    // Store prefill so the destination page can auto-fill its search bar
+    // Store prefill so the destination page can auto-fill its search bar + open modals.
+    // Action items (Feature & Navigation) only trigger modals — don't pollute the search bar.
     try {
       sessionStorage.setItem('th-search-prefill', JSON.stringify({
         page: targetPage,
-        q: result.label || '',
+        q: result.action ? '' : (result.label || ''),
+        id: result.id ?? null,
+        action: result.action ?? null,
       }));
     } catch (_) { /* ignore sessionStorage errors */ }
 

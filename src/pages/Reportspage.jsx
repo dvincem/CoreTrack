@@ -1294,7 +1294,7 @@ function SectionReturns({ shopId, startDate, endDate, isOpen }) {
 /* ─────────────────────────────────────────────
    MAIN INNER COMPONENT
 ───────────────────────────────────────────── */
-function ReportspageInner({ shopId }) {
+function ReportspageInner({ shopId, userPower = 0 }) {
   const today = new Date().toISOString().split('T')[0]
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
   const defaultStart = thirtyDaysAgo.toISOString().split('T')[0]
@@ -1316,6 +1316,7 @@ function ReportspageInner({ shopId }) {
     { id: 2, label: 'Products & Inventory', badge: 'Live' },
     { id: 3, label: 'Financial Health & Margins', badge: 'Live' },
     { id: 4, label: 'Operations & Staff' },
+    ...(userPower >= 60 ? [{ id: 5, label: 'Goals & Targets' }] : []),
   ]
 
   function applyPreset(p) {
@@ -1412,8 +1413,267 @@ function ReportspageInner({ shopId }) {
           </>
         )}
 
+        {activeTab === 5 && userPower >= 60 && (
+          <SectionGoals shopId={shopId} userPower={userPower} />
+        )}
+
       </div>
     </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   SECTION: GOALS & TARGETS
+───────────────────────────────────────────── */
+function paceStatus(on_pace, pace_pct) {
+  // pace_pct = how far behind in % (positive = behind, negative = ahead)
+  if (on_pace == null) return null
+  if (on_pace) return 'on-track'
+  if (pace_pct != null && pace_pct >= 10) return 'at-risk'
+  return 'behind'
+}
+
+function PaceChip({ status }) {
+  if (!status) return null
+  const map = { 'on-track': ['✓ On Track', 'gl-chip gl-chip--green'], 'behind': ['Behind Pace', 'gl-chip gl-chip--amber'], 'at-risk': ['At Risk', 'gl-chip gl-chip--red'] }
+  const [label, cls] = map[status] || ['—', 'gl-chip']
+  return <span className={cls}>{label}</span>
+}
+
+function GoalBar({ label, actual, target, on_pace, pace_pct }) {
+  const pct    = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : (target == null ? null : 0)
+  const status = paceStatus(on_pace, pace_pct)
+  const fill   = status === 'on-track' ? 'var(--th-emerald)' : status === 'at-risk' ? 'var(--th-rose)' : status === 'behind' ? 'var(--th-amber)' : 'var(--th-sky)'
+
+  return (
+    <div className="gl-bar-row">
+      <div className="gl-bar-header">
+        <span className="gl-bar-label">{label}</span>
+        {target != null
+          ? <span className="gl-bar-value">{compactCurrency(actual)} <span className="gl-bar-of">/ {compactCurrency(target)}</span></span>
+          : <span className="gl-bar-unset">No goal set</span>}
+      </div>
+      {target != null && (
+        <>
+          <div className="gl-bar-track">
+            <div className="gl-bar-fill" style={{ width: `${pct}%`, background: fill }} />
+          </div>
+          <div className="gl-bar-footer">
+            <PaceChip status={status} />
+            <span className="gl-bar-pct">{pct}%</span>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function SetGoalModal({ shopId, initial, onClose, onSaved }) {
+  const TYPES = ['monthly', 'quarterly', 'annual']
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+
+  function defaultKey(type) {
+    if (type === 'monthly')   return `${y}-${String(m).padStart(2, '0')}`
+    if (type === 'quarterly') return `${y}-Q${Math.ceil(m / 3)}`
+    return `${y}`
+  }
+
+  const [periodType, setPeriodType] = useState(initial?.period_type || 'monthly')
+  const [periodKey,  setPeriodKey]  = useState(initial?.period_key  || defaultKey(initial?.period_type || 'monthly'))
+  const [revTarget,  setRevTarget]  = useState(initial?.revenue_target != null ? String(initial.revenue_target) : '')
+  const [prfTarget,  setPrfTarget]  = useState(initial?.profit_target  != null ? String(initial.profit_target)  : '')
+  const [saving, setSaving]         = useState(false)
+  const [error,  setError]          = useState(null)
+
+  function handleTypeChange(t) {
+    setPeriodType(t)
+    setPeriodKey(defaultKey(t))
+  }
+
+  function periodKeyOptions(type) {
+    const opts = []
+    if (type === 'monthly') {
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(y, i, 1)
+        const k = `${y}-${String(i + 1).padStart(2, '0')}`
+        opts.push({ value: k, label: d.toLocaleString('en-PH', { month: 'long', year: 'numeric' }) })
+      }
+    } else if (type === 'quarterly') {
+      for (let q = 1; q <= 4; q++) opts.push({ value: `${y}-Q${q}`, label: `Q${q} ${y}` })
+    } else {
+      for (let i = y - 1; i <= y + 1; i++) opts.push({ value: `${i}`, label: `${i}` })
+    }
+    return opts
+  }
+
+  async function handleSave() {
+    setSaving(true); setError(null)
+    try {
+      const res = await apiFetch(`${API_URL}/goals/${shopId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          period_type:    periodType,
+          period_key:     periodKey,
+          revenue_target: revTarget !== '' ? Number(revTarget) : null,
+          profit_target:  prfTarget !== '' ? Number(prfTarget) : null,
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Save failed')
+      onSaved()
+      onClose()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="gl-modal-overlay" onClick={onClose}>
+      <div className="gl-modal" onClick={e => e.stopPropagation()}>
+        <div className="gl-modal-head">
+          <span className="gl-modal-title">Set Revenue Goal</span>
+          <button className="gl-modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Period type tabs */}
+        <div className="gl-modal-type-tabs">
+          {TYPES.map(t => (
+            <button key={t} className={`gl-modal-type-tab${periodType === t ? ' active' : ''}`} onClick={() => handleTypeChange(t)}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Period key selector */}
+        <div className="gl-modal-field">
+          <label className="gl-modal-label">Period</label>
+          <select className="gl-modal-select" value={periodKey} onChange={e => setPeriodKey(e.target.value)}>
+            {periodKeyOptions(periodType).map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Revenue target */}
+        <div className="gl-modal-field">
+          <label className="gl-modal-label">Gross Sales Target (₱)</label>
+          <input className="gl-modal-input" type="number" min="0" placeholder="Leave blank to clear" value={revTarget} onChange={e => setRevTarget(e.target.value)} />
+        </div>
+
+        {/* Profit target */}
+        <div className="gl-modal-field">
+          <label className="gl-modal-label">Net Profit Target (₱)</label>
+          <input className="gl-modal-input" type="number" min="0" placeholder="Leave blank to clear" value={prfTarget} onChange={e => setPrfTarget(e.target.value)} />
+        </div>
+
+        {error && <div className="gl-modal-error">{error}</div>}
+
+        <div className="gl-modal-actions">
+          <button className="gl-modal-cancel" onClick={onClose}>Cancel</button>
+          <button className="gl-modal-save" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save Goal'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function GoalCard({ label, period_key, period_start, period_end, revenue_target, profit_target, actual_revenue, actual_profit, days_remaining, revenue_on_pace, revenue_pace_pct, profit_on_pace, profit_pace_pct, onEdit }) {
+  const isCurrentPeriod = days_remaining != null && days_remaining >= 0
+
+  return (
+    <div className="gl-card">
+      <div className="gl-card-head">
+        <div>
+          <div className="gl-card-label">{label}</div>
+          <div className="gl-card-period">{period_start} → {period_end}</div>
+        </div>
+        <div className="gl-card-head-right">
+          {isCurrentPeriod && days_remaining != null && (
+            <span className="gl-days-chip">{days_remaining}d left</span>
+          )}
+          <button className="gl-edit-btn" onClick={onEdit} title="Edit goal">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <GoalBar label="Gross Sales"  actual={actual_revenue} target={revenue_target} on_pace={revenue_on_pace} pace_pct={revenue_pace_pct} />
+      <GoalBar label="Net Profit"   actual={actual_profit}  target={profit_target}  on_pace={profit_on_pace}  pace_pct={profit_pace_pct}  />
+    </div>
+  )
+}
+
+function SectionGoals({ shopId, userPower }) {
+  if (userPower < 60) return null
+
+  const [progress,     setProgress]     = useState(null)
+  const [loading,      setLoading]      = useState(true)
+  const [modalConfig,  setModalConfig]  = useState(null)  // { period_type, period_key, ... }
+
+  function load() {
+    setLoading(true)
+    apiFetch(`${API_URL}/goals-progress/${shopId}`)
+      .then(r => r.json())
+      .then(d => setProgress(d))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { if (shopId) load() }, [shopId])
+
+  const CARDS = [
+    { key: 'monthly',   label: 'This Month' },
+    { key: 'quarterly', label: 'This Quarter' },
+    { key: 'annual',    label: 'This Year' },
+  ]
+
+  if (loading) return <div className="rpt-loading">Loading goals…</div>
+
+  return (
+    <>
+      <div className="th-section-label">Revenue Goals & Targets</div>
+      <div className="gl-grid">
+        {CARDS.map(({ key, label }) => {
+          const p = progress?.[key] || {}
+          return (
+            <GoalCard
+              key={key}
+              label={label}
+              period_key={p.period_key}
+              period_start={p.period_start}
+              period_end={p.period_end}
+              revenue_target={p.revenue_target ?? null}
+              profit_target={p.profit_target ?? null}
+              actual_revenue={p.actual_revenue ?? 0}
+              actual_profit={p.actual_profit ?? 0}
+              days_remaining={p.days_remaining ?? null}
+              revenue_on_pace={p.revenue_on_pace ?? null}
+              revenue_pace_pct={p.revenue_pace_pct ?? null}
+              profit_on_pace={p.profit_on_pace ?? null}
+              profit_pace_pct={p.profit_pace_pct ?? null}
+              onEdit={() => setModalConfig({ period_type: key, period_key: p.period_key, revenue_target: p.revenue_target, profit_target: p.profit_target })}
+            />
+          )
+        })}
+      </div>
+
+      {modalConfig && (
+        <SetGoalModal
+          shopId={shopId}
+          initial={modalConfig}
+          onClose={() => setModalConfig(null)}
+          onSaved={load}
+        />
+      )}
+    </>
   )
 }
 

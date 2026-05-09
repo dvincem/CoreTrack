@@ -3,6 +3,7 @@ import React from 'react'
 import { API_URL, currency, apiFetch, SkeletonRows } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 import { DataTable } from '../components/DataTable'
 import FilterHeader from '../components/FilterHeader'
 
@@ -50,6 +51,11 @@ function PayrollPage({ shopId, setPageContext }) {
   // Bale deductions
   const [bales, setBales] = React.useState([]) // active bales keyed by staff_id
   const [baleDeduct, setBaleDeduct] = React.useState({}) // staff_id → { open: bool, amount: string, saving: bool }
+
+  const prefill = useSearchPrefill('payroll')
+  React.useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+  }, [])
 
 
   React.useEffect(() => {

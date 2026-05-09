@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
+import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 
 
@@ -60,6 +61,12 @@ function CustomerPage({ shopId }) {
   const [plateInput, setPlateInput] = React.useState('')
   const [plateSaving, setPlateSaving] = React.useState(false)
   const [detailError, setDetailError] = React.useState('')
+
+  const prefill = useSearchPrefill('customers')
+  React.useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+    if (prefill.action === 'openAdd' || prefill.action === 'openVehicle') setShowAdd(true)
+  }, [])
 
   React.useEffect(() => {
     apiFetch(`${API_URL}/customers-kpi/${shopId}`)

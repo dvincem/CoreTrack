@@ -5,7 +5,8 @@ import DataTable from "../components/DataTable";
 import FilterHeader from "../components/FilterHeader";
 import KpiCard from "../components/KpiCard";
 import ItemHistoryModal from "../components/ItemHistoryModal";
-import usePaginatedResource from "../hooks/usePaginatedResource";
+import usePaginatedResource from '../hooks/usePaginatedResource';
+import { useSearchPrefill } from '../hooks/useSearchPrefill';
 import useItemCategories from "../hooks/useItemCategories";
 
 /* ============================================================
@@ -174,6 +175,12 @@ function Productspage({ shopId }) {
   const [liveCats, setLiveCats] = React.useState(["ALL"]);
 
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
+
+  const prefill = useSearchPrefill('products')
+  React.useEffect(() => {
+    if (prefill.q) setSearch(prefill.q)
+    if (prefill.action === 'openAdd') setFormOpen(true)
+  }, [])
 
   React.useEffect(() => {
     if (!document.documentElement.getAttribute("data-theme")) {
