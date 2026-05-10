@@ -1374,11 +1374,11 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                         <span className="pos-multi-dot-badge">{_variants.length} DOTs</span>
                       )}
                       <div className="pos-card-cat">{i.category}</div>
-                      <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700 }}>
+                      <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700, wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
                         {i.brand || i.item_name}
                       </div>
                       {i.design && (
-                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic', wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
                           {i.design}
                         </div>
                       )}

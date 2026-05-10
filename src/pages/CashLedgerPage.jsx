@@ -38,7 +38,7 @@ const BLANK = {
   amount: '',
   description: '',
   entry_date: new Date().toISOString().split('T')[0],
-  entry_time: new Date().toTimeString().slice(0, 5),
+  entry_time: new Date().toTimeString().slice(0, 8),
   notes: '',
 }
 
@@ -193,7 +193,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       if (!r.ok) { setSaving(false); return setFormError(d.error || 'Failed to save') }
       localStorage.removeItem(`th-cl-draft-${shopId}`);
       localStorage.removeItem(`th-cl-open-${shopId}`);
-      setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
+      setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 8) })
       setEditingId(null)
       setShowEntryForm(false)
       fetchFlow()
@@ -220,7 +220,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
 
   function cancelEdit() {
     setEditingId(null)
-    setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
+    setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 8) })
     setFormError('')
     setShowEntryForm(false)
     localStorage.removeItem(`th-cl-draft-${shopId}`);

@@ -82,6 +82,26 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
   const [loading, setLoading] = React.useState(false)
   const [modal, setModal] = React.useState(null)
   const [activeRange, setActiveRange] = React.useState('today')
+  // Bale deductions
+  const [bales, setBales] = React.useState([])
+  const [baleDeduct, setBaleDeduct] = React.useState({}) // staff_id → { open, amount, saving }
+  // Only managers/owners can deduct; tiremen see balance read-only
+  const canDeductBale = ['manager', 'owner'].includes((userRole || '').toLowerCase())
+  // Card visibility (admin/manager/owner only)
+  const canHideCards = ['manager', 'owner', 'admin'].includes((userRole || '').toLowerCase())
+  const [hiddenStaff, setHiddenStaff] = React.useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(`th-hidden-staff-${shopId}`) || '[]')) }
+    catch { return new Set() }
+  })
+  function hideStaff(staffId) {
+    setHiddenStaff(prev => { const n = new Set(prev); n.add(String(staffId)); localStorage.setItem(`th-hidden-staff-${shopId}`, JSON.stringify([...n])); return n })
+  }
+  function showStaff(staffId) {
+    setHiddenStaff(prev => { const n = new Set(prev); n.delete(String(staffId)); localStorage.setItem(`th-hidden-staff-${shopId}`, JSON.stringify([...n])); return n })
+  }
+  function showAllStaff() {
+    setHiddenStaff(new Set()); localStorage.removeItem(`th-hidden-staff-${shopId}`)
+  }
 
   // History state
   const historyWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -131,7 +151,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
     loadWith(from, t)
   }
 
-  React.useEffect(() => { load() }, [shopId])
+  React.useEffect(() => { load(); loadBales() }, [shopId])
 
   async function load() { await loadWith(startDate, endDate) }
 
@@ -145,6 +165,39 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
       console.error('services-summary fetch failed:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  function loadBales() {
+    apiFetch(`${API_URL}/bale/${shopId}?status=ACTIVE`)
+      .then(r => r.json())
+      .then(d => setBales(Array.isArray(d) ? d : []))
+      .catch(() => setBales([]))
+  }
+
+  async function submitBaleDeduct(staffId) {
+    const state = baleDeduct[staffId] || {}
+    const amt = parseFloat(state.amount)
+    if (!amt || amt <= 0) return
+    const activeBale = bales.find(b => b.staff_id === staffId)
+    if (!activeBale) return
+    setBaleDeduct(prev => ({ ...prev, [staffId]: { ...state, saving: true } }))
+    try {
+      const res = await apiFetch(`${API_URL}/bale/${activeBale.bale_id}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shopId, amount: amt, payment_date: today(), payment_method: 'CASH', notes: 'Services Summary deduction', recorded_by: 'SYSTEM' })
+      })
+      const data = await res.json()
+      if (!data.error) {
+        setBaleDeduct(prev => ({ ...prev, [staffId]: { open: false, amount: '100', saving: false } }))
+        loadBales()
+        loadWith(startDate, endDate)
+      } else {
+        setBaleDeduct(prev => ({ ...prev, [staffId]: { ...state, saving: false } }))
+      }
+    } catch {
+      setBaleDeduct(prev => ({ ...prev, [staffId]: { ...state, saving: false } }))
     }
   }
 
@@ -298,7 +351,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                   if (String(a.staff_id) === String(currentStaffId)) return -1;
                   if (String(b.staff_id) === String(currentStaffId)) return 1;
                   return 0;
-                }).map(tireman => {
+                }).filter(t => !hiddenStaff.has(String(t.staff_id))).map(tireman => {
                   const svcTotal = tireman.services.reduce((s, x) => s + x.amount, 0)
                   const comTotal = tireman.commissions.reduce((s, x) => s + x.amount, 0)
                   const baleDeducted = tireman.bale_deducted || 0
@@ -310,8 +363,37 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                   const displayServices = isShortRange ? groupBySale(tireman.services) : aggregateItems(tireman.services)
                   const displayCommissions = isShortRange ? groupBySale(tireman.commissions) : aggregateItems(tireman.commissions)
 
+                  const cardBale = bales.find(b => b.staff_id === tireman.staff_id)
+                  const cardBds = baleDeduct[tireman.staff_id] || { open: false, amount: '100', saving: false }
                   return (
-                    <div key={tireman.staff_id} className="ss-tireman-card" onClick={() => { setModal({ tireman, svcTotal, comTotal, baleDeducted, svcPay, payout, initials }); setExpandedRows(new Set()) }} style={{ cursor: 'pointer' }}>
+                    <div key={tireman.staff_id} className="ss-tireman-card" onClick={() => { setModal({ tireman, svcTotal, comTotal, baleDeducted, svcPay, payout, initials }); setExpandedRows(new Set()) }} style={{ cursor: 'pointer', position: 'relative' }}>
+
+                      {/* Bale chip — upper right corner */}
+                      {cardBale && (
+                        <div className="ss-bale-corner" onClick={e => e.stopPropagation()}>
+                          {canDeductBale ? (
+                            <>
+                              <button className="ss-bale-badge" onClick={() => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...cardBds, open: !cardBds.open, amount: cardBds.amount || '100' } }))}>
+                                📒 {fmt(cardBale.balance_amount)}
+                              </button>
+                              {cardBds.open && (
+                                <div className="ss-bale-panel">
+                                  <input className="ss-bale-input" type="number" min="1" step="1" value={cardBds.amount}
+                                    onChange={e => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...cardBds, amount: e.target.value } }))} />
+                                  <button className="ss-bale-confirm" disabled={cardBds.saving} onClick={() => submitBaleDeduct(tireman.staff_id)}>
+                                    {cardBds.saving ? '…' : '✓'}
+                                  </button>
+                                  <button className="ss-bale-cancel" onClick={() => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...cardBds, open: false } }))}>✕</button>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="ss-bale-badge ss-bale-badge--readonly" title="Bale balance">
+                              📒 {fmt(cardBale.balance_amount)}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Header */}
                       <div className="ss-tireman-head">
@@ -322,7 +404,21 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                             {tireman.staff_code && <div className="ss-tireman-code">{tireman.staff_code}</div>}
                           </div>
                         </div>
-                        <div className="ss-payout-chips">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          {canHideCards && (
+                            <button
+                              className="ss-hide-btn"
+                              title={`Hide ${tireman.full_name}'s card`}
+                              onClick={e => { e.stopPropagation(); hideStaff(tireman.staff_id) }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                <line x1="1" y1="1" x2="23" y2="23" />
+                              </svg>
+                            </button>
+                          )}
+                          <div className="ss-payout-chips">
                           <div className="ss-payout-chip">
                             <span className="ss-payout-chip-label">Svc Total</span>
                             <span className="ss-payout-chip-val sky">{fmt(svcTotal)}</span>
@@ -351,8 +447,9 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                             <span className="ss-payout-chip-label">Payout</span>
                             <span className="ss-payout-chip-val orange">{fmt(payout)}</span>
                           </div>
-                        </div>
-                      </div>
+                          </div>{/* /ss-payout-chips */}
+                        </div>{/* /flex wrapper */}
+                      </div>{/* /ss-tireman-head */}
 
                       {/* Two detail tables */}
                       <div className="ss-detail-grid">
@@ -444,7 +541,34 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                     </div>
                   )
                 })}
-              </div>
+              </div>{/* /ss-card-grid */}
+
+              {/* Hidden staff restore banner (admin/manager/owner only) */}
+              {canHideCards && hiddenStaff.size > 0 && (() => {
+                const hiddenTiremen = data.filter(t => hiddenStaff.has(String(t.staff_id)))
+                if (!hiddenTiremen.length) return null
+                return (
+                  <div className="ss-hidden-banner">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ flexShrink: 0, opacity: 0.6 }}>
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                    <span className="ss-hidden-label">{hiddenTiremen.length} hidden</span>
+                    <div className="ss-hidden-chips">
+                      {hiddenTiremen.map(t => (
+                        <button key={t.staff_id} className="ss-hidden-chip" onClick={() => showStaff(t.staff_id)} title={`Show ${t.full_name}`}>
+                          {t.full_name}
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                    <button className="ss-hidden-show-all" onClick={showAllStaff}>Show All</button>
+                  </div>
+                )
+              })()}
             </>
           )}
 
@@ -473,6 +597,37 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                     <div className="inv-hist-item-card">
                       <div className="inv-hist-item-name">{initials} · {tireman.full_name}</div>
                       {tireman.staff_code && <div className="inv-hist-item-sku">{tireman.staff_code}</div>}
+                      {/* Bale deduct — modal */}
+                      {(() => {
+                        const modalBale = bales.find(b => b.staff_id === tireman.staff_id)
+                        if (!modalBale) return null
+                        const bds = baleDeduct[tireman.staff_id] || { open: false, amount: '100', saving: false }
+                        return (
+                          <div className="ss-bale-modal-row">
+                            {canDeductBale ? (
+                              <>
+                                <button className="ss-bale-badge" onClick={() => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, open: !bds.open, amount: bds.amount || '100' } }))}>
+                                  📒 Bale {fmt(modalBale.balance_amount)}
+                                </button>
+                                {bds.open && (
+                                  <div className="ss-bale-panel">
+                                    <input className="ss-bale-input" type="number" min="1" step="1" value={bds.amount}
+                                      onChange={e => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, amount: e.target.value } }))} />
+                                    <button className="ss-bale-confirm" disabled={bds.saving} onClick={() => submitBaleDeduct(tireman.staff_id)}>
+                                      {bds.saving ? '…' : '✓ Deduct'}
+                                    </button>
+                                    <button className="ss-bale-cancel" onClick={() => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, open: false } }))}>✕</button>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="ss-bale-badge ss-bale-badge--readonly" title="Bale balance (view only)">
+                                📒 Bale {fmt(modalBale.balance_amount)}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                       <div className="inv-hist-stats" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
                         <div className="inv-hist-stat">
                           <div className="inv-hist-stat-label">Svc Total</div>

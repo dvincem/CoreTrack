@@ -383,7 +383,7 @@ router.get("/customer-sales/:customer_id", (req, res) => {
        (SELECT GROUP_CONCAT(item_name, ', ') FROM sale_items WHERE sale_id = sh.sale_id LIMIT 3) as items_summary
      FROM sale_header sh
      LEFT JOIN staff_master st ON sh.staff_id = st.staff_id
-     WHERE sh.customer_id = ?
+     WHERE sh.customer_id = ? AND sh.is_void = 0
      ORDER BY sh.sale_datetime DESC`,
     [customer_id],
     (err, rows) => res.json(err ? { error: err.message } : rows)

@@ -273,6 +273,19 @@
   padding: 0.5rem;
 }
 
+@media (max-width: 640px) {
+  .rpt-card-head {
+    border-bottom: 1px solid var(--th-border);
+    background: var(--th-bg-card-alt);
+    justify-content: space-between;
+    align-items: center;
+    padding: .5rem .5rem;
+    display: flex;
+    gap: .5rem;
+    flex-direction: column;
+  }
+}
+
 .rpt-card-head {
   border-bottom: 1px solid var(--th-border);
   background: var(--th-bg-card-alt);
@@ -1438,6 +1451,7 @@
   align-items: center;
   transition: color 0.15s, border-color 0.15s;
 }
+
 .gl-edit-btn:hover {
   color: var(--th-orange);
   border-color: var(--th-orange);
@@ -1599,6 +1613,7 @@
   color: var(--th-text-muted);
   transition: all 0.15s;
 }
+
 .gl-modal-type-tab.active,
 .gl-modal-type-tab:hover {
   border-color: var(--th-orange);
@@ -1632,6 +1647,7 @@
   box-sizing: border-box;
   transition: border-color 0.15s;
 }
+
 .gl-modal-select:focus,
 .gl-modal-input:focus {
   border-color: var(--th-orange);
@@ -1664,7 +1680,10 @@
   color: var(--th-text-muted);
   transition: border-color 0.15s;
 }
-.gl-modal-cancel:hover { border-color: var(--th-text-muted); }
+
+.gl-modal-cancel:hover {
+  border-color: var(--th-text-muted);
+}
 
 .gl-modal-save {
   background: var(--th-orange);
@@ -1677,8 +1696,15 @@
   color: #fff;
   transition: opacity 0.15s;
 }
-.gl-modal-save:hover   { opacity: 0.88; }
-.gl-modal-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.gl-modal-save:hover {
+  opacity: 0.88;
+}
+
+.gl-modal-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 @media (max-width: 768px) {
   .gl-grid {

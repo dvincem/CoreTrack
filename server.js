@@ -83,7 +83,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const { authMiddleware } = require("./middleware/auth");
-const authRouter  = require("./routes/auth");
+const authRouter = require("./routes/auth");
 const setupRouter = require("./routes/setup");
 
 // Public endpoints — registered BEFORE authMiddleware
@@ -94,28 +94,28 @@ app.use("/api", setupRouter);
 app.use("/api", authMiddleware);
 
 // ── Route modules ─────────────────────────────────────────────────────────────
-const shopsRouter        = require("./routes/shops");
-const itemsRouter        = require("./routes/items");
-const servicesRouter     = require("./routes/services");
-const staffRouter        = require("./routes/staff");
-const suppliersRouter    = require("./routes/suppliers");
-const salesRouter        = require("./routes/sales");
-const ordersRouter       = require("./routes/orders");
-const customersRouter    = require("./routes/customers");
-const financialsRouter   = require("./routes/financials");
-const recapRouter        = require("./routes/recap");
-const profitsRouter      = require("./routes/profits");
-const expensesRouter     = require("./routes/expenses");
-const cashLedgerRouter   = require("./routes/cashledger");
-const returnsRouter      = require("./routes/returns");
+const shopsRouter = require("./routes/shops");
+const itemsRouter = require("./routes/items");
+const servicesRouter = require("./routes/services");
+const staffRouter = require("./routes/staff");
+const suppliersRouter = require("./routes/suppliers");
+const salesRouter = require("./routes/sales");
+const ordersRouter = require("./routes/orders");
+const customersRouter = require("./routes/customers");
+const financialsRouter = require("./routes/financials");
+const recapRouter = require("./routes/recap");
+const profitsRouter = require("./routes/profits");
+const expensesRouter = require("./routes/expenses");
+const cashLedgerRouter = require("./routes/cashledger");
+const returnsRouter = require("./routes/returns");
 const { router: backupRouter, runBackupToFile } = require("./routes/backup");
-const purchasesRouter    = require("./routes/purchases");
-const credentialsRouter  = require("./routes/credentials");
-const reportsRouter      = require("./routes/reports");
-const profileRouter      = require("./routes/profile");
-const brandsRouter       = require("./routes/brands");
-const posDraftsRouter    = require("./routes/pos_drafts");
-const goalsRouter        = require("./routes/goals");
+const purchasesRouter = require("./routes/purchases");
+const credentialsRouter = require("./routes/credentials");
+const reportsRouter = require("./routes/reports");
+const profileRouter = require("./routes/profile");
+const brandsRouter = require("./routes/brands");
+const posDraftsRouter = require("./routes/pos_drafts");
+const goalsRouter = require("./routes/goals");
 
 app.use("/api", shopsRouter);
 app.use("/api", itemsRouter);
@@ -163,8 +163,8 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   const status = err.status || 500;
   res.status(status).json({
-    error: process.env.NODE_ENV === "production" 
-      ? "An internal server error occurred" 
+    error: process.env.NODE_ENV === "production"
+      ? "An internal server error occurred"
       : err.message
   });
 });

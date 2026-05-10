@@ -6,7 +6,12 @@ import { LineChart } from '@mui/x-charts/LineChart'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 const fmt = (n) => '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtK = (n) => n >= 1000 ? '₱' + (n / 1000).toFixed(1) + 'k' : fmt(n)
+const fmtK = (n) => {
+  const v = Number(n || 0)
+  if (v >= 1_000_000) return '₱' + (v / 1_000_000).toFixed(2) + 'M'
+  if (v >= 1_000)     return '₱' + (v / 1_000).toFixed(1) + 'k'
+  return fmt(v)
+}
 
 // ── Y-axis formatter ─────────────────────────────────────────────────────────
 function yFmt(val) {
@@ -545,7 +550,7 @@ function DashboardPage({ shopId, shopName, businessDate, userPower = 0 }) {
       {/* Today KPIs */}
       <div className="th-section-label">Today</div>
       <div className="th-kpi-grid3">
-        <KpiCard label="Today's Sales" value={fmt(data.today_sales || 0)} accent="orange"
+        <KpiCard label="Today's Sales" value={fmtK(data.today_sales || 0)} accent="orange"
           sub="Revenue today" loading={loading}
           icon={SVG(<><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>)} />
         <KpiCard label="Transactions" value={data.today_transactions || 0} accent="sky"

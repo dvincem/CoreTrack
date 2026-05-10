@@ -170,7 +170,14 @@ table.sm-table {
   cursor: pointer;
 }
 
+/* Work Status dropdown container — must be relative so menu anchors correctly */
+.sm-ws-container {
+  position: relative;
+  display: inline-block;
+}
+
 .att-ws-menu {
+
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
