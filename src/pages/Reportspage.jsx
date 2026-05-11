@@ -274,6 +274,13 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
 
   const [isClosed, setIsClosed] = useState(false)
 
+  useEffect(() => {
+    if (isOpen) {
+      const today = new Date().toISOString().split('T')[0];
+      setStartDate(today);
+      setEndDate(today);
+    }
+  }, [isOpen]);
 
   useEffect(() => { setPage(1) }, [filterMode, shopId, endDate])
 
@@ -396,7 +403,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
           <span className="rpt-day-dot" style={{ background: isClosed ? 'var(--th-amber)' : 'var(--th-emerald)', boxShadow: isClosed ? 'none' : '0 0 6px var(--th-emerald)' }} />
           Daily Report —
           <input
-            type="date" value={endDate} className="rpt-day-date-input"
+            type="date" max={new Date().toISOString().split('T')[0]} value={endDate} className="rpt-day-date-input"
             onChange={e => { setEndDate(e.target.value); setStartDate(e.target.value) }}
           />
           {isClosed && <span className="rpt-badge" style={{ background: 'var(--th-amber-bg)', color: 'var(--th-amber)', border: '1px solid var(--th-amber)' }}>Closed</span>}
@@ -838,7 +845,7 @@ function HorizontalBarChart({ data, valueFormatter, labelFormatter, width, heigh
         const labelX = LEFT + barW + 6
         const labelFits = labelX + 55 < width
         return (
-          <g key={d.name || i}>
+          <g key={d.fullName || d.name || i}>
             <text
               x={LEFT - 8} y={y + BAR_H / 2 + 4}
               textAnchor="end" fontSize={10}

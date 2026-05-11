@@ -436,7 +436,7 @@ router.post("/returns/supplier", async (req, res) => {
       `INSERT INTO inventory_ledger
         (inventory_ledger_id, shop_id, item_id, transaction_type, quantity, unit_cost, reference_id, supplier_id, created_by, linked_return_id)
        VALUES (?, ?, ?, 'SUPPLIER_RETURN', ?, ?, ?, ?, ?, ?)`,
-      [inv_tx_id, shop_id, item_id, parseFloat(quantity), parseFloat(unit_cost) || 0, original_order_id || null, supplier_id || null, created_by || 'SYSTEM', return_id]
+      [inv_tx_id, shop_id, item_id, -Math.abs(parseFloat(quantity)), parseFloat(unit_cost) || 0, original_order_id || null, supplier_id || null, created_by || 'SYSTEM', return_id]
     );
 
     await dbRun(

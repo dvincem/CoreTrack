@@ -870,4 +870,47 @@ router.post("/orders/quick-receive", async (req, res) => {
   }
 });
 
+
+router.get("/incoming-orders/:shop_id", async (req, res) => {
+  const { shop_id } = req.params;
+  const { item_id, brand, design, size } = req.query;
+
+  try {
+    let query = `
+      SELECT oi.*, o.status, o.created_at, sm.supplier_name, im.item_name, im.sku
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.order_id
+      JOIN item_master im ON oi.item_id = im.item_id
+      LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
+      WHERE o.shop_id = ? AND o.status IN ('PENDING', 'CONFIRMED')
+    `;
+    const params = [shop_id];
+
+    if (item_id && !item_id.includes('||')) {
+      query += ` AND (oi.item_id = ? OR im.parent_item_id = ?)`;
+      params.push(item_id, item_id);
+    } else if (brand || design || size) {
+      if (brand) { query += ` AND im.brand = ?`; params.push(brand); }
+      if (design) { query += ` AND im.design = ?`; params.push(design); }
+      if (size) { query += ` AND im.size = ?`; params.push(size); }
+    } else if (item_id && item_id.includes('||')) {
+      // Group key: Brand||Design||Size or Brand||Size
+      const parts = item_id.split('||');
+      if (parts.length === 3) {
+        query += ` AND im.brand = ? AND im.design = ? AND im.size = ?`;
+        params.push(parts[0], parts[1], parts[2]);
+      } else if (parts.length === 2) {
+        query += ` AND im.brand = ? AND im.size = ?`;
+        params.push(parts[0], parts[1]);
+      }
+    }
+
+    query += ` ORDER BY o.created_at ASC`;
+    const rows = await dbAll(query, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

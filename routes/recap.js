@@ -490,6 +490,7 @@ router.post("/recap-jobs-bulk", async (req, res) => {
 
 
     const customers = {};
+    const suppliers = {};
 
     for (let index = 0; index < jobs.length; index++) {
       const job = jobs[index];
@@ -503,7 +504,9 @@ router.post("/recap-jobs-bulk", async (req, res) => {
       const isShopOwned = normalizeOwnership(ownership) === "SHOP_OWNED";
       const finalOwnership = isShopOwned ? "SHOP_OWNED" : "CUSTOMER_OWNED";
       let customerId = null;
+      let supplierId = null;
 
+      // Handle Customer Lookup/Creation
       if (!isShopOwned) {
         if (!customer) {
           errors.push({ index, error: "Customer name required for Customer Owned jobs" });
@@ -527,6 +530,20 @@ router.post("/recap-jobs-bulk", async (req, res) => {
         }
       }
 
+      // Handle Supplier Lookup
+      if (supplier) {
+        const sName = String(supplier).trim();
+        if (suppliers[sName]) {
+          supplierId = suppliers[sName];
+        } else {
+          const sRow = await getAsync(`SELECT supplier_id FROM supplier_master WHERE (supplier_name = ? OR supplier_id = ?) COLLATE NOCASE`, [sName, sName]);
+          if (sRow) {
+            supplierId = sRow.supplier_id;
+            suppliers[sName] = supplierId;
+          }
+        }
+      }
+
       const cost = parseFloat(recap_cost) || 0;
       const price = parseFloat(selling_price) || 0;
       const item_id = `ITEM-RECAP-${Date.now()}-${index}`;
@@ -539,7 +556,7 @@ router.post("/recap-jobs-bulk", async (req, res) => {
       const item_name = [brand.trim(), design ? design.trim() : null, size.trim()].filter(Boolean).join(" ");
       const item_active = isShopOwned ? 1 : 0;
       const parsedStatus = status || "READY_FOR_CLAIM";
-      const intakeStr = intake_date ? (intake_date.length === 10 ? intake_date + 'T00:00:00' : intake_date) : created_at;
+      const intakeStr = intake_date ? (String(intake_date).length === 10 ? intake_date + 'T00:00:00' : intake_date) : created_at;
 
       try {
         await runAsync(
@@ -552,7 +569,7 @@ router.post("/recap-jobs-bulk", async (req, res) => {
         await runAsync(
           `INSERT INTO recap_job_master (recap_job_id, shop_id, ownership_type, customer_id, supplier_id, casing_description, current_status, intake_date, recap_cost, expected_selling_price, finished_item_id, dot_number, forfeited_flag, created_at, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-          [job_id, shop_id, finalOwnership, customerId, null, finalDescription, parsedStatus, intakeStr, cost, price, item_id, dot_number || null, created_at, "BULK_IMPORT"]
+          [job_id, shop_id, finalOwnership, customerId, supplierId, finalDescription, parsedStatus, intakeStr, cost, price, item_id, dot_number || null, created_at, "BULK_IMPORT"]
         );
 
         const ledger_id = `RECAPL-${Date.now()}-${index}`;

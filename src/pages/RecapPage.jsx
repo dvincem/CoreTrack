@@ -1264,7 +1264,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
             searchProps={{
               value: searchQuery,
               onChange: setSearchQuery,
-              placeholder: "Search by job ID, casing, customer, supplier…",
+              placeholder: "Search by job ID, casing, customer, supplier\u2026",
               suggestions: suggestions,
               onSuggestionSelect: (s) => setSearchQuery(s.text),
               resultCount: searchQuery.trim() ? recapTotal : undefined,
@@ -1308,6 +1308,16 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
             onFilterChange={(v) => { setStatusFilter(v); setSelectedIds(new Set()); }}
             accentColor="var(--th-orange)"
           />
+
+          {/* Mobile action buttons row — shown only on mobile via CSS */}
+          <div className="rc-mobile-action-btns" style={{ marginBottom: '0.5rem' }}>
+            <button className="rc-btn rc-btn-sky" onClick={openPricingModal}>
+              ⚙ Pricing
+            </button>
+            <button className="rc-btn rc-btn-orange" onClick={() => { setShowNewJobForm(true); setError(""); if (defaultSupplierId) setNewJob(j => ({ ...j, supplier_id: defaultSupplierId })); }}>
+              + New Job
+            </button>
+          </div>
 
           {/* New job modal */}
           {showNewJobForm && (

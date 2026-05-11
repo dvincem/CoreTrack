@@ -74,7 +74,7 @@
 .ret-panel {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: .5rem;
   padding-top: 0.25rem;
 }
 
@@ -92,7 +92,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--th-text-faint);
-  margin-bottom: 0.85rem;
+  margin-bottom: 0rem;
   display: flex;
   align-items: center;
   gap: 0.4rem;

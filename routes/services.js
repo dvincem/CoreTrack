@@ -67,4 +67,66 @@ router.delete("/services/:service_id", (req, res) => {
   });
 });
 
+
+// --- Commission Rules ---
+const DEFAULT_RULES = [
+  { id: 'CR-PCR', category: 'PCR', valve_type: null, amount: 60 },
+  { id: 'CR-MOTORCYCLE', category: 'MOTORCYCLE', valve_type: null, amount: 60 },
+  { id: 'CR-SUV', category: 'SUV', valve_type: null, amount: 100 },
+  { id: 'CR-LT', category: 'LT', valve_type: null, amount: 100 },
+  { id: 'CR-LTB', category: 'LTB', valve_type: null, amount: 150 },
+  { id: 'CR-TBR', category: 'TBR', valve_type: null, amount: 100 },
+  { id: 'CR-TRUCK', category: 'TRUCK', valve_type: null, amount: 100 },
+  { id: 'CR-RECAP', category: 'RECAP', valve_type: null, amount: 70 },
+  { id: 'CR-TIRE', category: 'TIRE', valve_type: null, amount: 60 },
+  { id: 'CR-VALVE-RUBBER', category: 'VALVE', valve_type: 'RUBBER', amount: 40 },
+  { id: 'CR-VALVE-STEEL', category: 'VALVE', valve_type: 'STEEL', amount: 50 },
+  { id: 'CR-SEALANT', category: 'SEALANT', valve_type: null, amount: 400 }
+];
+
+router.get("/commission-rules", (req, res) => {
+  db.all("SELECT * FROM commission_rules WHERE is_active = 1", (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    // Auto-seed if empty
+    if (!rows || rows.length === 0) {
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        const stmt = db.prepare(
+          `INSERT INTO commission_rules (rule_id, category, valve_type, commission_amount, is_active) VALUES (?, ?, ?, ?, 1)`
+        );
+        DEFAULT_RULES.forEach(r => {
+          stmt.run([r.id, r.category, r.valve_type, r.amount]);
+        });
+        stmt.finalize();
+        db.run("COMMIT", (err2) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+          db.all("SELECT * FROM commission_rules WHERE is_active = 1", (err3, newRows) => {
+            res.json(err3 ? { error: err3.message } : newRows);
+          });
+        });
+      });
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
+router.put("/commission-rules/:rule_id", (req, res) => {
+  const { rule_id } = req.params;
+  const { commission_amount } = req.body;
+  if (commission_amount === undefined || isNaN(parseFloat(commission_amount))) {
+    return res.status(400).json({ error: "Valid commission_amount is required" });
+  }
+  db.run(
+    "UPDATE commission_rules SET commission_amount = ? WHERE rule_id = ?",
+    [parseFloat(commission_amount), rule_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Rule not found" });
+      res.json({ message: "Rule updated successfully" });
+    }
+  );
+});
+
 module.exports = router;

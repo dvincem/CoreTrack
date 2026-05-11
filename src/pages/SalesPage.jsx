@@ -29,14 +29,26 @@ function SalesPage({ shopId, isShopClosed }) {
   const [suggestions, setSuggestions] = React.useState([])
   const [kpi, setKpi] = React.useState(null)
 
+  const [viewMode, setViewMode] = React.useState('transactions') // 'transactions' | 'items'
+
   const { data: sales, page: slPage, setPage: setSlPage, totalPages: slTotalPages,
     total: slTotal, search, setSearch, loading, refetch: fetchSales } =
     usePaginatedResource({
       url: `${API_URL}/sales/${shopId}`,
       perPage: SL_PAGE_SIZE,
       extraParams: { startDate, endDate },
-      enabled: !!shopId,
-      deps: [shopId, startDate, endDate],
+      enabled: !!shopId && viewMode === 'transactions',
+      deps: [shopId, startDate, endDate, viewMode],
+    })
+
+  const { data: itemsList, page: itemPage, setPage: setItemPage, totalPages: itemTotalPages,
+    total: itemTotal, search: itemSearch, setSearch: setItemSearch, loading: itemLoading, refetch: fetchItems, stats: itemStats } =
+    usePaginatedResource({
+      url: `${API_URL}/sales/${shopId}/items-list`,
+      perPage: SL_PAGE_SIZE,
+      extraParams: { startDate, endDate, paginated: true },
+      enabled: !!shopId && viewMode === 'items',
+      deps: [shopId, startDate, endDate, viewMode],
     })
 
   // Modal state
@@ -193,6 +205,38 @@ function SalesPage({ shopId, isShopClosed }) {
     </svg>
   )
 
+  const itemColumns = React.useMemo(() => ([
+    {
+      key: 'time', label: 'Time', render: r => (
+        <div>
+          <div className="sl-datetime" style={{ fontSize: '0.8rem', color: 'var(--th-text-body)' }}>{new Date(r.sale_datetime).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--th-text-faint)' }}>{new Date(r.sale_datetime).toLocaleDateString('en-PH')}</div>
+        </div>
+      )
+    },
+    {
+      key: 'invoice', label: 'Invoice #', render: r => (
+        <div style={{ cursor: 'pointer' }} onClick={() => openModal({ sale_id: r.sale_id })}>
+          {r.invoice_number ? <div className="sl-invoice" style={{ display: 'inline-block' }}>{r.invoice_number}</div> : <div className="sl-invoice" style={{ display: 'inline-block' }}>{r.sale_id}</div>}
+        </div>
+      )
+    },
+    {
+      key: 'product', label: 'Product', render: r => (
+        <div>
+          <div style={{ fontWeight: 600, color: 'var(--th-text-primary)', fontSize: '0.84rem' }}>{r.item_name}</div>
+          {(r.brand || r.tire_size || r.category) && (
+            <div style={{ fontSize: '0.72rem', color: 'var(--th-text-faint)' }}>
+              {[r.brand, r.tire_size, r.category].filter(Boolean).join(' · ')}
+            </div>
+          )}
+        </div>
+      )
+    },
+    { key: 'qty', label: 'Qty', align: 'center', render: r => <div style={{ fontWeight: 600 }}>{r.quantity}</div> },
+    { key: 'price', label: 'Unit Price', align: 'right', render: r => <div style={{ color: 'var(--th-text-body)' }}>{fmt(r.unit_price)}</div> },
+    { key: 'total', label: 'Total', align: 'right', render: r => <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: 'var(--th-emerald)', fontSize: '0.95rem' }}>{fmt(r.line_total)}</div> }
+  ]), [])
 
   const slColumns = React.useMemo(() => ([
     {
@@ -311,25 +355,62 @@ function SalesPage({ shopId, isShopClosed }) {
   const todayRevenue = kpi?.todayRevenue ?? sales.filter(s => s.sale_datetime?.startsWith(today)).reduce((s,r) => s+(r.total_amount||0),0)
   const totalItems = kpi?.totalItems ?? sales.reduce((s,r) => s+(r.item_count||0),0)
 
+  const itemsTotalUnits = itemStats?.totalUnits || 0
+  const itemsTotalRevenue = itemStats?.totalRevenue || 0
+  const itemsUniqueBrands = itemStats?.uniqueBrands || 0
+
+  function handleToggleMode(mode) {
+    setViewMode(mode);
+    if (mode === 'items') {
+      setStartDate(today);
+      setEndDate(today);
+    }
+  }
+
   function exportExcel() {
-    if (!salesWithTiremen.length) return
+    if (viewMode === 'transactions' && !salesWithTiremen.length) return
+    if (viewMode === 'items' && !(itemsList && itemsList.length)) return
     import('xlsx').then(XLSX => {
-      const rows = salesWithTiremen.map(s => ({
-        'Sale ID':       s.sale_id,
-        'Date':          s.sale_datetime?.slice(0, 10),
-        'Time':          s.sale_datetime?.slice(11, 16),
-        'Invoice #':     s.invoice_number || '',
-        'Customer':      s.customer_name || 'Walk-in',
-        'Payment Method': s.payment_method ? s.payment_method.replace('BANK_', 'Bank Transfer ') : '',
-        'Handled By':    s.staff_name || '',
-        'Items':         s.item_names || '',
-        'Total (₱)':     s.total_amount,
-        'Status':        s.is_void ? 'VOIDED' : 'ACTIVE',
-        'Notes':         s.sale_notes || '',
-      }))
+      let rows;
+      let sheetName;
+      let filename;
+      
+      if (viewMode === 'transactions') {
+        rows = salesWithTiremen.map(s => ({
+          'Sale ID':       s.sale_id,
+          'Date':          s.sale_datetime?.slice(0, 10),
+          'Time':          s.sale_datetime?.slice(11, 16),
+          'Invoice #':     s.invoice_number || '',
+          'Customer':      s.customer_name || 'Walk-in',
+          'Payment Method': s.payment_method ? s.payment_method.replace('BANK_', 'Bank Transfer ') : '',
+          'Handled By':    s.staff_name || '',
+          'Items':         s.item_names || '',
+          'Total (₱)':     s.total_amount,
+          'Status':        s.is_void ? 'VOIDED' : 'ACTIVE',
+          'Notes':         s.sale_notes || '',
+        }))
+        sheetName = 'Sales'
+        filename = `sales-${startDate}-to-${endDate}.xlsx`
+      } else {
+        rows = itemsList.map(i => ({
+          'Date':          i.sale_datetime?.slice(0, 10),
+          'Time':          i.sale_datetime?.slice(11, 16),
+          'Invoice #':     i.invoice_number || i.sale_id,
+          'Item Name':     i.item_name,
+          'Brand':         i.brand || '',
+          'Size':          i.tire_size || '',
+          'Qty':           i.quantity,
+          'Unit Price':    i.unit_price,
+          'Total':         i.line_total,
+          'Customer':      i.customer_name || 'Walk-in'
+        }))
+        sheetName = 'Products Sold'
+        filename = `products-sold-${startDate}.xlsx`
+      }
+      
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Sales')
-      XLSX.writeFile(wb, `sales-${startDate}-to-${endDate}.xlsx`)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName)
+      XLSX.writeFile(wb, filename)
     })
   }
 
@@ -351,28 +432,60 @@ function SalesPage({ shopId, isShopClosed }) {
       </div>
 
       <div className="th-kpi-row">
-        <KpiCard label="Period Revenue" value={fmtCompact(totalRevenue)} accent="sky" loading={loading} sub={`${slTotal} transactions`} />
-        <KpiCard label="Today's Revenue" value={fmtCompact(todayRevenue)} accent="emerald" loading={loading} />
-        <KpiCard label="Items Sold" value={totalItems} accent="violet" loading={loading} sub="In selected period" />
+        {viewMode === 'transactions' ? (
+          <>
+            <KpiCard label="Period Revenue" value={fmtCompact(totalRevenue)} accent="sky" loading={loading} sub={`${slTotal} transactions`} />
+            <KpiCard label="Today's Revenue" value={fmtCompact(todayRevenue)} accent="emerald" loading={loading} />
+            <KpiCard label="Items Sold" value={totalItems} accent="violet" loading={loading} sub="In selected period" />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Units Sold" value={itemsTotalUnits} accent="sky" loading={itemLoading} sub={`${itemTotal} records`} />
+            <KpiCard label="Product Revenue" value={fmtCompact(itemsTotalRevenue)} accent="emerald" loading={itemLoading} sub="Products & Recap only" />
+            <KpiCard label="Unique Brands" value={itemsUniqueBrands} accent="violet" loading={itemLoading} sub="In selected period" />
+          </>
+        )}
       </div>
 
       <div style={{ marginTop: '0', marginBottom: '0' }}>
         <FilterHeader
           searchProps={{
-            value: search,
-            onChange: setSearch,
-            placeholder: "Search invoice, customer, tireman, item...",
+            value: viewMode === 'transactions' ? search : itemSearch,
+            onChange: viewMode === 'transactions' ? setSearch : setItemSearch,
+            placeholder: viewMode === 'transactions' ? "Search invoice, customer, tireman, item..." : "Search item, brand, size, invoice...",
             suggestions: suggestions,
-            onSuggestionSelect: s => setSearch(s.text),
-            resultCount: search.trim() ? salesWithTiremen.length : undefined,
-            totalCount: slTotal,
-            resultLabel: "sales",
+            onSuggestionSelect: s => viewMode === 'transactions' ? setSearch(s.text) : setItemSearch(s.text),
+            resultCount: viewMode === 'transactions' ? (search.trim() ? salesWithTiremen.length : undefined) : (itemSearch.trim() ? (itemsList ? itemsList.length : 0) : undefined),
+            totalCount: viewMode === 'transactions' ? slTotal : itemTotal,
+            resultLabel: viewMode === 'transactions' ? "sales" : "items",
           }}
           leftComponent={
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <input className="fh-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-              <span style={{ color: 'var(--th-text-faint)', fontSize: '0.8rem' }}>to</span>
-              <input className="fh-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              <input className="fh-date" type="date" max={today} value={startDate} onChange={e => { setStartDate(e.target.value); if (viewMode === 'items') setEndDate(e.target.value); }} />
+              {viewMode === 'transactions' && (
+                <>
+                  <span style={{ color: 'var(--th-text-faint)', fontSize: '0.8rem' }}>to</span>
+                  <input className="fh-date" type="date" max={today} value={endDate} onChange={e => setEndDate(e.target.value)} />
+                </>
+              )}
+            </div>
+          }
+          rightComponent={
+            <div style={{ display: 'flex', background: 'var(--th-bg-input)', borderRadius: '8px', padding: '2px', border: '1px solid var(--th-border)' }}>
+              <button 
+                onClick={() => handleToggleMode('transactions')}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
+                  background: viewMode === 'transactions' ? 'var(--th-sky-bg)' : 'transparent', color: viewMode === 'transactions' ? 'var(--th-sky)' : 'var(--th-text-dim)' }}
+              >
+                📋 Invoices
+              </button>
+              <button 
+                onClick={() => handleToggleMode('items')}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
+                  background: viewMode === 'items' ? 'var(--th-sky-bg)' : 'transparent', color: viewMode === 'items' ? 'var(--th-sky)' : 'var(--th-text-dim)' }}
+              >
+                📦 Items Sold
+              </button>
             </div>
           }
           accentColor="var(--th-sky)"
@@ -382,29 +495,45 @@ function SalesPage({ shopId, isShopClosed }) {
         <button 
           className="sl-export-btn sl-export-mobile" 
           onClick={exportExcel}
-          disabled={loading || !salesWithTiremen.length}
+          disabled={(viewMode === 'transactions' ? loading : itemLoading) || (viewMode === 'transactions' ? !salesWithTiremen.length : !(itemsList && itemsList.length))}
           style={{ width: '100%', marginTop: '0.75rem' }}
         >
           ⬇ Export to Excel
         </button>
       </div>
 
-      <DataTable
-        columns={slColumns}
-        rows={salesWithTiremen}
-        rowKey="sale_id"
-        onRowClick={openModal}
-        selectedKey={modal?.sale.sale_id}
-        loading={loading}
-        skeletonRows={10}
-        minWidth={850}
-        getRowStyle={(r) => r.is_void ? { opacity: 0.5 } : undefined}
-        emptyTitle="No Sales Found"
-        emptyMessage={search.trim() ? "No sales match your search." : "No transactions in this period."}
-        currentPage={slPage}
-        totalPages={slTotalPages}
-        onPageChange={setSlPage}
-      />
+      {viewMode === 'transactions' ? (
+        <DataTable
+          columns={slColumns}
+          rows={salesWithTiremen}
+          rowKey="sale_id"
+          onRowClick={openModal}
+          selectedKey={modal?.sale.sale_id}
+          loading={loading}
+          skeletonRows={10}
+          minWidth={850}
+          getRowStyle={(r) => r.is_void ? { opacity: 0.5 } : undefined}
+          emptyTitle="No Sales Found"
+          emptyMessage={search.trim() ? "No sales match your search." : "No transactions in this period."}
+          currentPage={slPage}
+          totalPages={slTotalPages}
+          onPageChange={setSlPage}
+        />
+      ) : (
+        <DataTable
+          columns={itemColumns}
+          rows={itemsList || []}
+          rowKey="sale_item_id"
+          loading={itemLoading}
+          skeletonRows={10}
+          minWidth={700}
+          emptyTitle="No Items Found"
+          emptyMessage={itemSearch.trim() ? "No items match your search." : "No products sold on this date."}
+          currentPage={itemPage}
+          totalPages={itemTotalPages}
+          onPageChange={setItemPage}
+        />
+      )}
 
       {/* Sale Detail Modal */}
       {modal && (

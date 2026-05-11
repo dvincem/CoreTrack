@@ -1341,7 +1341,9 @@
 
 .archive-tab:hover,
 .archive-tab.active {
-  border-color: var(--th-amber);
-  color: var(--th-amber);
   background: var(--th-amber-bg);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

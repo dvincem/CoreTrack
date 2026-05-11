@@ -18,7 +18,8 @@ import React from 'react'
 export default function ItemHistoryModal({
   item, onClose, currency, historyContent, children,
   variants, activeVariantId, onVariantChange, onDesignChange,
-  onUpdateCost, onUpdatePrice
+  onUpdateCost, onUpdatePrice,
+  incomingOrders = [], incomingLoading = false
 }) {
   const isGrouped = variants && variants.length > 1
 
@@ -325,6 +326,59 @@ export default function ItemHistoryModal({
 
           {/* Optional slot: archive button, stock adjustment, etc. */}
           {children}
+
+          {/* Incoming Orders Section */}
+          {(incomingLoading || incomingOrders.length > 0) && (
+            <div style={{ padding: '0 1rem 1.25rem 1rem' }}>
+              <div className="th-section-label" style={{ marginBottom: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                  Incoming Orders
+                </span>
+                {incomingLoading && <div className="inv-hist-spinner" style={{ width: '12px', height: '12px', borderWeight: '2px' }} />}
+              </div>
+              {incomingOrders.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {incomingOrders.map((order, idx) => (
+                    <div key={idx} style={{ 
+                      background: 'rgba(251,191,36,0.05)', 
+                      border: '1px solid rgba(251,191,36,0.15)',
+                      borderRadius: '8px',
+                      padding: '0.6rem 0.8rem',
+                      fontSize: '0.8rem',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: order.status === 'CONFIRMED' ? 'var(--th-emerald,#10b981)' : 'var(--th-amber,#fbbf24)' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span style={{ 
+                          color: order.status === 'CONFIRMED' ? 'var(--th-emerald,#10b981)' : 'var(--th-amber,#fbbf24)', 
+                          fontWeight: 800, 
+                          letterSpacing: '0.02em',
+                          fontSize: '0.72rem'
+                        }}>
+                          {order.status}
+                        </span>
+                        <span style={{ opacity: 0.5, fontSize: '0.75rem' }}>{new Date(order.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--th-text,#fff)' }}>Qty: <b style={{ fontSize: '0.9rem' }}>{order.quantity}</b></span>
+                        <span style={{ opacity: 0.7, fontSize: '0.75rem', maxWidth: '60%', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {order.supplier_name || 'Direct Order'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !incomingLoading && (
+                <div style={{ padding: '0.5rem', opacity: 0.4, fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed var(--th-border,#283245)', borderRadius: 8 }}>
+                  No pending or confirmed orders
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Transaction history list */}
           <div className="inv-hist-list">

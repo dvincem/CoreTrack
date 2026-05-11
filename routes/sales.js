@@ -613,6 +613,83 @@ router.get("/services-history/:shop_id", (req, res) => {
   });
 });
 
+// Endpoint: GET /api/sales/:shop_id/items-list
+// Used for the "Items Sold" view in the Sales Page.
+router.get("/sales/:shop_id/items-list", (req, res) => {
+  const { shop_id } = req.params;
+  const { startDate, endDate, q, paginated, page, perPage } = req.query;
+
+  let where = `WHERE sh.shop_id = ? AND sh.is_void = 0 AND si.sale_type IN ('PRODUCT', 'RECAP')`;
+  const params = [shop_id];
+
+  if (startDate && endDate) {
+    where += ` AND sh.business_date BETWEEN ? AND ?`;
+    params.push(startDate, endDate);
+  }
+
+  if (q && q.trim()) {
+    where += ` AND (
+      si.item_name LIKE ? OR si.brand LIKE ? OR si.tire_size LIKE ?
+      OR sh.invoice_number LIKE ? OR cm.customer_name LIKE ?
+    )`;
+    const like = `%${q.trim()}%`;
+    params.push(like, like, like, like, like);
+  }
+
+  const baseSelect = `
+    SELECT 
+      MAX(si.sale_item_id) as sale_item_id, 
+      GROUP_CONCAT(si.item_name, ' + ') as item_name, 
+      MAX(si.brand) as brand, 
+      MAX(si.design) as design, 
+      MAX(si.tire_size) as tire_size, 
+      MAX(si.category) as category,
+      MAX(si.quantity) as quantity, 
+      SUM(si.unit_price) as unit_price, 
+      SUM(si.line_total) as line_total, 
+      MAX(si.sale_type) as sale_type,
+      sh.sale_id, sh.invoice_number, sh.sale_datetime, sh.business_date,
+      cm.customer_name
+    FROM sale_items si
+    JOIN sale_header sh ON si.sale_id = sh.sale_id
+    LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
+    ${where}
+    GROUP BY sh.sale_id
+  `;
+
+  if (!paginated || paginated === 'false') {
+    db.all(`${baseSelect} ORDER BY sh.sale_datetime DESC`, params, (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
+    return;
+  }
+
+  const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+  const parsedPerPage = Math.min(200, Math.max(1, parseInt(perPage, 10) || 50));
+  const offset = (parsedPage - 1) * parsedPerPage;
+
+  const statsSql = `SELECT COUNT(*) AS total, COALESCE(SUM(quantity), 0) AS totalUnits, COALESCE(SUM(line_total), 0) AS totalRevenue, COUNT(DISTINCT brand) AS uniqueBrands FROM (${baseSelect}) grouped`;
+  db.get(statsSql, params, (sErr, sRow) => {
+    if (sErr) return res.status(500).json({ error: sErr.message });
+    const total = sRow?.total || 0;
+    const totalUnits = sRow?.totalUnits || 0;
+    const totalRevenue = sRow?.totalRevenue || 0;
+    const uniqueBrands = sRow?.uniqueBrands || 0;
+    const totalPages = Math.max(1, Math.ceil(total / parsedPerPage));
+    
+    const pageSql = `${baseSelect} ORDER BY sh.sale_datetime DESC LIMIT ? OFFSET ?`;
+    db.all(pageSql, [...params, parsedPerPage, offset], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        data: rows || [],
+        meta: { page: parsedPage, perPage: parsedPerPage, total, totalCount: total, totalPages },
+        stats: { totalUnits, totalRevenue, uniqueBrands }
+      });
+    });
+  });
+});
+
 module.exports = router;
 module.exports.recordTiremanCommission = recordTiremanCommission;
 module.exports.recordFlatServiceLabor = recordFlatServiceLabor;

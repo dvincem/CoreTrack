@@ -6,8 +6,8 @@ import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import DataTable from '../components/DataTable'
 
-/* ─── CSS ──────────────────────────────────────────────────────────────────── */
-;
+  /* ─── CSS ──────────────────────────────────────────────────────────────────── */
+  ;
 
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -27,32 +27,32 @@ const TYPE_LABELS = {
 };
 
 const SCENARIO_META = {
-  FULL_REFUND:            { label: "Full Return & Refund",         icon: "↩", color: "orange", desc: "Item unused, accepted back in full. Restocked immediately, refund issued.", tag: "Restock + Refund" },
-  DEFECTIVE_REPLACE_NOW:  { label: "Defective → Replace Now",      icon: "🔧", color: "sky",    desc: "Defective after use. Replace immediately from current stock.", tag: "Immediate Swap" },
-  DEFECTIVE_REPLACE_LATER:{ label: "Defective → Replace Later",    icon: "⏳", color: "violet", desc: "Defective, no stock available now. Log and fulfill when stock arrives.", tag: "Pending" },
-  WARRANTY_CLAIM:         { label: "Warranty Claim",               icon: "📋", color: "amber",  desc: "Send to supplier for testing. Await result: Covered / Not Covered.", tag: "Supplier Testing" },
+  FULL_REFUND: { label: "Full Return & Refund", icon: "↩", color: "orange", desc: "Item unused, accepted back in full. Restocked immediately, refund issued.", tag: "Restock + Refund" },
+  DEFECTIVE_REPLACE_NOW: { label: "Defective → Replace Now", icon: "🔧", color: "sky", desc: "Defective after use. Replace immediately from current stock.", tag: "Immediate Swap" },
+  DEFECTIVE_REPLACE_LATER: { label: "Defective → Replace Later", icon: "⏳", color: "violet", desc: "Defective, no stock available now. Log and fulfill when stock arrives.", tag: "Pending" },
+  WARRANTY_CLAIM: { label: "Warranty Claim", icon: "📋", color: "amber", desc: "Send to supplier for testing. Await result: Covered / Not Covered.", tag: "Supplier Testing" },
 };
 
 const STATUS_BADGE = {
-  PROCESSED:           "ret-badge-green",
-  PENDING:             "ret-badge-orange",
+  PROCESSED: "ret-badge-green",
+  PENDING: "ret-badge-orange",
   REPLACEMENT_PENDING: "ret-badge-sky",
-  WARRANTY_PENDING:    "ret-badge-orange",
-  READY_FOR_PICKUP:    "ret-badge-violet",
-  RESOLVED:            "ret-badge-slate",
-  COMPLETED:           "ret-badge-green",
-  CANCELLED:           "ret-badge-rose",
+  WARRANTY_PENDING: "ret-badge-orange",
+  READY_FOR_PICKUP: "ret-badge-violet",
+  RESOLVED: "ret-badge-slate",
+  COMPLETED: "ret-badge-green",
+  CANCELLED: "ret-badge-rose",
 };
 
 const STATUS_LABEL = {
-  PROCESSED:           "Processed",
-  PENDING:             "Pending",
+  PROCESSED: "Processed",
+  PENDING: "Pending",
   REPLACEMENT_PENDING: "Awaiting Replacement",
-  WARRANTY_PENDING:    "Warranty Testing",
-  READY_FOR_PICKUP:    "Ready for Pickup",
-  RESOLVED:            "Resolved",
-  COMPLETED:           "Completed",
-  CANCELLED:           "Cancelled",
+  WARRANTY_PENDING: "Warranty Testing",
+  READY_FOR_PICKUP: "Ready for Pickup",
+  RESOLVED: "Resolved",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 };
 
 const CUST_REASONS = ["DEFECTIVE", "UNUSED_RETURN", "WRONG_SIZE", "WRONG_ITEM", "DAMAGED_IN_SERVICE", "CUSTOMER_DISSATISFIED", "OTHER"];
@@ -130,6 +130,8 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
   const [histLoading, setHistLoading] = useState(false);
   const [histFilter, setHistFilter] = useState({ type: "", status: "" });
   const [histPage, setHistPage] = useState(1);
+  const [custReturnPage, setCustReturnPage] = useState(1);
+  const [suppReturnPage, setSuppReturnPage] = useState(1);
   const HIST_PAGE_SIZE = 10;
   const [histSearch, setHistSearch] = useState('');
   const [histSuggestions, setHistSuggestions] = useState([]);
@@ -192,9 +194,9 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
   /* ── Load sale IDs and order IDs on mount ───────────────────────── */
   useEffect(() => {
     apiFetch(`${API_URL}/returns/${shopId}/sale-ids`)
-      .then(r => r.json()).then(d => setSaleIds(Array.isArray(d) ? d : [])).catch(() => {});
+      .then(r => r.json()).then(d => setSaleIds(Array.isArray(d) ? d : [])).catch(() => { });
     apiFetch(`${API_URL}/returns/${shopId}/order-ids`)
-      .then(r => r.json()).then(d => setOrderIds(Array.isArray(d) ? d : [])).catch(() => {});
+      .then(r => r.json()).then(d => setOrderIds(Array.isArray(d) ? d : [])).catch(() => { });
   }, [shopId]);
 
   /* ── Customer: autocomplete from loaded sale IDs ────────────────── */
@@ -541,6 +543,124 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
 
   /* ─── Render ──────────────────────────────────────────────────────────────── */
 
+  const historyTableColumns = [
+    {
+      key: 'return_id', label: 'Return ID', width: 140, render: (r) => (
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.85rem" }}>
+          {r.return_id}
+        </span>
+      )
+    },
+    {
+      key: 'return_type', label: 'Type / Scenario', width: 180, render: (r) => (
+        <>
+          <span className={`ret-badge ${r.return_type === "CUSTOMER_RETURN" ? "ret-badge-orange" : r.return_type === "SUPPLIER_REPLACEMENT" ? "ret-badge-green" : "ret-badge-sky"}`}>
+            {TYPE_LABELS[r.return_type] || r.return_type}
+          </span>
+          {r.return_scenario && SCENARIO_META[r.return_scenario] && (
+            <div style={{ fontSize: "0.7rem", color: "var(--th-text-faint)", marginTop: "0.2rem" }}>
+              {SCENARIO_META[r.return_scenario].icon} {SCENARIO_META[r.return_scenario].label}
+            </div>
+          )}
+          {r.customer_name && (
+            <div style={{ fontSize: "0.7rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>👤 {r.customer_name}</div>
+          )}
+        </>
+      )
+    },
+    {
+      key: 'item_name', label: 'Item', render: (r) => (
+        <>
+          <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{r.item_name}</div>
+          <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>{r.sku}</div>
+        </>
+      )
+    },
+    {
+      key: 'quantity', label: 'Qty', align: 'center', width: 60, render: (r) => (
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{r.quantity}</span>
+      )
+    },
+    {
+      key: 'reason', label: 'Reason', render: (r) => (
+        <span style={{ fontSize: "0.82rem" }}>{r.reason}</span>
+      )
+    },
+    {
+      key: 'status', label: 'Status', width: 130, render: (r) => (
+        <span className={`ret-badge ${STATUS_BADGE[r.status] || "ret-badge-slate"}`}>
+          {STATUS_LABEL[r.status] || r.status?.replace(/_/g, " ")}
+        </span>
+      )
+    },
+    {
+      key: 'linked', label: 'Linked To', render: (r) => (
+        <div style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
+          {r.original_sale_id && <div>Sale: {r.original_sale_id}</div>}
+          {r.original_order_id && <div>Order: {r.original_order_id}</div>}
+          {r.linked_inventory_tx_id && (
+            <div style={{ color: "var(--th-text-faint)", fontSize: "0.7rem" }}>Tx: {r.linked_inventory_tx_id}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'created_at', label: 'Date', width: 140, render: (r) => (
+        <span style={{ fontSize: "0.78rem", whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</span>
+      )
+    },
+    {
+      key: 'actions', label: '', align: 'right', width: 160, render: (r) => {
+        // Re-calculate linkedSupp inside the render for current row
+        const autoSuppMap = {};
+        histReturns.forEach(hr => {
+          if (hr.return_type === "SUPPLIER_RETURN" && hr.replacement_return_id === r.return_id) {
+            autoSuppMap[r.return_id] = hr;
+          }
+        });
+        const linkedSupp = autoSuppMap[r.return_id];
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.2rem 0" }}>
+            {r.return_type === "SUPPLIER_RETURN" && r.status === "REPLACEMENT_PENDING" && !r.replacement_return_id?.startsWith("RET-CUST") && (
+              <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(r)}>
+                Receive Replacement
+              </button>
+            )}
+            {r.return_type === "CUSTOMER_RETURN" && r.status === "WARRANTY_PENDING" && (
+              <button className="ret-btn ret-btn-sky ret-btn-sm" onClick={() => { setWarrantyModal(r); setWarrantyResult("COVERED"); setWarrantyNotes(""); }}>
+                Record Warranty Result
+              </button>
+            )}
+            {r.return_type === "CUSTOMER_RETURN" && r.status === "READY_FOR_PICKUP" && (
+              <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
+                onClick={() => submitHandover(r)}>
+                ✓ Complete Handover
+              </button>
+            )}
+            {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && linkedSupp && (
+              <>
+                <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(linkedSupp)}>
+                  Receive Replacement
+                </button>
+                <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
+                  onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
+                  Fulfill Replacement
+                </button>
+              </>
+            )}
+            {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && !linkedSupp && (
+              <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
+                onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
+                Fulfill Replacement
+              </button>
+            )}
+          </div>
+        );
+      }
+    }
+  ];
+
   const checkedCount = Object.values(custChecked).filter((c) => c.checked).length;
 
   return (
@@ -554,537 +674,584 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
         }
       `}</style>
       <div className="ret-page">
-      {/* Header */}
-      <div className="ret-header">
-        <div>
-          <div className="ret-title">
-            Returns &amp; <span>Adjustments</span>
-            {isShopClosed && (
-              <div className="pos-closed-badge" style={{ marginLeft: '1rem', display: 'inline-flex', verticalAlign: 'middle' }}>
-                <span className="pulse"></span>
-                NEXT DAY MODE
-              </div>
-            )}
+        {/* Header */}
+        <div className="ret-header">
+          <div>
+            <div className="ret-title">
+              Returns &amp; <span>Adjustments</span>
+              {isShopClosed && (
+                <div className="pos-closed-badge" style={{ marginLeft: '1rem', display: 'inline-flex', verticalAlign: 'middle' }}>
+                  <span className="pulse"></span>
+                  NEXT DAY MODE
+                </div>
+              )}
+            </div>
+            <div className="ret-subtitle">Customer returns · Supplier returns · Replacements — all movements are traced as linked transactions</div>
           </div>
-          <div className="ret-subtitle">Customer returns · Supplier returns · Replacements — all movements are traced as linked transactions</div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="ret-tabs">
-        {[
-          { id: "customer", label: "↩ Customer Return" },
-          { id: "supplier", label: "↪ Supplier Return" },
-          { id: "history", label: "≡ History" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            className={`ret-tab${tab === t.id ? " active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+        {/* Tabs */}
+        <div className="ret-tabs">
+          {[
+            { id: "customer", label: "↩ Customer Return" },
+            { id: "supplier", label: "↪ Supplier Return" },
+            { id: "history", label: "≡ History" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              className={`ret-tab${tab === t.id ? " active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      {/* ── CUSTOMER RETURN TAB ───────────────────────────────────────── */}
-      {tab === "customer" && (
-        <div className="ret-panel">
-          {custSuccess && (
-            <div className="ret-success">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-              {custSuccess}
-              <button
-                style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem" }}
-                onClick={() => setCustSuccess("")}
-              >✕</button>
-            </div>
-          )}
-
-          {/* Step 1 — Find sale */}
-          <div className="ret-card">
-            <div className="ret-card-title">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Step 1 — Find the Sale
-            </div>
-            <label className="ret-label">Search by Sale ID or Invoice #</label>
-            <div className="ret-search-wrap">
-              <input
-                className="ret-input"
-                style={{ paddingRight: custQuery ? "2rem" : undefined }}
-                placeholder="e.g. SAL-00123, INV-0042…"
-                value={custQuery}
-                onChange={(e) => { setCustQuery(e.target.value); setSelectedSale(null); setSaleItems([]); setCustChecked({}); }}
-                onFocus={() => custQuery && !selectedSale && setShowCustSugs(custSuggestions.length > 0)}
-                onBlur={() => setTimeout(() => setShowCustSugs(false), 180)}
-                autoComplete="off"
-              />
-              {custQuery && (
-                <button className="ret-search-clear" onClick={() => { setCustQuery(""); setSelectedSale(null); setSaleItems([]); setCustChecked({}); }}>×</button>
-              )}
-              {showCustSugs && custSuggestions.length > 0 && (
-                <div className="ret-suggestions">
-                  {custSuggestions.map((s) => (
-                    <button key={s.sale_id} className="ret-sug-item" onMouseDown={() => selectSale(s)}>
-                      <span className="ret-sug-id">{s.sale_id}</span>
-                      {s.invoice_number && <span style={{ fontSize: "0.8rem", color: "var(--th-text-muted)" }}>{s.invoice_number}</span>}
-                      <span className="ret-sug-meta">{s.customer_name || "Walk-in"} · {s.sale_datetime ? new Date(s.sale_datetime).toLocaleDateString("en-PH") : ""}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {selectedSale && (
-              <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: "rgba(249,115,22,0.07)", border: "1px solid rgba(249,115,22,0.25)", borderRadius: 7 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--th-orange)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>
-                  {selectedSale?.invoice_number || selectedSale?.sale_id}
-                </span>
-                <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
-                  {selectedSale?.customer_name || "Walk-in"} · {fmtDate(selectedSale?.sale_datetime)}
-                </span>
-                <button
-                  style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--th-text-dim)", fontSize: "0.95rem" }}
-                  onClick={() => { setSelectedSale(null); setSaleItems([]); setCustChecked({}); setCustQuery(""); }}
-                >✕</button>
-              </div>
-            )}
-          </div>
-
-          {/* Step 2 — Select items */}
-          {selectedSale && (
-            <div className="ret-card">
-              <div className="ret-card-title">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                Step 2 — Select Items to Return
-              </div>
-              {itemsLoading && <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Loading items…</div>}
-              {!itemsLoading && saleItems.length === 0 && (
-                <div className="ret-empty">
-                  <div className="ret-empty-text">No returnable items found for this sale.</div>
-                </div>
-              )}
-              {saleItems.map((si) => {
-                const state = custChecked[si.sale_item_id];
-                return (
-                  <div key={si.sale_item_id} className={`ret-item-row${state?.checked ? " checked" : ""}`}>
-                    <input
-                      type="checkbox"
-                      className="ret-item-check"
-                      checked={!!state?.checked}
-                      onChange={() => toggleCustItem(si)}
-                    />
-                    <div className="ret-item-info">
-                      <div className="ret-item-name">{si.item_name}</div>
-                      <div className="ret-item-meta">
-                        {si.sku && <span>{si.sku} · </span>}
-                        Sold qty: {si.quantity}
-                        {si.already_returned > 0 && <span style={{ color: "var(--th-rose)" }}> · Already returned: {si.already_returned}</span>}
-                        {" · "}Returnable: <strong>{si.returnable_qty}</strong>
-                        {" · "}{currency(si.unit_price)} each
-                      </div>
-                    </div>
-                    {state?.checked && (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
-                        <label className="ret-label" style={{ margin: 0 }}>Qty</label>
-                        <input
-                          className="ret-item-qty-input"
-                          type="number"
-                          min="1"
-                          max={si.returnable_qty}
-                          value={state.qty}
-                          onChange={(e) => {
-                            const v = Math.min(parseFloat(e.target.value) || 1, si.returnable_qty);
-                            setCustChecked((prev) => ({ ...prev, [si.sale_item_id]: { ...prev[si.sale_item_id], qty: v } }));
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Step 3 — Reason & Scenario */}
-          {selectedSale && saleItems.length > 0 && (
-            <div className="ret-card">
-              <div className="ret-card-title">Step 3 — Reason &amp; Return Type</div>
-              <div className="ret-form-row" style={{ marginBottom: "0.85rem" }}>
-                <div className="ret-form-field">
-                  <label className="ret-label">Return Reason <span style={{ color: "#38bdf8" }}>*</span></label>
-                  <select className="ret-select" value={custReason} onChange={(e) => setCustReason(e.target.value)}>
-                    {CUST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div className="ret-form-field">
-                  <label className="ret-label">Notes (optional)</label>
-                  <input className="ret-input" placeholder="e.g. Customer complaint details…" value={custNotes} onChange={(e) => setCustNotes(e.target.value)} />
-                </div>
-              </div>
-
-              <label className="ret-label" style={{ marginBottom: "0.55rem" }}>How are we handling this? <span style={{ color: "var(--th-rose)" }}>*</span></label>
-              <div className="ret-scenario-grid">
-                {Object.entries(SCENARIO_META).map(([key, meta]) => {
-                  const colorMap = { orange: "selected", sky: "sel-sky", violet: "sel-violet", amber: "sel-amber" };
-                  const selClass = colorMap[meta.color] || "selected";
-                  const tagBg = { orange: "rgba(201,124,80,0.18)", sky: "rgba(56,189,248,0.18)", violet: "rgba(167,139,250,0.18)", amber: "rgba(251,191,36,0.18)" }[meta.color];
-                  const tagColor = { orange: "var(--th-orange)", sky: "var(--th-sky)", violet: "var(--th-violet)", amber: "var(--th-amber)" }[meta.color];
-                  return (
-                    <div
-                      key={key}
-                      className={`ret-scenario-card${returnScenario === key ? " " + selClass : ""}`}
-                      onClick={() => { setReturnScenario(key); setCustError(""); }}
-                    >
-                      <div className="ret-scenario-icon">{meta.icon}</div>
-                      <div className="ret-scenario-name">{meta.label}</div>
-                      <div className="ret-scenario-desc">{meta.desc}</div>
-                      <span className="ret-scenario-tag" style={{ background: tagBg, color: tagColor }}>{meta.tag}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Step 4 — Scenario-specific fields */}
-          {selectedSale && saleItems.length > 0 && returnScenario && (
-            <div className="ret-card">
-              <div className="ret-card-title">Step 4 — {SCENARIO_META[returnScenario]?.label} Details</div>
-
-              {returnScenario === "FULL_REFUND" && (
-                <div className="ret-form-field" style={{ maxWidth: 260 }}>
-                  <label className="ret-label">Refund Method <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                  <select className="ret-select" value={refundMethod} onChange={(e) => setRefundMethod(e.target.value)}>
-                    {REFUND_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <span style={{ fontSize: "0.72rem", color: "var(--th-text-dim)", marginTop: "0.25rem" }}>
-                    Item will be restocked and refund issued via selected method.
-                  </span>
+        {/* ── CUSTOMER RETURN TAB ───────────────────────────────────────── */}
+        {tab === "customer" && (
+          <>
+            <div className="ret-panel">
+              {custSuccess && (
+                <div className="ret-success">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                  {custSuccess}
+                  <button
+                    style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem" }}
+                    onClick={() => setCustSuccess("")}
+                  >✕</button>
                 </div>
               )}
 
-              {returnScenario === "DEFECTIVE_REPLACE_NOW" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-                  {autoStockLoading && (
-                    <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Checking stock availability…</div>
+              {/* Step 1 — Find sale */}
+              <div className="ret-card">
+                <div className="ret-card-title">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  Step 1 — Find the Sale
+                </div>
+                <label className="ret-label">Search by Sale ID or Invoice #</label>
+                <div className="ret-search-wrap">
+                  <input
+                    className="ret-input"
+                    style={{ paddingRight: custQuery ? "2rem" : undefined }}
+                    placeholder="e.g. SAL-00123, INV-0042…"
+                    value={custQuery}
+                    onChange={(e) => { setCustQuery(e.target.value); setSelectedSale(null); setSaleItems([]); setCustChecked({}); }}
+                    onFocus={() => custQuery && !selectedSale && setShowCustSugs(custSuggestions.length > 0)}
+                    onBlur={() => setTimeout(() => setShowCustSugs(false), 180)}
+                    autoComplete="off"
+                  />
+                  {custQuery && (
+                    <button className="ret-search-clear" onClick={() => { setCustQuery(""); setSelectedSale(null); setSaleItems([]); setCustChecked({}); }}>×</button>
                   )}
-                  {!autoStockLoading && Object.keys(autoStockCheck).length > 0 && (
-                    Object.entries(autoStockCheck).map(([item_id, stock]) => {
-                      const checkedEntry = Object.values(custChecked).find(c => c.item?.item_id === item_id);
-                      const neededQty = checkedEntry?.qty || 1;
-                      const available = (stock.on_hand || 0) >= neededQty;
-                      return (
-                        <div key={item_id} style={{
-                          display: "flex", alignItems: "center", gap: "0.75rem",
-                          padding: "0.65rem 0.9rem", borderRadius: 8,
-                          border: `1px solid ${available ? "var(--th-emerald)" : "var(--th-rose)"}`,
-                          background: available ? "rgba(52,211,153,0.06)" : "rgba(251,113,133,0.06)",
-                        }}>
-                          <span style={{ fontSize: "1.1rem" }}>{available ? "✅" : "❌"}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--th-text-primary)" }}>{stock.item_name}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
-                              {stock.sku} · In stock: <strong style={{ color: available ? "var(--th-emerald)" : "var(--th-rose)" }}>{stock.on_hand}</strong> · Need: {neededQty}
-                            </div>
+                  {showCustSugs && custSuggestions.length > 0 && (
+                    <div className="ret-suggestions">
+                      {custSuggestions.map((s) => (
+                        <button key={s.sale_id} className="ret-sug-item" onMouseDown={() => selectSale(s)}>
+                          <span className="ret-sug-id">{s.sale_id}</span>
+                          {s.invoice_number && <span style={{ fontSize: "0.8rem", color: "var(--th-text-muted)" }}>{s.invoice_number}</span>}
+                          <span className="ret-sug-meta">{s.customer_name || "Walk-in"} · {s.sale_datetime ? new Date(s.sale_datetime).toLocaleDateString("en-PH") : ""}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedSale && (
+                  <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: "rgba(249,115,22,0.07)", border: "1px solid rgba(249,115,22,0.25)", borderRadius: 7 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--th-orange)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                    <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>
+                      {selectedSale?.invoice_number || selectedSale?.sale_id}
+                    </span>
+                    <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
+                      {selectedSale?.customer_name || "Walk-in"} · {fmtDate(selectedSale?.sale_datetime)}
+                    </span>
+                    <button
+                      style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--th-text-dim)", fontSize: "0.95rem" }}
+                      onClick={() => { setSelectedSale(null); setSaleItems([]); setCustChecked({}); setCustQuery(""); }}
+                    >✕</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 2 — Select items */}
+              {selectedSale && (
+                <div className="ret-card">
+                  <div className="ret-card-title">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
+                    Step 2 — Select Items to Return
+                  </div>
+                  {itemsLoading && <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Loading items…</div>}
+                  {!itemsLoading && saleItems.length === 0 && (
+                    <div className="ret-empty">
+                      <div className="ret-empty-text">No returnable items found for this sale.</div>
+                    </div>
+                  )}
+                  {saleItems.map((si) => {
+                    const state = custChecked[si.sale_item_id];
+                    return (
+                      <div key={si.sale_item_id} className={`ret-item-row${state?.checked ? " checked" : ""}`}>
+                        <input
+                          type="checkbox"
+                          className="ret-item-check"
+                          checked={!!state?.checked}
+                          onChange={() => toggleCustItem(si)}
+                        />
+                        <div className="ret-item-info">
+                          <div className="ret-item-name">{si.item_name}</div>
+                          <div className="ret-item-meta">
+                            {si.sku && <span>{si.sku} · </span>}
+                            Sold qty: {si.quantity}
+                            {si.already_returned > 0 && <span style={{ color: "var(--th-rose)" }}> · Already returned: {si.already_returned}</span>}
+                            {" · "}Returnable: <strong>{si.returnable_qty}</strong>
+                            {" · "}{currency(si.unit_price)} each
                           </div>
-                          <span style={{
-                            fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
-                            textTransform: "uppercase", letterSpacing: "0.04em",
-                            padding: "0.15rem 0.55rem", borderRadius: 4,
-                            background: available ? "var(--th-emerald-bg)" : "var(--th-rose-bg)",
-                            color: available ? "var(--th-emerald)" : "var(--th-rose)",
-                          }}>
-                            {available ? "Ready to Swap" : "Out of Stock"}
-                          </span>
+                        </div>
+                        {state?.checked && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
+                            <label className="ret-label" style={{ margin: 0 }}>Qty</label>
+                            <input
+                              className="ret-item-qty-input"
+                              type="number"
+                              min="1"
+                              max={si.returnable_qty}
+                              value={state.qty}
+                              onChange={(e) => {
+                                const v = Math.min(parseFloat(e.target.value) || 1, si.returnable_qty);
+                                setCustChecked((prev) => ({ ...prev, [si.sale_item_id]: { ...prev[si.sale_item_id], qty: v } }));
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Step 3 — Reason & Scenario */}
+              {selectedSale && saleItems.length > 0 && (
+                <div className="ret-card">
+                  <div className="ret-card-title">Step 3 — Reason &amp; Return Type</div>
+                  <div className="ret-form-row" style={{ marginBottom: "0.85rem" }}>
+                    <div className="ret-form-field">
+                      <label className="ret-label">Return Reason <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <select className="ret-select" value={custReason} onChange={(e) => setCustReason(e.target.value)}>
+                        {CUST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="ret-form-field">
+                      <label className="ret-label">Notes (optional)</label>
+                      <input className="ret-input" placeholder="e.g. Customer complaint details…" value={custNotes} onChange={(e) => setCustNotes(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <label className="ret-label" style={{ marginBottom: "0.55rem" }}>How are we handling this? <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                  <div className="ret-scenario-grid">
+                    {Object.entries(SCENARIO_META).map(([key, meta]) => {
+                      const colorMap = { orange: "selected", sky: "sel-sky", violet: "sel-violet", amber: "sel-amber" };
+                      const selClass = colorMap[meta.color] || "selected";
+                      const tagBg = { orange: "rgba(201,124,80,0.18)", sky: "rgba(56,189,248,0.18)", violet: "rgba(167,139,250,0.18)", amber: "rgba(251,191,36,0.18)" }[meta.color];
+                      const tagColor = { orange: "var(--th-orange)", sky: "var(--th-sky)", violet: "var(--th-violet)", amber: "var(--th-amber)" }[meta.color];
+                      return (
+                        <div
+                          key={key}
+                          className={`ret-scenario-card${returnScenario === key ? " " + selClass : ""}`}
+                          onClick={() => { setReturnScenario(key); setCustError(""); }}
+                        >
+                          <div className="ret-scenario-icon">{meta.icon}</div>
+                          <div className="ret-scenario-name">{meta.label}</div>
+                          <div className="ret-scenario-desc">{meta.desc}</div>
+                          <span className="ret-scenario-tag" style={{ background: tagBg, color: tagColor }}>{meta.tag}</span>
                         </div>
                       );
-                    })
-                  )}
-                  {!autoStockLoading && Object.values(autoStockCheck).some(s => (s.on_hand || 0) === 0) && (
-                    <div style={{ fontSize: "0.78rem", color: "var(--th-rose)", padding: "0.4rem 0.6rem", background: "var(--th-rose-bg)", borderRadius: 6 }}>
-                      One or more items are out of stock. Choose <strong>Defective → Replace Later</strong> or <strong>Warranty Claim</strong> instead.
-                    </div>
-                  )}
-                  {!autoStockLoading && Object.keys(autoStockCheck).length > 0 && Object.values(autoStockCheck).every(s => (s.on_hand || 0) > 0) && (
-                    <div style={{ fontSize: "0.72rem", color: "var(--th-text-dim)" }}>
-                      Replacement units will be deducted from current stock. Defective items removed from inventory.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {returnScenario === "DEFECTIVE_REPLACE_LATER" && (
-                <div style={{ fontSize: "0.85rem", color: "var(--th-text-muted)", padding: "0.65rem 0.85rem", background: "var(--th-violet-bg)", border: "1px solid var(--th-violet)", borderRadius: 8, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                  <div><strong style={{ color: "var(--th-violet)" }}>Pending replacement</strong> — no stock deducted now.</div>
-                  <div style={{ fontSize: "0.78rem" }}>
-                    • The defective item is <strong>not restocked</strong> — it is held out of sellable inventory.<br/>
-                    • A supplier return is <strong>auto-created</strong> so you can track sending it back.<br/>
-                    • Once the supplier sends a replacement, use <em>Receive Replacement</em> in History to fulfill and restock.
+                    })}
                   </div>
                 </div>
               )}
 
-              {returnScenario === "WARRANTY_CLAIM" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                  <div className="ret-form-row">
-                    <div className="ret-form-field">
-                      <label className="ret-label">Warranty Reference / RMA # (optional)</label>
-                      <input className="ret-input" placeholder="e.g. WR-2024-001" value={warrantyRef} onChange={(e) => setWarrantyRef(e.target.value)} />
-                    </div>
-                    <div className="ret-form-field">
-                      <label className="ret-label">Date Sent to Supplier (optional)</label>
-                      <input className="ret-input" type="date" value={warrantySentAt} onChange={(e) => setWarrantySentAt(e.target.value)} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--th-text-dim)" }}>
-                    Item will be logged as <strong>WARRANTY_PENDING</strong>. Once you receive the supplier's verdict,
-                    use "Record Warranty Result" in History to mark it Covered / Not Covered / Partial.
-                  </div>
-                </div>
-              )}
+              {/* Step 4 — Scenario-specific fields */}
+              {selectedSale && saleItems.length > 0 && returnScenario && (
+                <div className="ret-card">
+                  <div className="ret-card-title">Step 4 — {SCENARIO_META[returnScenario]?.label} Details</div>
 
-              {custError && (
-                <div className="ret-error" style={{ marginTop: "0.65rem" }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  {custError}
-                </div>
-              )}
-
-              <div style={{ marginTop: "0.85rem", display: "flex", gap: "0.5rem" }}>
-                <button
-                  className="ret-btn ret-btn-emerald"
-                  disabled={custSubmitting || checkedCount === 0 || autoStockLoading ||
-                    (returnScenario === "DEFECTIVE_REPLACE_NOW" && Object.values(autoStockCheck).some(s => (s.on_hand || 0) === 0))}
-                  onClick={submitCustomerReturn}
-                  style={{ flex: 1 }}
-                >
-                  {custSubmitting ? "Processing…" : `↩ Process Return${checkedCount > 0 ? ` (${checkedCount} item${checkedCount > 1 ? "s" : ""})` : ""}`}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── SUPPLIER RETURN TAB ───────────────────────────────────────── */}
-      {tab === "supplier" && (
-        <div className="ret-panel">
-          {suppSuccess && (
-            <div className="ret-success">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-              {suppSuccess}
-              <button
-                style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem" }}
-                onClick={() => setSuppSuccess("")}
-              >✕</button>
-            </div>
-          )}
-
-          {/* Step 1 — Find order */}
-          <div className="ret-card">
-            <div className="ret-card-title">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Step 1 — Find the Stock
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <button 
-                className={`ret-btn ${!legacyMode ? 'ret-btn-sky' : 'ret-btn-outline'}`}
-                style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}
-                onClick={() => { setLegacyMode(false); setSelectedOrder(null); setSelectedOrderItem(null); setSelectedMasterItem(null); setSuppQuery(""); }}
-              >Search by Purchase Order</button>
-              <button 
-                className={`ret-btn ${legacyMode ? 'ret-btn-orange' : 'ret-btn-outline'}`}
-                style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}
-                onClick={() => { setLegacyMode(true); setSelectedOrder(null); setSelectedOrderItem(null); setSelectedMasterItem(null); setMasterQuery(""); }}
-              >Legacy / No PO Return</button>
-            </div>
-
-            {!legacyMode ? (
-              <>
-                <label className="ret-label">Search by Order ID (RECEIVED orders only)</label>
-                <div className="ret-search-wrap">
-                  <input
-                    className="ret-input"
-                    style={{ paddingRight: suppQuery ? "2rem" : undefined }}
-                    placeholder="e.g. ORD-1234567890…"
-                    value={suppQuery}
-                    onChange={(e) => { setSuppQuery(e.target.value); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}
-                    onFocus={() => suppQuery && !selectedOrder && setShowSuppSugs(suppSuggestions.length > 0)}
-                    onBlur={() => setTimeout(() => setShowSuppSugs(false), 180)}
-                    autoComplete="off"
-                  />
-                  {suppQuery && (
-                    <button className="ret-search-clear" onClick={() => { setSuppQuery(""); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}>×</button>
-                  )}
-                  {showSuppSugs && suppSuggestions.length > 0 && (
-                    <div className="ret-suggestions">
-                      {suppSuggestions.map((o) => (
-                        <button key={o.order_id} className="ret-sug-item" onMouseDown={() => selectOrder(o)}>
-                          <span className="ret-sug-id">{o.order_id}</span>
-                          <span className="ret-sug-meta">{o.received_at ? "Received " + new Date(o.received_at).toLocaleDateString("en-PH") : ""} · {currency(o.total_amount)}</span>
-                        </button>
-                      ))}
+                  {returnScenario === "FULL_REFUND" && (
+                    <div className="ret-form-field" style={{ maxWidth: 260 }}>
+                      <label className="ret-label">Refund Method <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                      <select className="ret-select" value={refundMethod} onChange={(e) => setRefundMethod(e.target.value)}>
+                        {REFUND_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <span style={{ fontSize: "0.72rem", color: "var(--th-text-dim)", marginTop: "0.25rem" }}>
+                        Item will be restocked and refund issued via selected method.
+                      </span>
                     </div>
                   )}
-                </div>
-              </>
-            ) : (
-              <>
-                <label className="ret-label">Search Master Inventory (Brand, Size, SKU…)</label>
-                <div className="ret-search-wrap">
-                  <input
-                    className="ret-input"
-                    placeholder="e.g. 205/55R16, Bridgestone…"
-                    value={masterQuery}
-                    onChange={(e) => { setMasterQuery(e.target.value); setSelectedMasterItem(null); setSelectedOrderItem(null); }}
-                    autoComplete="off"
-                  />
-                  {masterSearching && <div className="ret-search-spinner" style={{ right: '0.5rem', top: '0.5rem' }}></div>}
-                  {masterResults.length > 0 && !selectedMasterItem && (
-                    <div className="ret-suggestions">
-                      {masterResults.map((m) => (
-                        <button key={m.item_id} className="ret-sug-item" onMouseDown={() => selectMasterItem(m)}>
-                          <div style={{ fontWeight: 600 }}>{m.item_name}</div>
-                          <span className="ret-sug-meta">{m.sku} · Stock: {m.on_hand} · {m.supplier_name || "No Supplier"}</span>
-                        </button>
-                      ))}
+
+                  {returnScenario === "DEFECTIVE_REPLACE_NOW" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+                      {autoStockLoading && (
+                        <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Checking stock availability…</div>
+                      )}
+                      {!autoStockLoading && Object.keys(autoStockCheck).length > 0 && (
+                        Object.entries(autoStockCheck).map(([item_id, stock]) => {
+                          const checkedEntry = Object.values(custChecked).find(c => c.item?.item_id === item_id);
+                          const neededQty = checkedEntry?.qty || 1;
+                          const available = (stock.on_hand || 0) >= neededQty;
+                          return (
+                            <div key={item_id} style={{
+                              display: "flex", alignItems: "center", gap: "0.75rem",
+                              padding: "0.65rem 0.9rem", borderRadius: 8,
+                              border: `1px solid ${available ? "var(--th-emerald)" : "var(--th-rose)"}`,
+                              background: available ? "rgba(52,211,153,0.06)" : "rgba(251,113,133,0.06)",
+                            }}>
+                              <span style={{ fontSize: "1.1rem" }}>{available ? "✅" : "❌"}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--th-text-primary)" }}>{stock.item_name}</div>
+                                <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
+                                  {stock.sku} · In stock: <strong style={{ color: available ? "var(--th-emerald)" : "var(--th-rose)" }}>{stock.on_hand}</strong> · Need: {neededQty}
+                                </div>
+                              </div>
+                              <span style={{
+                                fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
+                                textTransform: "uppercase", letterSpacing: "0.04em",
+                                padding: "0.15rem 0.55rem", borderRadius: 4,
+                                background: available ? "var(--th-emerald-bg)" : "var(--th-rose-bg)",
+                                color: available ? "var(--th-emerald)" : "var(--th-rose)",
+                              }}>
+                                {available ? "Ready to Swap" : "Out of Stock"}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                      {!autoStockLoading && Object.values(autoStockCheck).some(s => (s.on_hand || 0) === 0) && (
+                        <div style={{ fontSize: "0.78rem", color: "var(--th-rose)", padding: "0.4rem 0.6rem", background: "var(--th-rose-bg)", borderRadius: 6 }}>
+                          One or more items are out of stock. Choose <strong>Defective → Replace Later</strong> or <strong>Warranty Claim</strong> instead.
+                        </div>
+                      )}
+                      {!autoStockLoading && Object.keys(autoStockCheck).length > 0 && Object.values(autoStockCheck).every(s => (s.on_hand || 0) > 0) && (
+                        <div style={{ fontSize: "0.72rem", color: "var(--th-text-dim)" }}>
+                          Replacement units will be deducted from current stock. Defective items removed from inventory.
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              </>
-            )}
 
-            {(selectedOrder || selectedMasterItem) && (
-              <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: legacyMode ? "rgba(249,115,22,0.07)" : "rgba(56,189,248,0.07)", border: `1px solid ${legacyMode ? "rgba(249,115,22,0.2)" : "rgba(56,189,248,0.2)"}`, borderRadius: 7 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={legacyMode ? "var(--th-orange)" : "#38bdf8"} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>
-                  {legacyMode ? selectedMasterItem?.item_name : selectedOrder?.order_id}
-                </span>
-                <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
-                  {legacyMode ? (selectedMasterItem?.sku || "Legacy Stock") : `Received ${fmtDate(selectedOrder?.received_at)}`}
-                </span>
-                <button
-                  style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--th-text-dim)", fontSize: "0.95rem" }}
-                  onClick={() => { setSelectedOrder(null); setSelectedMasterItem(null); setOrderItems([]); setSelectedOrderItem(null); setSuppQuery(""); setMasterQuery(""); }}
-                >✕</button>
-              </div>
-            )}
-          </div>
-
-          {/* Step 2 — Select item */}
-          {selectedOrder && (
-            <div className="ret-card">
-              <div className="ret-card-title">Step 2 — Select Item to Return</div>
-              {orderItemsLoading && <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Loading items…</div>}
-              {!orderItemsLoading && orderItems.length === 0 && (
-                <div className="ret-empty"><div className="ret-empty-text">No returnable items in this order.</div></div>
-              )}
-              <div className="ret-search-results">
-                {orderItems.map((oi) => (
-                  <div
-                    key={oi.order_item_id}
-                    className={`ret-supp-item-row${selectedOrderItem?.order_item_id === oi.order_item_id ? " selected" : ""}`}
-                    onClick={() => { setSelectedOrderItem(oi); setSuppQty(1); setSuppError(""); }}
-                  >
-                    <input
-                      type="radio"
-                      style={{ accentColor: "#38bdf8", flexShrink: 0 }}
-                      checked={selectedOrderItem?.order_item_id === oi.order_item_id}
-                      onChange={() => {}}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="ret-item-name">{oi.item_name}</div>
-                      <div className="ret-item-meta">
-                        {oi.sku} · {oi.supplier_name || "No supplier"} · Purchased qty: {oi.quantity}
-                        {oi.already_returned > 0 && <span style={{ color: "var(--th-rose)" }}> · Returned: {oi.already_returned}</span>}
-                        {" · "}Returnable: <strong>{oi.returnable_qty}</strong>
-                        {" · "}{currency(oi.unit_cost)} cost
+                  {returnScenario === "DEFECTIVE_REPLACE_LATER" && (
+                    <div style={{ fontSize: "0.85rem", color: "var(--th-text-muted)", padding: "0.65rem 0.85rem", background: "var(--th-violet-bg)", border: "1px solid var(--th-violet)", borderRadius: 8, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                      <div><strong style={{ color: "var(--th-violet)" }}>Pending replacement</strong> — no stock deducted now.</div>
+                      <div style={{ fontSize: "0.78rem" }}>
+                        • The defective item is <strong>not restocked</strong> — it is held out of sellable inventory.<br />
+                        • A supplier return is <strong>auto-created</strong> so you can track sending it back.<br />
+                        • Once the supplier sends a replacement, use <em>Receive Replacement</em> in History to fulfill and restock.
                       </div>
                     </div>
+                  )}
+
+                  {returnScenario === "WARRANTY_CLAIM" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                      <div className="ret-form-row">
+                        <div className="ret-form-field">
+                          <label className="ret-label">Warranty Reference / RMA # (optional)</label>
+                          <input className="ret-input" placeholder="e.g. WR-2024-001" value={warrantyRef} onChange={(e) => setWarrantyRef(e.target.value)} />
+                        </div>
+                        <div className="ret-form-field">
+                          <label className="ret-label">Date Sent to Supplier (optional)</label>
+                          <input className="ret-input" type="date" value={warrantySentAt} onChange={(e) => setWarrantySentAt(e.target.value)} />
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--th-text-dim)" }}>
+                        Item will be logged as <strong>WARRANTY_PENDING</strong>. Once you receive the supplier's verdict,
+                        use "Record Warranty Result" in History to mark it Covered / Not Covered / Partial.
+                      </div>
+                    </div>
+                  )}
+
+                  {custError && (
+                    <div className="ret-error" style={{ marginTop: "0.65rem" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      {custError}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: "0.85rem", display: "flex", gap: "0.5rem" }}>
+                    <button
+                      className="ret-btn ret-btn-emerald"
+                      disabled={custSubmitting || checkedCount === 0 || autoStockLoading ||
+                        (returnScenario === "DEFECTIVE_REPLACE_NOW" && Object.values(autoStockCheck).some(s => (s.on_hand || 0) === 0))}
+                      onClick={submitCustomerReturn}
+                      style={{ flex: 1 }}
+                    >
+                      {custSubmitting ? "Processing…" : `↩ Process Return${checkedCount > 0 ? ` (${checkedCount} item${checkedCount > 1 ? "s" : ""})` : ""}`}
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Step 3 — Details & Submit */}
-          {selectedOrderItem && (
-            <div className="ret-card">
-              <div className="ret-card-title">Step 3 — Return Details</div>
-              <div className="ret-form-row" style={{ marginBottom: "0.65rem" }}>
-                <div className="ret-form-field">
-                  <label className="ret-label">Quantity to Return <span style={{ color: "#38bdf8" }}>*</span></label>
-                  <input
-                    className="ret-input"
-                    type="number"
-                    min="1"
-                    max={selectedOrderItem.returnable_qty}
-                    value={suppQty}
-                    onChange={(e) => setSuppQty(e.target.value)}
-                  />
-                  <span style={{ fontSize: "0.72rem", color: "var(--th-text-dim)", marginTop: "0.2rem" }}>
-                    Max: {selectedOrderItem.returnable_qty}
-                  </span>
-                </div>
-                <div className="ret-form-field">
-                  <label className="ret-label">Reason <span style={{ color: "#38bdf8" }}>*</span></label>
-                  <select className="ret-select" value={suppReason} onChange={(e) => setSuppReason(e.target.value)}>
-                    {SUPP_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="ret-form-field" style={{ marginBottom: "0.65rem" }}>
-                <label className="ret-label">Notes (optional)</label>
-                <input className="ret-input" placeholder="e.g. Warranty claim #, PO reference…" value={suppNotes} onChange={(e) => setSuppNotes(e.target.value)} />
-              </div>
+            {/* Recent Customer Returns */}
+            <div className="th-section-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 3v18h18" /><path d="M18 17V9a4 4 0 0 0-8 0v8" /></svg>
+              Recent Customer Returns</div>
+            <DataTable
+              loading={histLoading}
+              rows={(() => {
+                const customerReturns = histReturns.filter(r => r.return_type === "CUSTOMER_RETURN");
+                const start = (custReturnPage - 1) * HIST_PAGE_SIZE;
+                return customerReturns.slice(start, start + HIST_PAGE_SIZE);
+              })()}
+              rowKey="return_id"
+              currentPage={custReturnPage}
+              totalPages={Math.ceil(histReturns.filter(r => r.return_type === "CUSTOMER_RETURN").length / HIST_PAGE_SIZE)}
+              onPageChange={setCustReturnPage}
+              columns={historyTableColumns}
+              emptyMessage="No customer returns found."
+              minWidth={900}
+            />
+          </>
+        )}
 
-              <label className="ret-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={expectReplacement}
-                  onChange={(e) => setExpectReplacement(e.target.checked)}
-                />
-                Expecting a replacement from supplier
-              </label>
-              {expectReplacement && (
-                <div style={{ fontSize: "0.78rem", color: "#38bdf8", marginTop: "0.25rem", marginLeft: "1.3rem" }}>
-                  Return will be marked <strong>REPLACEMENT PENDING</strong> until you receive the replacement in History.
+        {/* ── SUPPLIER RETURN TAB ───────────────────────────────────────── */}
+        {tab === "supplier" && (
+          <>
+            <div className="ret-panel">
+              {suppSuccess && (
+                <div className="ret-success">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                  {suppSuccess}
+                  <button
+                    style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem" }}
+                    onClick={() => setSuppSuccess("")}
+                  >✕</button>
                 </div>
               )}
 
-              {suppError && (
-                <div className="ret-error" style={{ marginTop: "0.5rem" }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  {suppError}
+              {/* Step 1 — Find order */}
+              <div className="ret-card">
+                <div className="ret-card-title">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  Step 1 — Find the Stock
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', width: '280px', flexShrink: 0, marginTop: '1.2rem' }}>
+                    <button
+                      className={`ret-btn ${!legacyMode ? 'ret-btn-sky' : 'ret-btn-outline'}`}
+                      style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}
+                      onClick={() => { setLegacyMode(false); setSelectedOrder(null); setSelectedOrderItem(null); setSelectedMasterItem(null); setSuppQuery(""); }}
+                    >Search by Purchase Order</button>
+                    <button
+                      className={`ret-btn ${legacyMode ? 'ret-btn-orange' : 'ret-btn-outline'}`}
+                      style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}
+                      onClick={() => { setLegacyMode(true); setSelectedOrder(null); setSelectedOrderItem(null); setSelectedMasterItem(null); setMasterQuery(""); }}
+                    >Legacy / No PO Return</button>
+                  </div>
+                  <div style={{ flex: 1 }}>
+
+                    {!legacyMode ? (
+                      <>
+                        <label className="ret-label">Search by Order ID (RECEIVED orders only)</label>
+                        <div className="ret-search-wrap">
+                          <input
+                            className="ret-input"
+                            style={{ paddingRight: suppQuery ? "2rem" : undefined }}
+                            placeholder="e.g. ORD-1234567890…"
+                            value={suppQuery}
+                            onChange={(e) => { setSuppQuery(e.target.value); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}
+                            onFocus={() => suppQuery && !selectedOrder && setShowSuppSugs(suppSuggestions.length > 0)}
+                            onBlur={() => setTimeout(() => setShowSuppSugs(false), 180)}
+                            autoComplete="off"
+                          />
+                          {suppQuery && (
+                            <button className="ret-search-clear" onClick={() => { setSuppQuery(""); setSelectedOrder(null); setOrderItems([]); setSelectedOrderItem(null); }}>×</button>
+                          )}
+                          {showSuppSugs && suppSuggestions.length > 0 && (
+                            <div className="ret-suggestions">
+                              {suppSuggestions.map((o) => (
+                                <button key={o.order_id} className="ret-sug-item" onMouseDown={() => selectOrder(o)}>
+                                  <span className="ret-sug-id">{o.order_id}</span>
+                                  <span className="ret-sug-meta">{o.received_at ? "Received " + new Date(o.received_at).toLocaleDateString("en-PH") : ""} · {currency(o.total_amount)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <label className="ret-label">Search Master Inventory (Brand, Size, SKU…)</label>
+                        <div className="ret-search-wrap">
+                          <input
+                            className="ret-input"
+                            placeholder="e.g. 205/55R16, Bridgestone…"
+                            value={masterQuery}
+                            onChange={(e) => { setMasterQuery(e.target.value); setSelectedMasterItem(null); setSelectedOrderItem(null); }}
+                            autoComplete="off"
+                          />
+                          {masterSearching && <div className="ret-search-spinner" style={{ right: '0.5rem', top: '0.5rem' }}></div>}
+                          {masterResults.length > 0 && !selectedMasterItem && (
+                            <div className="ret-suggestions">
+                              {masterResults.map((m) => (
+                                <button key={m.item_id} className="ret-sug-item" onMouseDown={() => selectMasterItem(m)}>
+                                  <div style={{ fontWeight: 600 }}>{m.item_name}</div>
+                                  <span className="ret-sug-meta">{m.sku} · Stock: {m.on_hand} · {m.supplier_name || "No Supplier"}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {(selectedOrder || selectedMasterItem) && (
+                  <div style={{ marginTop: "0.65rem", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.5rem 0.8rem", background: legacyMode ? "rgba(249,115,22,0.07)" : "rgba(56,189,248,0.07)", border: `1px solid ${legacyMode ? "rgba(249,115,22,0.2)" : "rgba(56,189,248,0.2)"}`, borderRadius: 7 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={legacyMode ? "var(--th-orange)" : "#38bdf8"} strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                    <span style={{ fontSize: "0.88rem", color: "var(--th-text-primary)", fontWeight: 600 }}>
+                      {legacyMode ? selectedMasterItem?.item_name : selectedOrder?.order_id}
+                    </span>
+                    <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
+                      {legacyMode ? (selectedMasterItem?.sku || "Legacy Stock") : `Received ${fmtDate(selectedOrder?.received_at)}`}
+                    </span>
+                    <button
+                      style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--th-text-dim)", fontSize: "0.95rem" }}
+                      onClick={() => { setSelectedOrder(null); setSelectedMasterItem(null); setOrderItems([]); setSelectedOrderItem(null); setSuppQuery(""); setMasterQuery(""); }}
+                    >✕</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 2 — Select item */}
+              {selectedOrder && (
+                <div className="ret-card">
+                  <div className="ret-card-title">Step 2 — Select Item to Return</div>
+                  {orderItemsLoading && <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Loading items…</div>}
+                  {!orderItemsLoading && orderItems.length === 0 && (
+                    <div className="ret-empty"><div className="ret-empty-text">No returnable items in this order.</div></div>
+                  )}
+                  <div className="ret-search-results">
+                    {orderItems.map((oi) => (
+                      <div
+                        key={oi.order_item_id}
+                        className={`ret-supp-item-row${selectedOrderItem?.order_item_id === oi.order_item_id ? " selected" : ""}`}
+                        onClick={() => { setSelectedOrderItem(oi); setSuppQty(1); setSuppError(""); }}
+                      >
+                        <input
+                          type="radio"
+                          style={{ accentColor: "#38bdf8", flexShrink: 0 }}
+                          checked={selectedOrderItem?.order_item_id === oi.order_item_id}
+                          onChange={() => { }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="ret-item-name">{oi.item_name}</div>
+                          <div className="ret-item-meta">
+                            {oi.sku} · {oi.supplier_name || "No supplier"} · Purchased qty: {oi.quantity}
+                            {oi.already_returned > 0 && <span style={{ color: "var(--th-rose)" }}> · Returned: {oi.already_returned}</span>}
+                            {" · "}Returnable: <strong>{oi.returnable_qty}</strong>
+                            {" · "}{currency(oi.unit_cost)} cost
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
-                <button
-                  className="ret-btn ret-btn-sky"
-                  disabled={suppSubmitting}
-                  onClick={submitSupplierReturn}
-                  style={{ flex: 1 }}
-                >
-                  {suppSubmitting ? "Processing…" : "↪ Process Supplier Return"}
-                </button>
-              </div>
-              <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--th-text-dim)" }}>
-                Item will be removed from inventory as a <strong>SUPPLIER_RETURN</strong> transaction linked to the original purchase order.
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+              {/* Step 3 — Details & Submit */}
+              {selectedOrderItem && (
+                <div className="ret-card">
+                  <div className="ret-card-title">Step 3 — Return Details</div>
+                  <div className="ret-form-row" style={{ marginBottom: "0.65rem" }}>
+                    <div className="ret-form-field">
+                      <label className="ret-label">Quantity to Return <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <input
+                        className="ret-input"
+                        type="number"
+                        min="1"
+                        max={selectedOrderItem.returnable_qty}
+                        value={suppQty}
+                        onChange={(e) => setSuppQty(e.target.value)}
+                      />
+                      <span style={{ fontSize: "0.72rem", color: "var(--th-text-dim)", marginTop: "0.2rem" }}>
+                        Max: {selectedOrderItem.returnable_qty}
+                      </span>
+                    </div>
+                    <div className="ret-form-field">
+                      <label className="ret-label">Reason <span style={{ color: "#38bdf8" }}>*</span></label>
+                      <select className="ret-select" value={suppReason} onChange={(e) => setSuppReason(e.target.value)}>
+                        {SUPP_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="ret-form-field" style={{ marginBottom: "0.65rem" }}>
+                    <label className="ret-label">Notes (optional)</label>
+                    <input className="ret-input" placeholder="e.g. Warranty claim #, PO reference…" value={suppNotes} onChange={(e) => setSuppNotes(e.target.value)} />
+                  </div>
 
-      {/* ── HISTORY TAB ───────────────────────────────────────────────── */}
-      {tab === "history" && (
-        <div className="ret-panel">
-          <div className="ret-card">
-            <div className="ret-card-title">Return History</div>
+                  <label className="ret-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={expectReplacement}
+                      onChange={(e) => setExpectReplacement(e.target.checked)}
+                    />
+                    Expecting a replacement from supplier
+                  </label>
+                  {expectReplacement && (
+                    <div style={{ fontSize: "0.78rem", color: "#38bdf8", marginTop: "0.25rem", marginLeft: "1.3rem" }}>
+                      Return will be marked <strong>REPLACEMENT PENDING</strong> until you receive the replacement in History.
+                    </div>
+                  )}
+
+                  {suppError && (
+                    <div className="ret-error" style={{ marginTop: "0.5rem" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      {suppError}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
+                    <button
+                      className="ret-btn ret-btn-sky"
+                      disabled={suppSubmitting}
+                      onClick={submitSupplierReturn}
+                      style={{ flex: 1 }}
+                    >
+                      {suppSubmitting ? "Processing…" : "↪ Process Supplier Return"}
+                    </button>
+                  </div>
+                  <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "var(--th-text-dim)" }}>
+                    Item will be removed from inventory as a <strong>SUPPLIER_RETURN</strong> transaction linked to the original purchase order.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Recent Supplier Returns */}
+            <div className="th-section-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 3v18h18" /><path d="M18 17V9a4 4 0 0 0-8 0v8" /></svg>
+              Recent Supplier Returns</div>
+
+            <DataTable
+              loading={histLoading}
+              rows={(() => {
+                const supplierReturns = histReturns.filter(r => r.return_type === "SUPPLIER_RETURN");
+                const start = (suppReturnPage - 1) * HIST_PAGE_SIZE;
+                return supplierReturns.slice(start, start + HIST_PAGE_SIZE);
+              })()}
+              rowKey="return_id"
+              currentPage={suppReturnPage}
+              totalPages={Math.ceil(histReturns.filter(r => r.return_type === "SUPPLIER_RETURN").length / HIST_PAGE_SIZE)}
+              onPageChange={setSuppReturnPage}
+              columns={historyTableColumns}
+              emptyMessage="No supplier returns found."
+              minWidth={900}
+            />
+          </>
+        )}
+
+        {/* ── HISTORY TAB ───────────────────────────────────────────────── */}
+        {tab === "history" && (
+          <div className="ret-panel">
             <FilterHeader
               searchProps={{
                 value: histSearch,
@@ -1096,6 +1263,24 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                 totalCount: histReturns.length,
                 resultLabel: "returns",
               }}
+              rightComponent={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--th-text-dim)', textTransform: 'uppercase' }}>Status:</span>
+                  <select
+                    className="ret-select"
+                    style={{ height: '32px', padding: '0 0.5rem', width: '160px', fontSize: '0.82rem' }}
+                    value={histFilter.status}
+                    onChange={e => setHistFilter({ ...histFilter, status: e.target.value })}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="PROCESSED">Processed</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="REPLACEMENT_PENDING">Replacement Pending</option>
+                    <option value="WARRANTY_PENDING">Warranty Pending</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </div>
+              )}
               filters={[
                 { label: "All Types", value: "", active: histFilter.type === "" },
                 { label: "Customer", value: "CUSTOMER_RETURN", active: histFilter.type === "CUSTOMER_RETURN" },
@@ -1104,510 +1289,397 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
               onFilterChange={(v) => setHistFilter({ ...histFilter, type: v })}
               accentColor="var(--th-orange)"
             />
-            
-            <div className="ret-form-row" style={{ marginTop: '0.5rem' }}>
-               <div className="ret-form-field" style={{ maxWidth: 200 }}>
-                 <label className="ret-label">Status Filter</label>
-                 <select className="ret-select" value={histFilter.status} onChange={e => setHistFilter({ ...histFilter, status: e.target.value })}>
-                   <option value="">All Statuses</option>
-                   <option value="PROCESSED">Processed</option>
-                   <option value="PENDING">Pending</option>
-                   <option value="REPLACEMENT_PENDING">Replacement Pending</option>
-                   <option value="WARRANTY_PENDING">Warranty Pending</option>
-                   <option value="COMPLETED">Completed</option>
-                 </select>
-               </div>
-            </div>
-          </div>
 
-          <div className="ret-card" style={{ padding: 0 }}>
-            <DataTable
-              loading={histLoading}
-              rows={(() => {
-                const autoSuppMap = {};
-                histReturns.forEach(r => {
-                  if (r.return_type === "SUPPLIER_RETURN" && r.replacement_return_id?.startsWith("RET-CUST")) {
-                    autoSuppMap[r.replacement_return_id] = r;
-                  }
-                });
-                const autoSuppIds = new Set(Object.values(autoSuppMap).map(r => r.return_id));
-                return filteredHistory.filter(r => !autoSuppIds.has(r.return_id));
-              })()}
-              rowKey="return_id"
-              currentPage={histPage}
-              totalPages={Math.ceil(filteredHistory.length / HIST_PAGE_SIZE)}
-              onPageChange={setHistPage}
-              columns={[
-                { key: 'return_id', label: 'Return ID', width: 140, render: (r) => (
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.85rem" }}>
-                    {r.return_id}
-                  </span>
-                )},
-                { key: 'return_type', label: 'Type / Scenario', width: 180, render: (r) => (
-                  <>
-                    <span className={`ret-badge ${r.return_type === "CUSTOMER_RETURN" ? "ret-badge-orange" : r.return_type === "SUPPLIER_REPLACEMENT" ? "ret-badge-green" : "ret-badge-sky"}`}>
-                      {TYPE_LABELS[r.return_type] || r.return_type}
-                    </span>
-                    {r.return_scenario && SCENARIO_META[r.return_scenario] && (
-                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-faint)", marginTop: "0.2rem" }}>
-                        {SCENARIO_META[r.return_scenario].icon} {SCENARIO_META[r.return_scenario].label}
-                      </div>
-                    )}
-                    {r.customer_name && (
-                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>👤 {r.customer_name}</div>
-                    )}
-                  </>
-                )},
-                { key: 'item_name', label: 'Item', render: (r) => (
-                  <>
-                    <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{r.item_name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>{r.sku}</div>
-                  </>
-                )},
-                { key: 'quantity', label: 'Qty', align: 'center', width: 60, render: (r) => (
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{r.quantity}</span>
-                )},
-                { key: 'reason', label: 'Reason', render: (r) => (
-                  <span style={{ fontSize: "0.82rem" }}>{r.reason}</span>
-                )},
-                { key: 'status', label: 'Status', width: 130, render: (r) => (
-                  <span className={`ret-badge ${STATUS_BADGE[r.status] || "ret-badge-slate"}`}>
-                    {STATUS_LABEL[r.status] || r.status?.replace(/_/g, " ")}
-                  </span>
-                )},
-                { key: 'linked', label: 'Linked To', render: (r) => (
-                  <div style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
-                    {r.original_sale_id && <div>Sale: {r.original_sale_id}</div>}
-                    {r.original_order_id && <div>Order: {r.original_order_id}</div>}
-                    {r.linked_inventory_tx_id && (
-                      <div style={{ color: "var(--th-text-faint)", fontSize: "0.7rem" }}>Tx: {r.linked_inventory_tx_id}</div>
-                    )}
-                  </div>
-                )},
-                { key: 'created_at', label: 'Date', width: 140, render: (r) => (
-                  <span style={{ fontSize: "0.78rem", whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</span>
-                )},
-                { key: 'actions', label: '', align: 'right', width: 160, render: (r) => {
-                  // Re-calculate linkedSupp inside the render for current row
+            <div className="ret-card" style={{ padding: 0 }}>
+              <DataTable
+                loading={histLoading}
+                rows={(() => {
                   const autoSuppMap = {};
-                  histReturns.forEach(hr => {
-                    if (hr.return_type === "SUPPLIER_RETURN" && hr.replacement_return_id === r.return_id) {
-                      autoSuppMap[r.return_id] = hr;
+                  histReturns.forEach(r => {
+                    if (r.return_type === "SUPPLIER_RETURN" && r.replacement_return_id?.startsWith("RET-CUST")) {
+                      autoSuppMap[r.replacement_return_id] = r;
                     }
                   });
-                  const linkedSupp = autoSuppMap[r.return_id];
-
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", padding: "0.2rem 0" }}>
-                      {r.return_type === "SUPPLIER_RETURN" && r.status === "REPLACEMENT_PENDING" && !r.replacement_return_id?.startsWith("RET-CUST") && (
-                        <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(r)}>
-                          Receive Replacement
-                        </button>
-                      )}
-                      {r.return_type === "CUSTOMER_RETURN" && r.status === "WARRANTY_PENDING" && (
-                        <button className="ret-btn ret-btn-sky ret-btn-sm" onClick={() => { setWarrantyModal(r); setWarrantyResult("COVERED"); setWarrantyNotes(""); }}>
-                          Record Warranty Result
-                        </button>
-                      )}
-                      {r.return_type === "CUSTOMER_RETURN" && r.status === "READY_FOR_PICKUP" && (
-                        <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
-                          onClick={() => submitHandover(r)}>
-                          ✓ Complete Handover
-                        </button>
-                      )}
-                      {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && linkedSupp && (
-                        <>
-                          <button className="ret-btn ret-btn-emerald ret-btn-sm" onClick={() => openReplModal(linkedSupp)}>
-                            Receive Replacement
-                          </button>
-                          <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
-                            onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
-                            Fulfill Replacement
-                          </button>
-                        </>
-                      )}
-                      {r.return_type === "CUSTOMER_RETURN" && r.status === "REPLACEMENT_PENDING" && !linkedSupp && (
-                        <button className="ret-btn ret-btn-sm" style={{ background: "var(--th-violet)", color: "#fff" }}
-                          onClick={() => { setFulfillModal(r); setFulfillMode("from_stock"); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}>
-                          Fulfill Replacement
-                        </button>
-                      )}
-                    </div>
-                  );
-                }}
-              ]}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── CONFIRM CUSTOMER RETURN ───────────────────────────────────── */}
-      {pendingCustReturn && (
-        <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setPendingCustReturn(null)}>
-          <div className="confirm-box">
-            <div className="confirm-title">Confirm Return</div>
-            <div className="confirm-details">
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Type</span>
-                <span className="confirm-detail-val">{SCENARIO_META[pendingCustReturn.return_scenario]?.label || pendingCustReturn.return_scenario}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Sale</span>
-                <span className="confirm-detail-val">{pendingCustReturn.saleName}</span>
-              </div>
-              {pendingCustReturn.customer_name && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Customer</span>
-                  <span className="confirm-detail-val">{pendingCustReturn.customer_name}</span>
-                </div>
-              )}
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Items</span>
-                <span className="confirm-detail-val">{pendingCustReturn.items.length} item(s), total qty {pendingCustReturn.items.reduce((s, i) => s + i.quantity, 0)}</span>
-              </div>
-              {pendingCustReturn.return_scenario === "FULL_REFUND" && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Refund Method</span>
-                  <span className="confirm-detail-val">{pendingCustReturn.refund_method}</span>
-                </div>
-              )}
-              {pendingCustReturn.return_scenario === "DEFECTIVE_REPLACE_NOW" && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Replacement</span>
-                  <span className="confirm-detail-val">Same item from stock (1:1 swap)</span>
-                </div>
-              )}
-              {pendingCustReturn.warranty_ref && (
-                <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Warranty Ref</span>
-                  <span className="confirm-detail-val">{pendingCustReturn.warranty_ref}</span>
-                </div>
-              )}
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Reason</span>
-                <span className="confirm-detail-val">{pendingCustReturn.reason}</span>
-              </div>
-            </div>
-            <div className="confirm-actions">
-              <button className="confirm-btn-cancel" onClick={() => setPendingCustReturn(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmCustomerReturn}>Confirm</button>
+                  const autoSuppIds = new Set(Object.values(autoSuppMap).map(r => r.return_id));
+                  return filteredHistory.filter(r => !autoSuppIds.has(r.return_id));
+                })()}
+                rowKey="return_id"
+                currentPage={histPage}
+                totalPages={Math.ceil(filteredHistory.length / HIST_PAGE_SIZE)}
+                onPageChange={setHistPage}
+                columns={historyTableColumns}
+              />
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── CONFIRM SUPPLIER RETURN ───────────────────────────────────── */}
-      {pendingSuppReturn && (
-        <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setPendingSuppReturn(null)}>
-          <div className="confirm-box" style={{ borderTop: "4px solid var(--th-sky)" }}>
-            <div className="confirm-title">Confirm Supplier Return</div>
-            <div className="confirm-details">
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Item</span>
-                <span className="confirm-detail-val">{pendingSuppReturn.itemName}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Qty to Return</span>
-                <span className="confirm-detail-val">{pendingSuppReturn.quantity}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Reason</span>
-                <span className="confirm-detail-val" style={{ textTransform: 'capitalize' }}>{pendingSuppReturn.reason.toLowerCase()}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Source</span>
-                <span className="confirm-detail-val">{pendingSuppReturn.original_order_id || "Legacy Stock / No PO"}</span>
-              </div>
-              <div className="confirm-detail-row">
-                <span className="confirm-detail-label">Expectation</span>
-                <span className="confirm-detail-val">{pendingSuppReturn.expect_replacement ? "Awaiting Replacement" : "Full Return (No replacement)"}</span>
-              </div>
-              {pendingSuppReturn.notes && (
+        {/* ── CONFIRM CUSTOMER RETURN ───────────────────────────────────── */}
+        {pendingCustReturn && (
+          <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setPendingCustReturn(null)}>
+            <div className="confirm-box">
+              <div className="confirm-title">Confirm Return</div>
+              <div className="confirm-details">
                 <div className="confirm-detail-row">
-                  <span className="confirm-detail-label">Notes</span>
-                  <span className="confirm-detail-val" style={{ fontSize: '0.75rem' }}>{pendingSuppReturn.notes}</span>
+                  <span className="confirm-detail-label">Type</span>
+                  <span className="confirm-detail-val">{SCENARIO_META[pendingCustReturn.return_scenario]?.label || pendingCustReturn.return_scenario}</span>
                 </div>
-              )}
-            </div>
-            <div className="confirm-actions">
-              <button className="confirm-btn-cancel" onClick={() => setPendingSuppReturn(null)}>Cancel</button>
-              <button className="confirm-btn-ok" style={{ background: "var(--th-sky)" }} onClick={confirmSupplierReturn}>Confirm Return</button>
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Sale</span>
+                  <span className="confirm-detail-val">{pendingCustReturn.saleName}</span>
+                </div>
+                {pendingCustReturn.customer_name && (
+                  <div className="confirm-detail-row">
+                    <span className="confirm-detail-label">Customer</span>
+                    <span className="confirm-detail-val">{pendingCustReturn.customer_name}</span>
+                  </div>
+                )}
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Items</span>
+                  <span className="confirm-detail-val">{pendingCustReturn.items.length} item(s), total qty {pendingCustReturn.items.reduce((s, i) => s + i.quantity, 0)}</span>
+                </div>
+                {pendingCustReturn.return_scenario === "FULL_REFUND" && (
+                  <div className="confirm-detail-row">
+                    <span className="confirm-detail-label">Refund Method</span>
+                    <span className="confirm-detail-val">{pendingCustReturn.refund_method}</span>
+                  </div>
+                )}
+                {pendingCustReturn.return_scenario === "DEFECTIVE_REPLACE_NOW" && (
+                  <div className="confirm-detail-row">
+                    <span className="confirm-detail-label">Replacement</span>
+                    <span className="confirm-detail-val">Same item from stock (1:1 swap)</span>
+                  </div>
+                )}
+                {pendingCustReturn.warranty_ref && (
+                  <div className="confirm-detail-row">
+                    <span className="confirm-detail-label">Warranty Ref</span>
+                    <span className="confirm-detail-val">{pendingCustReturn.warranty_ref}</span>
+                  </div>
+                )}
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Reason</span>
+                  <span className="confirm-detail-val">{pendingCustReturn.reason}</span>
+                </div>
+              </div>
+              <div className="confirm-actions">
+                <button className="confirm-btn-cancel" onClick={() => setPendingCustReturn(null)}>Cancel</button>
+                <button className="confirm-btn-ok" onClick={confirmCustomerReturn}>Confirm</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── WARRANTY RESULT MODAL ──────────────────────────────────────── */}
-      {warrantyModal && (
-        <div className="ret-overlay" onClick={(e) => e.target === e.currentTarget && setWarrantyModal(null)}>
-          <div className="ret-modal">
-            <div className="ret-modal-header">
-              <div className="ret-modal-title">📋 Warranty Result</div>
-              <button className="ret-modal-close" onClick={() => setWarrantyModal(null)}>✕</button>
-            </div>
-            <div className="ret-modal-body">
-              <div style={{ fontSize: "0.86rem", color: "var(--th-text-muted)" }}>
-                Recording warranty verdict for return <strong style={{ color: "var(--th-text-primary)" }}>{warrantyModal.return_id}</strong>
-                {warrantyModal.item_name && <> — {warrantyModal.item_name}</>}
-              </div>
-              <div className="ret-form-field">
-                <label className="ret-label">Warranty Result <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                <select className="ret-select" value={warrantyResult} onChange={(e) => setWarrantyResult(e.target.value)}>
-                  <option value="COVERED">✅ Covered — replacement will be issued</option>
-                  <option value="NOT_COVERED">❌ Not Covered — claim denied</option>
-                  <option value="PARTIAL">⚠️ Partial — supplier covers part of it</option>
-                </select>
-              </div>
-              {warrantyResult === "COVERED" && (
-                <div style={{ fontSize: "0.75rem", color: "var(--th-sky)", background: "var(--th-sky-bg)", padding: "0.45rem 0.7rem", borderRadius: 6 }}>
-                  Status will be set to <strong>REPLACEMENT_PENDING</strong> — use "Fulfill Replacement" to send a replacement unit to the customer.
+        {/* ── CONFIRM SUPPLIER RETURN ───────────────────────────────────── */}
+        {pendingSuppReturn && (
+          <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setPendingSuppReturn(null)}>
+            <div className="confirm-box" style={{ borderTop: "4px solid var(--th-sky)" }}>
+              <div className="confirm-title">Confirm Supplier Return</div>
+              <div className="confirm-details">
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Item</span>
+                  <span className="confirm-detail-val">{pendingSuppReturn.itemName}</span>
                 </div>
-              )}
-              {warrantyResult !== "COVERED" && (
-                <div style={{ fontSize: "0.75rem", color: "var(--th-text-dim)", background: "var(--th-bg-card-alt)", padding: "0.45rem 0.7rem", borderRadius: 6 }}>
-                  Status will be set to <strong>RESOLVED</strong>.
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Qty to Return</span>
+                  <span className="confirm-detail-val">{pendingSuppReturn.quantity}</span>
                 </div>
-              )}
-              <div className="ret-form-field">
-                <label className="ret-label">Notes (optional)</label>
-                <textarea
-                  className="ret-textarea"
-                  rows={2}
-                  placeholder="Supplier feedback, reference numbers…"
-                  value={warrantyNotes}
-                  onChange={(e) => setWarrantyNotes(e.target.value)}
-                />
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Reason</span>
+                  <span className="confirm-detail-val" style={{ textTransform: 'capitalize' }}>{pendingSuppReturn.reason.toLowerCase()}</span>
+                </div>
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Source</span>
+                  <span className="confirm-detail-val">{pendingSuppReturn.original_order_id || "Legacy Stock / No PO"}</span>
+                </div>
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Expectation</span>
+                  <span className="confirm-detail-val">{pendingSuppReturn.expect_replacement ? "Awaiting Replacement" : "Full Return (No replacement)"}</span>
+                </div>
+                {pendingSuppReturn.notes && (
+                  <div className="confirm-detail-row">
+                    <span className="confirm-detail-label">Notes</span>
+                    <span className="confirm-detail-val" style={{ fontSize: '0.75rem' }}>{pendingSuppReturn.notes}</span>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="ret-modal-footer">
-              <button className="ret-btn ret-btn-slate" onClick={() => setWarrantyModal(null)}>Cancel</button>
-              <button className="ret-btn ret-btn-sky" style={{ flex: 1 }} disabled={warrantySubmitting} onClick={submitWarrantyResult}>
-                {warrantySubmitting ? "Saving…" : "✓ Save Result"}
-              </button>
+              <div className="confirm-actions">
+                <button className="confirm-btn-cancel" onClick={() => setPendingSuppReturn(null)}>Cancel</button>
+                <button className="confirm-btn-ok" style={{ background: "var(--th-sky)" }} onClick={confirmSupplierReturn}>Confirm Return</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── FULFILL REPLACEMENT MODAL ──────────────────────────────────── */}
-      {fulfillModal && (() => {
-        const isTire = /^(PCR|SUV|LT|TBR|OTR|MC)/i.test(fulfillModal.sku || "");
-        const stockOk = fulfillStockInfo && (fulfillStockInfo.on_hand || 0) >= fulfillModal.quantity;
-        const canSubmit = fulfillMode === "from_stock"
-          ? !fulfillStockLoading && stockOk
-          : !!fulfillDr.trim() && (!isTire || /^\d{4}$/.test(fulfillDot.trim()));
-        return (
-          <div className="ret-overlay" onClick={(e) => e.target === e.currentTarget && setFulfillModal(null)}>
-            <div className="ret-modal" style={{ maxWidth: 500 }}>
+        {/* ── WARRANTY RESULT MODAL ──────────────────────────────────────── */}
+        {warrantyModal && (
+          <div className="ret-overlay" onClick={(e) => e.target === e.currentTarget && setWarrantyModal(null)}>
+            <div className="ret-modal">
               <div className="ret-modal-header">
-                <div className="ret-modal-title">🔧 Fulfill Replacement</div>
-                <button className="ret-modal-close" onClick={() => setFulfillModal(null)}>✕</button>
+                <div className="ret-modal-title">📋 Warranty Result</div>
+                <button className="ret-modal-close" onClick={() => setWarrantyModal(null)}>✕</button>
               </div>
               <div className="ret-modal-body">
-                {/* Item info */}
-                <div style={{ background: "var(--th-bg-card-alt)", border: "1px solid var(--th-border)", borderRadius: 8, padding: "0.55rem 0.85rem" }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--th-text-heading)" }}>{fulfillModal.item_name}</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
-                    {fulfillModal.sku} · Qty needed: <strong>{fulfillModal.quantity}</strong>
-                    {fulfillModal.customer_name && <> · Customer: {fulfillModal.customer_name}</>}
-                  </div>
+                <div style={{ fontSize: "0.86rem", color: "var(--th-text-muted)" }}>
+                  Recording warranty verdict for return <strong style={{ color: "var(--th-text-primary)" }}>{warrantyModal.return_id}</strong>
+                  {warrantyModal.item_name && <> — {warrantyModal.item_name}</>}
                 </div>
-
-                {/* Route picker */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                  {[
-                    { key: "from_stock", icon: "📦", label: "From Current Stock", desc: "Use item already in inventory" },
-                    { key: "new_delivery", icon: "🚚", label: "New Delivery", desc: "Receive incoming tires and use for replacement" },
-                  ].map(opt => (
-                    <div
-                      key={opt.key}
-                      onClick={() => { setFulfillMode(opt.key); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}
-                      style={{
-                        border: `2px solid ${fulfillMode === opt.key ? "var(--th-emerald)" : "var(--th-border-mid)"}`,
-                        background: fulfillMode === opt.key ? "var(--th-emerald-bg)" : "var(--th-bg-card-alt)",
-                        borderRadius: 9, padding: "0.65rem 0.8rem", cursor: "pointer", transition: "all 0.15s",
-                      }}
-                    >
-                      <div style={{ fontSize: "1.1rem", marginBottom: "0.2rem" }}>{opt.icon}</div>
-                      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.9rem", textTransform: "uppercase", color: "var(--th-text-primary)" }}>{opt.label}</div>
-                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-faint)", marginTop: "0.15rem" }}>{opt.desc}</div>
-                    </div>
-                  ))}
+                <div className="ret-form-field">
+                  <label className="ret-label">Warranty Result <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                  <select className="ret-select" value={warrantyResult} onChange={(e) => setWarrantyResult(e.target.value)}>
+                    <option value="COVERED">✅ Covered — replacement will be issued</option>
+                    <option value="NOT_COVERED">❌ Not Covered — claim denied</option>
+                    <option value="PARTIAL">⚠️ Partial — supplier covers part of it</option>
+                  </select>
                 </div>
-
-                {/* From stock — auto check same item */}
-                {fulfillMode === "from_stock" && (
-                  <div>
-                    {fulfillStockLoading && (
-                      <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Checking stock…</div>
-                    )}
-                    {!fulfillStockLoading && fulfillStockInfo && (() => {
-                      const available = (fulfillStockInfo.on_hand || 0) >= fulfillModal.quantity;
-                      return (
-                        <div style={{
-                          display: "flex", alignItems: "center", gap: "0.75rem",
-                          padding: "0.65rem 0.9rem", borderRadius: 8,
-                          border: `1px solid ${available ? "var(--th-emerald)" : "var(--th-rose)"}`,
-                          background: available ? "rgba(52,211,153,0.06)" : "rgba(251,113,133,0.06)",
-                        }}>
-                          <span style={{ fontSize: "1.1rem" }}>{available ? "✅" : "❌"}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--th-text-primary)" }}>{fulfillStockInfo.item_name}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
-                              In stock: <strong style={{ color: available ? "var(--th-emerald)" : "var(--th-rose)" }}>{fulfillStockInfo.on_hand}</strong> · Need: {fulfillModal.quantity}
-                            </div>
-                          </div>
-                          <span style={{
-                            fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
-                            textTransform: "uppercase", padding: "0.15rem 0.55rem", borderRadius: 4,
-                            background: available ? "var(--th-emerald-bg)" : "var(--th-rose-bg)",
-                            color: available ? "var(--th-emerald)" : "var(--th-rose)",
-                          }}>
-                            {available ? "Ready" : "Out of Stock"}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                    {!fulfillStockLoading && fulfillStockInfo && (fulfillStockInfo.on_hand || 0) < fulfillModal.quantity && (
-                      <div style={{ fontSize: "0.75rem", color: "var(--th-rose)" }}>
-                        Not enough stock. Switch to <strong>New Delivery</strong> to receive incoming tires and fulfill at the same time.
-                      </div>
-                    )}
-                    <div style={{ fontSize: "0.7rem", color: "var(--th-text-dim)" }}>
-                      Unit deducted from current stock. Supplier return stays pending — receive it separately when supplier sends back the defective unit.
-                    </div>
+                {warrantyResult === "COVERED" && (
+                  <div style={{ fontSize: "0.75rem", color: "var(--th-sky)", background: "var(--th-sky-bg)", padding: "0.45rem 0.7rem", borderRadius: 6 }}>
+                    Status will be set to <strong>REPLACEMENT_PENDING</strong> — use "Fulfill Replacement" to send a replacement unit to the customer.
                   </div>
                 )}
-
-                {/* New delivery */}
-                {fulfillMode === "new_delivery" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                    <div className="ret-form-row">
-                      <div className="ret-form-field">
-                        <label className="ret-label">DR Number <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                        <input
-                          className="ret-input"
-                          placeholder="e.g. 202600123"
-                          inputMode="numeric"
-                          value={fulfillDr}
-                          onChange={(e) => setFulfillDr(e.target.value.replace(/\D/g, ""))}
-                        />
-                      </div>
-                      {isTire && (
-                        <div className="ret-form-field">
-                          <label className="ret-label">DOT / Year <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                          <input
-                            className="ret-input"
-                            placeholder="e.g. 2524"
-                            inputMode="numeric"
-                            maxLength={4}
-                            value={fulfillDot}
-                            onChange={(e) => setFulfillDot(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ fontSize: "0.7rem", color: "var(--th-text-dim)" }}>
-                      Incoming tires are received into stock, then <strong>{fulfillModal.quantity}</strong> unit(s) are immediately used for this replacement. Any surplus remains as sellable inventory.<br/>
-                      When the supplier later returns the defective unit, receive it separately — it becomes regular sellable stock.
-                    </div>
+                {warrantyResult !== "COVERED" && (
+                  <div style={{ fontSize: "0.75rem", color: "var(--th-text-dim)", background: "var(--th-bg-card-alt)", padding: "0.45rem 0.7rem", borderRadius: 6 }}>
+                    Status will be set to <strong>RESOLVED</strong>.
                   </div>
                 )}
+                <div className="ret-form-field">
+                  <label className="ret-label">Notes (optional)</label>
+                  <textarea
+                    className="ret-textarea"
+                    rows={2}
+                    placeholder="Supplier feedback, reference numbers…"
+                    value={warrantyNotes}
+                    onChange={(e) => setWarrantyNotes(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="ret-modal-footer">
-                <button className="ret-btn ret-btn-slate" onClick={() => { setFulfillModal(null); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); setFulfillMode("from_stock"); }}>Cancel</button>
-                <button
-                  className="ret-btn ret-btn-emerald"
-                  style={{ flex: 1 }}
-                  disabled={fulfillSubmitting || !canSubmit}
-                  onClick={submitFulfillReplacement}
-                >
-                  {fulfillSubmitting ? "Processing…" : fulfillMode === "new_delivery" ? "🚚 Receive & Fulfill" : "✓ Fulfill Replacement"}
+                <button className="ret-btn ret-btn-slate" onClick={() => setWarrantyModal(null)}>Cancel</button>
+                <button className="ret-btn ret-btn-sky" style={{ flex: 1 }} disabled={warrantySubmitting} onClick={submitWarrantyResult}>
+                  {warrantySubmitting ? "Saving…" : "✓ Save Result"}
                 </button>
               </div>
             </div>
           </div>
-        );
-      })()}
+        )}
 
-      {/* ── REPLACEMENT MODAL ─────────────────────────────────────────── */}
-      {replModal && (() => {
-        const isTire = /^(PCR|SUV|LT|TBR|OTR|MC)/i.test(replModal.sku || "");
-        return (
-          <div className="ret-overlay" onClick={(e) => e.target === e.currentTarget && setReplModal(null)}>
-            <div className="ret-modal">
-              <div className="ret-modal-header">
-                <div className="ret-modal-title">Receive Replacement</div>
-                <button className="ret-modal-close" onClick={() => setReplModal(null)}>✕</button>
-              </div>
-              <div className="ret-modal-body">
-                <div style={{ background: "var(--th-bg-card-alt)", border: "1px solid var(--th-border)", borderRadius: 8, padding: "0.6rem 0.85rem" }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--th-text-heading)" }}>{replModal.item_name}</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.15rem" }}>
-                    {replModal.sku} · Return: {replModal.return_id}
-                    {replModal.supplier_name && <> · {replModal.supplier_name}</>}
-                  </div>
+        {/* ── FULFILL REPLACEMENT MODAL ──────────────────────────────────── */}
+        {fulfillModal && (() => {
+          const isTire = /^(PCR|SUV|LT|TBR|OTR|MC)/i.test(fulfillModal.sku || "");
+          const stockOk = fulfillStockInfo && (fulfillStockInfo.on_hand || 0) >= fulfillModal.quantity;
+          const canSubmit = fulfillMode === "from_stock"
+            ? !fulfillStockLoading && stockOk
+            : !!fulfillDr.trim() && (!isTire || /^\d{4}$/.test(fulfillDot.trim()));
+          return (
+            <div className="ret-overlay" onClick={(e) => e.target === e.currentTarget && setFulfillModal(null)}>
+              <div className="ret-modal" style={{ maxWidth: 500 }}>
+                <div className="ret-modal-header">
+                  <div className="ret-modal-title">🔧 Fulfill Replacement</div>
+                  <button className="ret-modal-close" onClick={() => setFulfillModal(null)}>✕</button>
                 </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 0.75rem", background: "var(--th-bg-input)", border: "1px solid var(--th-border)", borderRadius: 7 }}>
-                  <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 600 }}>Qty</span>
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: "1.2rem", color: "var(--th-text-heading)" }}>{replModal.quantity}</span>
-                  <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>unit{replModal.quantity !== 1 ? "s" : ""} to receive</span>
-                </div>
-
-                <div className="ret-form-row">
-                  <div className="ret-form-field">
-                    <label className="ret-label">DR Number <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                    <input
-                      className="ret-input"
-                      placeholder="e.g. 202600123"
-                      inputMode="numeric"
-                      value={replDr}
-                      onChange={(e) => setReplDr(e.target.value.replace(/\D/g, ""))}
-                    />
+                <div className="ret-modal-body">
+                  {/* Item info */}
+                  <div style={{ background: "var(--th-bg-card-alt)", border: "1px solid var(--th-border)", borderRadius: 8, padding: "0.55rem 0.85rem" }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--th-text-heading)" }}>{fulfillModal.item_name}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
+                      {fulfillModal.sku} · Qty needed: <strong>{fulfillModal.quantity}</strong>
+                      {fulfillModal.customer_name && <> · Customer: {fulfillModal.customer_name}</>}
+                    </div>
                   </div>
-                  {isTire && (
-                    <div className="ret-form-field">
-                      <label className="ret-label">DOT / Year <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input
-                        className="ret-input"
-                        placeholder="e.g. 2524"
-                        inputMode="numeric"
-                        maxLength={4}
-                        value={replDot}
-                        onChange={(e) => setReplDot(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      />
+
+                  {/* Route picker */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                    {[
+                      { key: "from_stock", icon: "📦", label: "From Current Stock", desc: "Use item already in inventory" },
+                      { key: "new_delivery", icon: "🚚", label: "New Delivery", desc: "Receive incoming tires and use for replacement" },
+                    ].map(opt => (
+                      <div
+                        key={opt.key}
+                        onClick={() => { setFulfillMode(opt.key); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); }}
+                        style={{
+                          border: `2px solid ${fulfillMode === opt.key ? "var(--th-emerald)" : "var(--th-border-mid)"}`,
+                          background: fulfillMode === opt.key ? "var(--th-emerald-bg)" : "var(--th-bg-card-alt)",
+                          borderRadius: 9, padding: "0.65rem 0.8rem", cursor: "pointer", transition: "all 0.15s",
+                        }}
+                      >
+                        <div style={{ fontSize: "1.1rem", marginBottom: "0.2rem" }}>{opt.icon}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.9rem", textTransform: "uppercase", color: "var(--th-text-primary)" }}>{opt.label}</div>
+                        <div style={{ fontSize: "0.7rem", color: "var(--th-text-faint)", marginTop: "0.15rem" }}>{opt.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* From stock — auto check same item */}
+                  {fulfillMode === "from_stock" && (
+                    <div>
+                      {fulfillStockLoading && (
+                        <div style={{ fontSize: "0.82rem", color: "var(--th-text-dim)" }}>Checking stock…</div>
+                      )}
+                      {!fulfillStockLoading && fulfillStockInfo && (() => {
+                        const available = (fulfillStockInfo.on_hand || 0) >= fulfillModal.quantity;
+                        return (
+                          <div style={{
+                            display: "flex", alignItems: "center", gap: "0.75rem",
+                            padding: "0.65rem 0.9rem", borderRadius: 8,
+                            border: `1px solid ${available ? "var(--th-emerald)" : "var(--th-rose)"}`,
+                            background: available ? "rgba(52,211,153,0.06)" : "rgba(251,113,133,0.06)",
+                          }}>
+                            <span style={{ fontSize: "1.1rem" }}>{available ? "✅" : "❌"}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, fontSize: "0.92rem", color: "var(--th-text-primary)" }}>{fulfillStockInfo.item_name}</div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
+                                In stock: <strong style={{ color: available ? "var(--th-emerald)" : "var(--th-rose)" }}>{fulfillStockInfo.on_hand}</strong> · Need: {fulfillModal.quantity}
+                              </div>
+                            </div>
+                            <span style={{
+                              fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: "0.8rem",
+                              textTransform: "uppercase", padding: "0.15rem 0.55rem", borderRadius: 4,
+                              background: available ? "var(--th-emerald-bg)" : "var(--th-rose-bg)",
+                              color: available ? "var(--th-emerald)" : "var(--th-rose)",
+                            }}>
+                              {available ? "Ready" : "Out of Stock"}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                      {!fulfillStockLoading && fulfillStockInfo && (fulfillStockInfo.on_hand || 0) < fulfillModal.quantity && (
+                        <div style={{ fontSize: "0.75rem", color: "var(--th-rose)" }}>
+                          Not enough stock. Switch to <strong>New Delivery</strong> to receive incoming tires and fulfill at the same time.
+                        </div>
+                      )}
+                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-dim)" }}>
+                        Unit deducted from current stock. Supplier return stays pending — receive it separately when supplier sends back the defective unit.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* New delivery */}
+                  {fulfillMode === "new_delivery" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                      <div className="ret-form-row">
+                        <div className="ret-form-field">
+                          <label className="ret-label">DR Number <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                          <input
+                            className="ret-input"
+                            placeholder="e.g. 202600123"
+                            inputMode="numeric"
+                            value={fulfillDr}
+                            onChange={(e) => setFulfillDr(e.target.value.replace(/\D/g, ""))}
+                          />
+                        </div>
+                        {isTire && (
+                          <div className="ret-form-field">
+                            <label className="ret-label">DOT / Year <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                            <input
+                              className="ret-input"
+                              placeholder="e.g. 2524"
+                              inputMode="numeric"
+                              maxLength={4}
+                              value={fulfillDot}
+                              onChange={(e) => setFulfillDot(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: "0.7rem", color: "var(--th-text-dim)" }}>
+                        Incoming tires are received into stock, then <strong>{fulfillModal.quantity}</strong> unit(s) are immediately used for this replacement. Any surplus remains as sellable inventory.<br />
+                        When the supplier later returns the defective unit, receive it separately — it becomes regular sellable stock.
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {isTire && (
-                  <div style={{ fontSize: "0.72rem", color: "var(--th-amber)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                    <span>⚠</span> DOT number is required for all tire replacements.
-                  </div>
-                )}
-
-                {replError && (
-                  <div className="ret-error">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    {replError}
-                  </div>
-                )}
-
-                <div style={{ fontSize: "0.75rem", color: "var(--th-text-dim)" }}>
-                  Replacement will be added directly to inventory as a <strong>SUPPLIER_REPLACEMENT</strong> adjustment. No payment required.
+                <div className="ret-modal-footer">
+                  <button className="ret-btn ret-btn-slate" onClick={() => { setFulfillModal(null); setSelectedReplItem(null); setReplStockQuery(""); setFulfillDr(""); setFulfillDot(""); setFulfillMode("from_stock"); }}>Cancel</button>
+                  <button
+                    className="ret-btn ret-btn-emerald"
+                    style={{ flex: 1 }}
+                    disabled={fulfillSubmitting || !canSubmit}
+                    onClick={submitFulfillReplacement}
+                  >
+                    {fulfillSubmitting ? "Processing…" : fulfillMode === "new_delivery" ? "🚚 Receive & Fulfill" : "✓ Fulfill Replacement"}
+                  </button>
                 </div>
               </div>
-              <div className="ret-modal-footer">
-                <button className="ret-btn ret-btn-slate" onClick={() => setReplModal(null)}>Cancel</button>
-                <button className="ret-btn ret-btn-emerald" style={{ flex: 1 }} disabled={replSubmitting} onClick={submitReplacement}>
-                  {replSubmitting ? "Receiving…" : "✓ Receive Replacement"}
-                </button>
+            </div>
+          );
+        })()}
+
+        {/* ── REPLACEMENT MODAL ─────────────────────────────────────────── */}
+        {replModal && (() => {
+          const isTire = /^(PCR|SUV|LT|TBR|OTR|MC)/i.test(replModal.sku || "");
+          return (
+            <div className="ret-overlay" onClick={(e) => e.target === e.currentTarget && setReplModal(null)}>
+              <div className="ret-modal">
+                <div className="ret-modal-header">
+                  <div className="ret-modal-title">Receive Replacement</div>
+                  <button className="ret-modal-close" onClick={() => setReplModal(null)}>✕</button>
+                </div>
+                <div className="ret-modal-body">
+                  <div style={{ background: "var(--th-bg-card-alt)", border: "1px solid var(--th-border)", borderRadius: 8, padding: "0.6rem 0.85rem" }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--th-text-heading)" }}>{replModal.item_name}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--th-text-muted)", marginTop: "0.15rem" }}>
+                      {replModal.sku} · Return: {replModal.return_id}
+                      {replModal.supplier_name && <> · {replModal.supplier_name}</>}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 0.75rem", background: "var(--th-bg-input)", border: "1px solid var(--th-border)", borderRadius: 7 }}>
+                    <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 600 }}>Qty</span>
+                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: "1.2rem", color: "var(--th-text-heading)" }}>{replModal.quantity}</span>
+                    <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>unit{replModal.quantity !== 1 ? "s" : ""} to receive</span>
+                  </div>
+
+                  <div className="ret-form-row">
+                    <div className="ret-form-field">
+                      <label className="ret-label">DR Number <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                      <input
+                        className="ret-input"
+                        placeholder="e.g. 202600123"
+                        inputMode="numeric"
+                        value={replDr}
+                        onChange={(e) => setReplDr(e.target.value.replace(/\D/g, ""))}
+                      />
+                    </div>
+                    {isTire && (
+                      <div className="ret-form-field">
+                        <label className="ret-label">DOT / Year <span style={{ color: "var(--th-rose)" }}>*</span></label>
+                        <input
+                          className="ret-input"
+                          placeholder="e.g. 2524"
+                          inputMode="numeric"
+                          maxLength={4}
+                          value={replDot}
+                          onChange={(e) => setReplDot(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {isTire && (
+                    <div style={{ fontSize: "0.72rem", color: "var(--th-amber)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <span>⚠</span> DOT number is required for all tire replacements.
+                    </div>
+                  )}
+
+                  {replError && (
+                    <div className="ret-error">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                      {replError}
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: "0.75rem", color: "var(--th-text-dim)" }}>
+                    Replacement will be added directly to inventory as a <strong>SUPPLIER_REPLACEMENT</strong> adjustment. No payment required.
+                  </div>
+                </div>
+                <div className="ret-modal-footer">
+                  <button className="ret-btn ret-btn-slate" onClick={() => setReplModal(null)}>Cancel</button>
+                  <button className="ret-btn ret-btn-emerald" style={{ flex: 1 }} disabled={replSubmitting} onClick={submitReplacement}>
+                    {replSubmitting ? "Receiving…" : "✓ Receive Replacement"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
       </div>
     </>
   );

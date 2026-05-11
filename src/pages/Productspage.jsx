@@ -93,6 +93,7 @@ function Productspage({ shopId }) {
     data: archivedItems,
     page: archPage, setPage: setArchPage,
     totalPages: archTotalPages,
+    total: archTotal,
     loading: archiveLoading,
     search: archSearch, setSearch: setArchSearch,
     refetch: refetchArchived,
@@ -136,6 +137,8 @@ function Productspage({ shopId }) {
   const [histLoading, setHistLoading] = React.useState(false);
   const [priceHistory, setPriceHistory] = React.useState([]);
   const [priceHistLoading, setPriceHistLoading] = React.useState(false);
+  const [incomingOrders, setIncomingOrders] = React.useState([]);
+  const [incomingLoading, setIncomingLoading] = React.useState(false);
   const [historyVariants, setHistoryVariants] = React.useState([]);
   const [activeHistVariantId, setActiveHistVariantId] = React.useState(null);
   const [activeHistDesign, setActiveHistDesign] = React.useState(null);
@@ -642,6 +645,8 @@ function Productspage({ shopId }) {
     setDetailTab("transactions");
     setHistLoading(true);
     setPriceHistLoading(true);
+    setIncomingLoading(true);
+    setIncomingOrders([]);
     setDetailsVisible(false);
     // For multi-design groups item.design is null — seed from first design in design_list
     const seedDesign = item.design ||
@@ -666,6 +671,17 @@ function Productspage({ shopId }) {
       ).then((r) => r.json());
       const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
       setHistory(rows);
+
+      // Fetch Incoming Orders
+      try {
+        const incomingUrl = isGrouped 
+          ? `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(item.item_id)}`
+          : `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(realIds[0])}`;
+        const incRes = await apiFetch(incomingUrl);
+        const incData = await incRes.json();
+        setIncomingOrders(Array.isArray(incData) ? incData : []);
+      } catch (e) { console.error("Incoming fetch err", e); }
+
       // Enrich historyVariants with per-item item_name/sku from ledger rows
       if (rows.length > 0) {
         const nameMap = new Map(rows.map(r => [String(r.item_id), { item_name: r.item_name, sku: r.sku }]));
@@ -696,6 +712,7 @@ function Productspage({ shopId }) {
       setPriceHistory([]);
     }
     setPriceHistLoading(false);
+    setIncomingLoading(false);
   }
 
   async function handleUpdateDetails() {
@@ -1656,7 +1673,7 @@ function Productspage({ shopId }) {
                 }}
               >
                 Archived
-                {archivedItems.length > 0 && (
+                {archTotal > 0 && (
                   <span style={{
                     background: showArchived ? "rgba(255,255,255,0.22)" : "var(--th-amber-bg)",
                     color: showArchived ? "#fff" : "var(--th-amber)",
@@ -1667,18 +1684,24 @@ function Productspage({ shopId }) {
                     fontWeight: 700,
                     lineHeight: 1.4,
                   }}>
-                    {archivedItems.length}
+                    {archTotal}
                   </span>
                 )}
               </button>
             </div>
           }
           searchProps={{
-            value: search,
-            onChange: (val) => { setSearch(val); setPage(1); },
+            value: showArchived ? archSearch : search,
+            onChange: (val) => { 
+              if (showArchived) { setArchSearch(val); setArchPage(1); } 
+              else { setSearch(val); setPage(1); }
+            },
             placeholder: "Search by name, SKU, brand, size…",
             suggestions,
-            onSuggestionSelect: (s) => { setSearch(s.text); setPage(1); },
+            onSuggestionSelect: (s) => { 
+              if (showArchived) { setArchSearch(s.text); setArchPage(1); } 
+              else { setSearch(s.text); setPage(1); }
+            },
           }}
           filters={liveCats.map(c => ({
             label: c,
@@ -1791,7 +1814,8 @@ function Productspage({ shopId }) {
             onDesignChange={setActiveHistDesign}
             onUpdateCost={updateModalCost}
             onUpdatePrice={updateModalPrice}
-
+            incomingOrders={incomingOrders}
+            incomingLoading={incomingLoading}
             historyContent={
               histLoading || priceHistLoading ? (
                 <div className="inv-hist-loading">

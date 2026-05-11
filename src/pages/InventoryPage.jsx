@@ -774,11 +774,13 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     deps: [shopId, refreshKey],
   });
   const filteredItems = items;
-
   const [selectedItemForHistory, setSelectedItemForHistory] =
     React.useState(null);
   const [itemHistory, setItemHistory] = React.useState([]);
   const [historyLoading, setHistoryLoading] = React.useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = React.useState(false);
+  const [incomingOrders, setIncomingOrders] = React.useState([]);
+  const [incomingLoading, setIncomingLoading] = React.useState(false);
   const [historyVariants, setHistoryVariants] = React.useState([]);
   const [activeHistVariantId, setActiveHistVariantId] = React.useState(null);
   const [activeHistDesign, setActiveHistDesign] = React.useState(null);
@@ -932,7 +934,6 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   const HISTORY_PAGE_SIZE = 50;
   const [historyPage, setHistoryPage] = React.useState(1);
   const [historyTotalPages, setHistoryTotalPages] = React.useState(1);
-  const [historyLoadingMore, setHistoryLoadingMore] = React.useState(false);
 
   function parseVariantInfo(variant_info) {
     if (!variant_info) return [];
@@ -947,6 +948,51 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
         unit_cost: parseFloat(parts[5]) || 0,
       };
     }).filter(v => v.item_id);
+  }
+
+  async function handleItemClick(item) {
+    setSelectedItemForHistory(item);
+    setItemHistory([]);
+    setIncomingOrders([]);
+    setHistoryPage(1);
+    setHistoryTotalPages(1);
+    setHistoryLoading(true);
+    setIncomingLoading(true);
+
+    const variants = parseVariantInfo(item.variant_info);
+    setHistoryVariants(variants);
+
+    const isGrouped = (item.variant_count || 0) > 1 && variants.length > 1;
+
+    try {
+      const realIds = isGrouped
+        ? variants.map((v) => v.item_id)
+        : variants.length === 1 ? [variants[0].item_id] : [item.item_id];
+      const param = realIds.length > 1
+        ? `item_ids=${encodeURIComponent(realIds.join(','))}`
+        : `item_id=${encodeURIComponent(realIds[0])}`;
+
+      const res = await apiFetch(`${API_URL}/inventory-ledger/${shopId}?${param}&page=1&perPage=100`);
+      const data = await res.json();
+      const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+      setItemHistory(rows);
+      if (data?.meta?.totalPages) setHistoryTotalPages(data.meta.totalPages);
+
+      // Fetch Incoming Orders
+      try {
+        const incomingUrl = isGrouped 
+          ? `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(item.item_id)}`
+          : `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(realIds[0])}`;
+        const incRes = await apiFetch(incomingUrl);
+        const incData = await incRes.json();
+        setIncomingOrders(Array.isArray(incData) ? incData : []);
+      } catch (e) { console.error("Incoming fetch err", e); }
+
+    } catch (err) {
+      console.error("fetchHistory failed:", err);
+    }
+    setHistoryLoading(false);
+    setIncomingLoading(false);
   }
 
   async function fetchItemHistory(itemIdOrIds, { append = false, page = 1 } = {}) {
@@ -1647,6 +1693,8 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
               activeVariantId={activeHistVariantId}
               onVariantChange={setActiveHistVariantId}
               onDesignChange={setActiveHistDesign}
+              incomingOrders={incomingOrders}
+              incomingLoading={incomingLoading}
               historyContent={
                 historyLoading ? (
                   <div className="inv-hist-loading"><div className="inv-hist-spinner" /> Loading…</div>

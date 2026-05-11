@@ -47,6 +47,10 @@ function Servicespage() {
     checked: true,
   });
 
+  const [commissionRules, setCommissionRules] = React.useState([]);
+  const [editingRule, setEditingRule] = React.useState(null);
+  const [ruleEditValue, setRuleEditValue] = React.useState("");
+
   const [search, setSearch] = React.useState("");
   const [suggestions, setSuggestions] = React.useState([]);
   const [showSug, setShowSug] = React.useState(false);
@@ -123,12 +127,44 @@ function Servicespage() {
   async function fetchServices() {
     setLoading(true);
     try {
-      const data = await apiFetch(`${API_URL}/services`).then((r) => r.json());
+      const [svcRes, rulesRes] = await Promise.all([
+        apiFetch(`${API_URL}/services`),
+        apiFetch(`${API_URL}/commission-rules`)
+      ]);
+      const data = await svcRes.json();
       setServices(Array.isArray(data) ? data : []);
+      
+      const rulesData = await rulesRes.json();
+      setCommissionRules(Array.isArray(rulesData) ? rulesData : []);
     } catch {
       setServices([]);
+      setCommissionRules([]);
     }
     setLoading(false);
+  }
+
+  async function saveCommissionRule(rule_id) {
+    if (!ruleEditValue || isNaN(parseFloat(ruleEditValue))) {
+      toast("Invalid commission amount", "error");
+      return;
+    }
+    try {
+      const res = await apiFetch(`${API_URL}/commission-rules/${rule_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commission_amount: parseFloat(ruleEditValue) })
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast(data.error, "error");
+      } else {
+        toast("Commission rule updated");
+        setEditingRule(null);
+        fetchServices();
+      }
+    } catch (e) {
+      toast("Failed to update rule", "error");
+    }
   }
 
   /* Handle suggestion click */
@@ -622,6 +658,65 @@ function Servicespage() {
             </div>
           </div>
         )}
+
+        {/* Product Commission Rules Section */}
+        <div className="th-section-label" style={{ marginTop: '2rem' }}>Product Commission Rules</div>
+        <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--th-text-faint)' }}>
+          These rules apply automatically when adding products to the POS cart.
+        </div>
+        <div className="svc-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          {commissionRules.map(rule => {
+            const isEditing = editingRule === rule.rule_id;
+            const title = rule.category === 'VALVE' 
+              ? `${rule.valve_type} VALVE` 
+              : rule.category;
+              
+            return (
+              <div key={rule.rule_id} className="svc-card">
+                <div className="svc-card-top">
+                  <div>
+                    <div className="svc-card-name" style={{ fontSize: '1rem' }}>{title}</div>
+                    <div className="svc-card-code">Flat Rate per Unit</div>
+                  </div>
+                  <div className="svc-card-price">
+                    {isEditing ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                        <span style={{ fontSize: '1rem' }}>₱</span>
+                        <input 
+                          type="number" 
+                          autoFocus
+                          style={{ width: '60px', padding: '0.2rem', background: 'var(--th-bg-input)', border: '1px solid var(--th-border)', color: 'var(--th-text-primary)', borderRadius: '4px' }}
+                          value={ruleEditValue}
+                          onChange={e => setRuleEditValue(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveCommissionRule(rule.rule_id); if (e.key === 'Escape') setEditingRule(null); }}
+                        />
+                      </div>
+                    ) : (
+                      svcCurrency(rule.commission_amount)
+                    )}
+                  </div>
+                </div>
+                <div className="svc-card-bottom">
+                  <div className="svc-card-actions" style={{ justifyContent: 'flex-end', width: '100%' }}>
+                    {isEditing ? (
+                      <>
+                        <button className="svc-icon-btn" style={{ color: 'var(--th-emerald)' }} onClick={() => saveCommissionRule(rule.rule_id)}>Save</button>
+                        <button className="svc-icon-btn" onClick={() => setEditingRule(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <button className="svc-icon-btn edit" onClick={() => { setEditingRule(rule.rule_id); setRuleEditValue(rule.commission_amount); }}>
+                        Edit Rate
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {commissionRules.length === 0 && !loading && (
+            <div className="svc-empty" style={{ gridColumn: '1/-1', padding: '2rem' }}>No commission rules configured.</div>
+          )}
+        </div>
 
         {/* Toasts */}
         <div className="svc-toast-wrap">

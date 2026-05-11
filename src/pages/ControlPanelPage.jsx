@@ -922,10 +922,24 @@ function BulkImportTab({ shopId }) {
           const ws   = wb.Sheets[wb.SheetNames[0]]
           const data = XLSX.utils.sheet_to_json(ws)
           if (data.length === 0) throw new Error('File is empty.')
-          const fileHeaders = Object.keys(data[0]).map(h => h.toLowerCase().trim())
+          
+          // Normalize headers to lowercase, trimmed, with underscores, and strip currency symbols
+          const normalize = (k) => k.toLowerCase().trim()
+            .replace(/ /g, '_')
+            .replace(/\(₱\)/g, '')
+            .replace(/_+$/, '');
+
+          const fileHeaders = Object.keys(data[0]).map(normalize);
           const missing = RECAP_REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h))
           if (missing.length > 0) throw new Error(`Missing required columns: ${missing.join(', ')}`)
-          setRecapPreviewRows(data)
+          
+          const normalizedData = data.map(row => {
+            const entry = {}
+            Object.keys(row).forEach(k => { entry[normalize(k)] = row[k] })
+            return entry
+          })
+
+          setRecapPreviewRows(normalizedData)
           setRecapStatus('preview')
           setRecapMsg('')
         } catch (err) { setRecapStatus('error'); setRecapMsg(err.message) }
@@ -940,18 +954,18 @@ function BulkImportTab({ shopId }) {
     setRecapMsg(`Preparing ${rows.length} recap jobs…`)
     const token = localStorage.getItem('th-token')
     const mappedJobs = rows.map(r => ({
-      brand: r['Brand'] || r['brand'],
-      design: r['Design'] || r['design'] || 'TOPCAP',
-      size: String(r['Size'] || r['size'] || ''),
-      description: r['Description'] || r['description'],
-      ownership: r['Ownership'] || r['ownership'] || 'SHOP_OWNED',
-      status: r['Status'] || r['status'] || 'READY_FOR_CLAIM',
-      customer: r['Customer'] || r['customer'],
-      supplier: r['Supplier'] || r['supplier'],
-      recap_cost: r['Recap Cost (₱)'] ?? r['recap_cost'],
-      selling_price: r['Selling Price (₱)'] ?? r['selling_price'],
-      intake_date: r['Intake Date'] || r['intake_date'],
-      dot_number: r['DOT'] || r['dot_number'],
+      brand: r.brand,
+      design: r.design || 'TOPCAP',
+      size: String(r.size || ''),
+      description: r.description,
+      ownership: r.ownership || 'SHOP_OWNED',
+      status: r.status || 'READY_FOR_CLAIM',
+      customer: r.customer,
+      supplier: r.supplier,
+      recap_cost: r.recap_cost,
+      selling_price: r.selling_price,
+      intake_date: r.intake_date,
+      dot_number: r.dot || r.dot_number,
     }))
     try {
       const res = await fetch(`${API_URL}/recap-jobs-bulk`, {
@@ -1220,25 +1234,25 @@ function BulkImportTab({ shopId }) {
                 </thead>
                 <tbody>
                   {recapPreviewRows.map((row, i) => {
-                    const own = (row['Ownership'] || row['ownership'] || '').toString().toUpperCase()
-                    const isShop = own === 'SHOP_OWNED'
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--th-border)', background: i % 2 === 0 ? 'transparent' : 'var(--th-bg-subtle)' }}>
-                        <td style={{ padding: '0.35rem 0.6rem', color: 'var(--th-text-faint)' }}>{i + 1}</td>
-                        <td style={{ padding: '0.35rem 0.6rem', fontWeight: 700 }}>{row['Brand'] || row['brand'] || '—'}</td>
-                        <td style={{ padding: '0.35rem 0.6rem' }}>{row['Design'] || row['design'] || '—'}</td>
-                        <td style={{ padding: '0.35rem 0.6rem', fontFamily: 'monospace' }}>{row['Size'] || row['size'] || '—'}</td>
-                        <td style={{ padding: '0.35rem 0.6rem' }}>
-                          <span style={{ background: isShop ? 'var(--th-emerald-bg)' : 'var(--th-sky-bg)', color: isShop ? 'var(--th-emerald)' : 'var(--th-sky)', padding: '1px 6px', borderRadius: 4, fontWeight: 700, fontSize: '0.7rem' }}>
-                            {isShop ? '🏬 Shop' : '👤 Customer'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.35rem 0.6rem', color: 'var(--th-text-muted)' }}>{row['Status'] || row['status'] || 'READY_FOR_CLAIM'}</td>
-                        <td style={{ padding: '0.35rem 0.6rem' }}>{row['Customer'] || row['customer'] || '—'}</td>
-                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: 'var(--th-amber)' }}>{row['Recap Cost (₱)'] != null ? `₱${Number(row['Recap Cost (₱)']).toLocaleString()}` : '—'}</td>
-                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: 'var(--th-emerald)' }}>{row['Selling Price (₱)'] != null ? `₱${Number(row['Selling Price (₱)']).toLocaleString()}` : '—'}</td>
-                      </tr>
-                    )
+                      const own = (row.ownership || '').toString().toUpperCase()
+                      const isShop = own === 'SHOP_OWNED'
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--th-border)', background: i % 2 === 0 ? 'transparent' : 'var(--th-bg-subtle)' }}>
+                          <td style={{ padding: '0.35rem 0.6rem', color: 'var(--th-text-faint)' }}>{i + 1}</td>
+                          <td style={{ padding: '0.35rem 0.6rem', fontWeight: 700 }}>{row.brand || '—'}</td>
+                          <td style={{ padding: '0.35rem 0.6rem' }}>{row.design || '—'}</td>
+                          <td style={{ padding: '0.35rem 0.6rem', fontFamily: 'monospace' }}>{row.size || '—'}</td>
+                          <td style={{ padding: '0.35rem 0.6rem' }}>
+                            <span style={{ background: isShop ? 'var(--th-emerald-bg)' : 'var(--th-sky-bg)', color: isShop ? 'var(--th-emerald)' : 'var(--th-sky)', padding: '1px 6px', borderRadius: 4, fontWeight: 700, fontSize: '0.7rem' }}>
+                              {isShop ? '🏬 Shop' : '👤 Customer'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.35rem 0.6rem', color: 'var(--th-text-muted)' }}>{row.status || 'READY_FOR_CLAIM'}</td>
+                          <td style={{ padding: '0.35rem 0.6rem' }}>{row.customer || '—'}</td>
+                          <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: 'var(--th-amber)' }}>{row.recap_cost != null ? `₱${Number(row.recap_cost).toLocaleString()}` : '—'}</td>
+                          <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: 'var(--th-emerald)' }}>{row.selling_price != null ? `₱${Number(row.selling_price).toLocaleString()}` : '—'}</td>
+                        </tr>
+                      )
                   })}
                 </tbody>
               </table>

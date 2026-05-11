@@ -1842,3 +1842,7 @@
   border-color: var(--th-orange);
   color: var(--th-orange);
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

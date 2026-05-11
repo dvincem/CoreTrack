@@ -637,22 +637,62 @@ router.get("/current-stock/:shop_id", (req, res) => {
 // GET archived items
 router.get("/items-archived/:shop_id", (req, res) => {
   const { shop_id } = req.params;
-  db.all(
-    `SELECT im.item_id, im.sku, im.item_name, im.category, im.brand, im.design,
-      im.size, im.rim_size, im.unit_cost, im.selling_price, im.is_active,
-      im.supplier_id, im.dot_number, im.parent_item_id, sm.supplier_name,
-      COALESCE(cs.current_quantity, 0) as current_quantity
-    FROM item_master im
-    LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?
-    LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
-    WHERE im.is_active = 0
-    ORDER BY im.item_name`,
-    [shop_id],
-    (err, rows) => {
-      if (err) return res.json({ error: err.message });
-      res.json(rows || []);
-    }
-  );
+  const { page, perPage, q } = req.query;
+
+  const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+  const parsedPerPage = Math.min(200, Math.max(1, parseInt(perPage, 10) || 10));
+  const offset = (parsedPage - 1) * parsedPerPage;
+
+  const filters = ["im.is_active = 0"];
+  const params = [shop_id];
+
+  if (q && q.trim()) {
+    filters.push("(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)");
+    const like = `%${q.trim()}%`;
+    params.push(like, like, like, like, like);
+  }
+
+  const whereClause = filters.join(" AND ");
+
+  const countSql = `
+    SELECT COUNT(*) as total 
+    FROM item_master im 
+    WHERE ${whereClause}
+  `;
+
+  // We don't need shop_id for the count query if we only use it for the cs JOIN in the data query,
+  // but wait, we need to pass the same params to countSql except shop_id which is only used for the JOIN?
+  // Ah, the countSql doesn't join `current_stock` or `supplier_master`, so it shouldn't take `shop_id`.
+  // Let's adjust params for count query.
+  const countParams = params.slice(1); // remove shop_id
+
+  db.get(countSql, countParams, (err, cRow) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const total = cRow?.total || 0;
+    const totalPages = Math.ceil(total / parsedPerPage);
+
+    const dataSql = `
+      SELECT im.item_id, im.sku, im.item_name, im.category, im.brand, im.design,
+        im.size, im.rim_size, im.unit_cost, im.selling_price, im.is_active,
+        im.supplier_id, im.dot_number, im.parent_item_id, sm.supplier_name,
+        COALESCE(cs.current_quantity, 0) as current_quantity
+      FROM item_master im
+      LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?
+      LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
+      WHERE ${whereClause}
+      ORDER BY im.item_name
+      LIMIT ? OFFSET ?
+    `;
+
+    db.all(dataSql, [...params, parsedPerPage, offset], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        data: rows || [],
+        meta: { page: parsedPage, perPage: parsedPerPage, totalCount: total, totalPages }
+      });
+    });
+  });
 });
 
 // Archive (deactivate) an item

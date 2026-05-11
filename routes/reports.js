@@ -64,8 +64,21 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         'PURCHASE' as type
       FROM purchase_header ph
       LEFT JOIN supplier_master sm ON ph.supplier_id = sm.supplier_id
-      WHERE ph.shop_id = ? AND ph.is_void = 0 AND DATE(ph.purchase_date) = ?`,
-      [shop_id, targetDate]
+      WHERE ph.shop_id = ? AND ph.is_void = 0 AND DATE(ph.purchase_date) = ?
+      
+      UNION ALL
+      
+      SELECT
+        o.order_id as id,
+        COALESCE(o.delivery_receipt, o.order_id) as invoiceNumber,
+        'Order Receipt' as customerName,
+        o.total_amount as amount,
+        COALESCE(o.payment_mode, 'TERMS') as paymentMethod,
+        o.received_at as timestamp,
+        'PURCHASE' as type
+      FROM orders o
+      WHERE o.shop_id = ? AND o.status = 'RECEIVED' AND DATE(o.received_at) = ? AND o.payment_mode != 'CASH'`,
+      [shop_id, targetDate, shop_id, targetDate]
     );
 
     const commissionTransactions = await dbAll(
@@ -99,7 +112,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       FROM receivable_payments rp
       JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
       JOIN customer_master cm ON ar.customer_id = cm.customer_id
-      WHERE rp.shop_id = ? AND rp.is_void = 0 AND rp.payment_date = ?
+      WHERE rp.shop_id = ? AND rp.is_void = 0 AND DATE(rp.payment_date) = ?
         AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)`,
       [shop_id, targetDate]
     );
@@ -116,7 +129,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       FROM payable_payments pp
       JOIN accounts_payable ap ON pp.payable_id = ap.payable_id
       LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
-      WHERE pp.shop_id = ? AND pp.is_void = 0 AND pp.payment_date = ?`,
+      WHERE pp.shop_id = ? AND pp.is_void = 0 AND DATE(pp.payment_date) = ?`,
       [shop_id, targetDate]
     );
 

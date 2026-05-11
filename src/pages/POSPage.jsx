@@ -353,6 +353,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
   const [items, setItems] = React.useState([]);
   const [services, setServices] = React.useState([]);
+  const [commissionRules, setCommissionRules] = React.useState([]);
   const [staff, setStaff] = React.useState([]);
   const [presentStaffIds, setPresentStaffIds] = React.useState([]);
   const [selectedHandlerId, setSelectedHandlerId] = React.useState("");
@@ -603,13 +604,14 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     try {
       const todayLocal = businessDate || new Date().toISOString().split('T')[0];
 
-      const [srv, stf, cust, valve, weight, attendanceRes] = await Promise.all([
+      const [srv, stf, cust, valve, weight, attendanceRes, rulesRes] = await Promise.all([
         apiFetch(`${API_URL}/services`),
         apiFetch(`${API_URL}/staff/${shopId}`),
         apiFetch(`${API_URL}/customers/${shopId}`),
         apiFetch(`${API_URL}/items/${shopId}?category=VALVE`),
         apiFetch(`${API_URL}/items/${shopId}?category=WHEEL WEIGHT`),
-        apiFetch(`${API_URL}/attendance/${shopId}?attendance_date=${todayLocal}`)
+        apiFetch(`${API_URL}/attendance/${shopId}?attendance_date=${todayLocal}`),
+        apiFetch(`${API_URL}/commission-rules`)
       ]);
       setServices((await srv.json()) || []);
       setStaff((await stf.json()) || []);
@@ -617,10 +619,12 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       const valves = (await valve.json()) || [];
       const weights = (await weight.json()) || [];
       const attendance = (await attendanceRes.json()) || [];
+      const rules = (await rulesRes.json()) || [];
 
       setValveItems(valves.filter(i => (i.current_quantity || 0) > 0));
       setWeightItems(weights.filter(i => (i.current_quantity || 0) > 0));
       setPresentStaffIds(Array.isArray(attendance) ? attendance.filter(a => a.status === 'PRESENT').map(a => a.staff_id) : []);
+      setCommissionRules(Array.isArray(rules) ? rules : []);
       await fetchPosItems(1);
     } catch {
       setError("POS load failed");
@@ -928,32 +932,53 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   // Commission calculation per cart
   const commissionBreakdown = React.useMemo(() => {
     const lines = [];
+    
+    // Helper to find dynamic rule
+    const getRule = (cat, isSteel = null) => {
+      const fallback = {
+        'PCR': 60, 'MOTORCYCLE': 60, 'SUV': 100, 'LT': 100, 'LTB': 150,
+        'TBR': 100, 'TRUCK': 100, 'RECAP': 70, 'TIRE': 60,
+        'VALVE-RUBBER': 40, 'VALVE-STEEL': 50, 'SEALANT': 400
+      };
+      
+      if (cat === 'VALVE') {
+        const rule = commissionRules.find(r => r.category === 'VALVE' && r.valve_type === (isSteel ? 'STEEL' : 'RUBBER'));
+        return rule ? rule.commission_amount : (isSteel ? fallback['VALVE-STEEL'] : fallback['VALVE-RUBBER']);
+      }
+      
+      const rule = commissionRules.find(r => r.category === cat);
+      return rule ? rule.commission_amount : (fallback[cat] || 0);
+    };
+
     for (const item of cart) {
       if (item.type !== 'PRODUCT') continue;
       if (item.no_install) continue;
       const cat = (item.category || '').toUpperCase();
       let rateLabel = '';
-      let rate = 0;
-      if (cat === 'PCR' || cat === 'MOTORCYCLE') { rate = 60; rateLabel = 'PCR/Motorcycle install'; }
-      else if (cat === 'SUV' || cat === 'LT') { rate = 100; rateLabel = 'SUV/LT install'; }
-      else if (cat === 'LTB') { rate = 150; rateLabel = 'LTB install'; }
-      else if (cat === 'TBR' || cat === 'TRUCK') { rate = 100; rateLabel = 'Truck install'; }
-      else if (cat === 'RECAP') { rate = 70; rateLabel = 'Recap tire install'; }
-      else if (cat === 'TIRE') { rate = 60; rateLabel = 'Tire install'; }
+      let rate = getRule(cat);
+      
+      if (cat === 'PCR' || cat === 'MOTORCYCLE') rateLabel = 'PCR/Motorcycle install';
+      else if (cat === 'SUV' || cat === 'LT') rateLabel = 'SUV/LT install';
+      else if (cat === 'LTB') rateLabel = 'LTB install';
+      else if (cat === 'TBR' || cat === 'TRUCK') rateLabel = 'Truck install';
+      else if (cat === 'RECAP') rateLabel = 'Recap tire install';
+      else if (cat === 'TIRE') rateLabel = 'Tire install';
+      else rateLabel = `${cat} install`;
+
       if (rate > 0) {
         lines.push({ label: `${item.name} (${rateLabel})`, qty: item.quantity, rate, total: rate * item.quantity });
       }
       // Valve attached as consumable to a tire
       if (item.valve_type && item.valve_quantity > 0) {
         const isSteel = (item.valve_name || '').toUpperCase().includes('STEEL');
-        const valveRate = isSteel ? 50 : 40;
+        const valveRate = getRule('VALVE', isSteel);
         const valveLabel = isSteel ? 'Steel valve' : 'Rubber valve';
         lines.push({ label: valveLabel, qty: item.valve_quantity, rate: valveRate, total: valveRate * item.valve_quantity });
       }
       // Sealant commission
       const isSealant = (item.name || '').toUpperCase().includes('SEALANT') || (item.category || '').toUpperCase().includes('SEALANT');
       if (isSealant && rate === 0) {
-        const sealantFlat = item.sealant_commission ?? 400;
+        const sealantFlat = getRule('SEALANT');
         if (sealantFlat > 0) {
           lines.push({ label: `${item.name} (sealant, flat)`, qty: 1, rate: sealantFlat, total: sealantFlat });
         }
@@ -963,7 +988,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       const isStandaloneValve = (itemNameUpper.includes('VALVE') || cat.includes('VALVE')) && rate === 0 && !item.valve_type;
       if (isStandaloneValve) {
         const isSteel = itemNameUpper.includes('STEEL');
-        const valveRate = isSteel ? 50 : 40;
+        const valveRate = getRule('VALVE', isSteel);
         const valveLabel = `${item.name || 'Valve'} (Standalone)`;
         lines.push({ label: valveLabel, qty: item.quantity, rate: valveRate, total: valveRate * item.quantity });
       }

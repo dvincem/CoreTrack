@@ -138,6 +138,7 @@ const makeStyles = (accentColor) => `
 const FilterHeader = React.memo(({
   searchProps,
   leftComponent,
+  rightComponent,
   filters = [],
   onFilterChange,
   accentColor = 'var(--th-sky)',
@@ -180,6 +181,12 @@ const FilterHeader = React.memo(({
                 )}
               </button>
             ))}
+          </div>
+        )}
+
+        {rightComponent && (
+          <div className="fh-right" style={{ order: 4, display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>
+            {rightComponent}
           </div>
         )}
       </div>
