@@ -93,23 +93,46 @@ router.post("/customers", (req, res) => {
   if (!shop_id || !customer_name) {
     return res.status(400).json({ error: "shop_id and customer_name are required" });
   }
-  try {
-    const namePrefix = customer_name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "");
-    const timestamp = Date.now().toString().slice(-6);
-    const customer_code = `CUST-${namePrefix}-${timestamp}`;
-    const customer_id = `CUST-${uuidv4()}`;
-    db.run(
-      `INSERT INTO customer_master (customer_id, shop_id, customer_code, customer_name, company, contact_number, tin_number, address, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [customer_id, shop_id, customer_code, customer_name, company || null, contact_number || null, tin_number || null, address || null],
-      function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(201).json({ customer_id, customer_code, customer_name, message: "Customer created successfully" });
-      },
-    );
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+
+  // Duplicate guard — case-insensitive, trimmed match within the same shop
+  db.get(
+    `SELECT customer_id, customer_name, customer_code FROM customer_master
+     WHERE shop_id = ? AND TRIM(LOWER(customer_name)) = TRIM(LOWER(?))`,
+    [shop_id, customer_name],
+    (dupErr, existing) => {
+      if (dupErr) return res.status(500).json({ error: dupErr.message });
+
+      // If name already exists, return 200 with duplicate flag so callers like POS
+      // can silently reuse the existing customer without throwing an error.
+      if (existing) {
+        return res.status(200).json({
+          customer_id: existing.customer_id,
+          customer_code: existing.customer_code,
+          customer_name: existing.customer_name,
+          duplicate: true,
+          message: "A customer with this name already exists."
+        });
+      }
+
+      try {
+        const namePrefix = customer_name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "");
+        const timestamp = Date.now().toString().slice(-6);
+        const customer_code = `CUST-${namePrefix}-${timestamp}`;
+        const customer_id = `CUST-${uuidv4()}`;
+        db.run(
+          `INSERT INTO customer_master (customer_id, shop_id, customer_code, customer_name, company, contact_number, tin_number, address, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [customer_id, shop_id, customer_code, customer_name, company || null, contact_number || null, tin_number || null, address || null],
+          function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({ customer_id, customer_code, customer_name, message: "Customer created successfully" });
+          },
+        );
+      } catch (e) {
+        res.status(500).json({ error: e.message });
+      }
+    }
+  );
 });
 
 router.put("/customers/:customer_id", (req, res) => {

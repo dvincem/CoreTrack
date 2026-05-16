@@ -609,7 +609,7 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
         const sales = salesRes.data || []
         const dailyMap = {}
         sales.forEach(s => {
-          const d = s.sale_datetime.split('T')[0]
+          const d = new Date(s.sale_datetime).toLocaleDateString('en-CA')
           dailyMap[d] = (dailyMap[d] || 0) + s.total_amount
         })
         const dailyChart = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => ({ date: k, value: v }))

@@ -1,5 +1,6 @@
 import '../pages_css/POSPage.css';
 import React from 'react'
+import ReactDOM from 'react-dom'
 import { API_URL, currency, apiFetch } from '../lib/config'
 import Pagination from '../components/Pagination'
 import SearchInput from '../components/SearchInput'
@@ -339,7 +340,7 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
 /* ══════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════ */
-function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed, businessDate }) {
+function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, currentStaffName, isShopClosed, businessDate, setPage, setPageContext }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
   React.useEffect(() => {
@@ -357,6 +358,11 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [staff, setStaff] = React.useState([]);
   const [presentStaffIds, setPresentStaffIds] = React.useState([]);
   const [selectedHandlerId, setSelectedHandlerId] = React.useState("");
+
+  const handleQuickAction = (targetPage, action) => {
+    if (setPageContext) setPageContext({ action });
+    if (setPage) setPage(targetPage);
+  };
   const [cart, setCart] = React.useState([]);
   const [showClearCartModal, setShowClearCartModal] = React.useState(false);
 
@@ -391,6 +397,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [loading, setLoading] = React.useState(false);
   const [posLoaded, setPosLoaded] = React.useState(false);
   const [showMiscModal, setShowMiscModal] = React.useState(false);
+  const [showConfirmModal, setShowConfirmModal] = React.useState(false);
   const [miscForm, setMiscForm] = React.useState({ name: "", price: "", cost: "", qty: "1", category: "", newCategory: "" });
   const [toast, setToast] = React.useState(null); // { amount }
   const [dotModal, setDotModal] = React.useState(null); // array of DOT variants to pick from
@@ -398,6 +405,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [showCommission, setShowCommission] = React.useState(true); // collapsible commission section
   const cartColRef = React.useRef(null);
   const isResettingPersistence = React.useRef(false);
+  const draftDropRef = React.useRef(null);
 
   // --- Drafts Logic ---
   const [drafts, setDrafts] = React.useState([]);
@@ -444,15 +452,13 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
       setActiveDraftId(res.draft_id);
       fetchDrafts();
-      // Show success briefly via error state or just a console log for now
-      // Actually, let's use the error state for status messages briefly
-      setError("Draft saved successfully");
+      clearCart();
+      setError("Draft saved — cart cleared!");
       setTimeout(() => setError(""), 3000);
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { setError(e.message); }
     setLoading(false);
   };
+
 
   const loadDraft = (d) => {
     if (cart.length > 0 && !window.confirm("Overwrite current cart with this draft?")) return;
@@ -489,6 +495,18 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   React.useEffect(() => {
     fetchDrafts();
   }, [shopId]);
+
+  // Close drafts dropdown when clicking outside
+  React.useEffect(() => {
+    if (!showDraftsDrop) return;
+    const handler = (e) => {
+      if (draftDropRef.current && !draftDropRef.current.contains(e.target)) {
+        setShowDraftsDrop(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showDraftsDrop]);
 
   // --- Persistence Logic ---
   React.useEffect(() => {
@@ -838,11 +856,39 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       const _splitTotal = paymentSplits.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
       if (Math.abs(_splitTotal - total) > 1) { setError(`Payment splits must equal the total. Entered: ₱${_splitTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 })} / Total: ₱${total.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`); return; }
     }
-    if (paymentSplits.some(p => p.method === "CREDIT") && !selectedCustomer) { setError("Select a customer for credit/pautang transactions"); return; }
+    if (paymentSplits.some(p => p.method === "CREDIT") && !selectedCustomer && !custSearch.trim()) { setError("Select or type a customer name for credit/pautang transactions"); return; }
     if (hasInvoice && !invoiceNumber.trim()) { setError("Invoice number is required"); return; }
     if (!saleNotes.trim()) { setError("Notes are required (add vehicle/plate info)"); return; }
+
+    // --- Confirmation Step ---
+    if (!showConfirmModal) {
+      setShowConfirmModal(true);
+      return;
+    }
     setLoading(true);
     try {
+      let finalCustomerId = selectedCustomer;
+      if (!finalCustomerId && custSearch.trim()) {
+        const searchVal = custSearch.trim();
+        const existingCust = customers.find(c => c.customer_name.toLowerCase() === searchVal.toLowerCase());
+        if (existingCust) {
+          finalCustomerId = existingCust.customer_id;
+        } else {
+          // Auto-create new customer
+          const cRes = await apiFetch(`${API_URL}/customers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              shop_id: shopId,
+              customer_name: searchVal
+            })
+          });
+          const cData = await cRes.json();
+          if (!cRes.ok) throw new Error(cData.error || "Failed to auto-create customer");
+          finalCustomerId = cData.customer_id;
+        }
+      }
+
       const allItems = [];
       for (const c of cart) {
         const effectiveUnitPrice = c.wheel_balancing
@@ -902,7 +948,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           tireman_commission_total: effectiveCommission,
           tireman_balancing_total: cart.reduce((sum, c) =>
             sum + (c.wheel_balancing ? (c.balancing_labor_price ?? balancingServicePrice ?? 0) * (c.balancing_quantity || c.quantity) : 0), 0),
-          customer_id: selectedCustomer || null,
+          customer_id: finalCustomerId || null,
           sale_notes: saleNotes.trim() || null,
           invoice_number: hasInvoice ? invoiceNumber.trim() : "",
           payment_method: paymentSplits[0]?.method || "CASH",
@@ -920,11 +966,13 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         // Automatically delete the draft once converted to a real sale
         apiFetch(`${API_URL}/pos-drafts/${shopId}/${activeDraftId}`, { method: "DELETE" }).then(() => fetchDrafts());
       }
+      setShowConfirmModal(false);
       clearCart();
       setToast({ amount: saleTotal });
       onRefresh();
     } catch (e) {
       setError(e.message);
+      setShowConfirmModal(false);
     }
     setLoading(false);
   }
@@ -932,7 +980,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   // Commission calculation per cart
   const commissionBreakdown = React.useMemo(() => {
     const lines = [];
-    
+
     // Helper to find dynamic rule
     const getRule = (cat, isSteel = null) => {
       const fallback = {
@@ -940,12 +988,12 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         'TBR': 100, 'TRUCK': 100, 'RECAP': 70, 'TIRE': 60,
         'VALVE-RUBBER': 40, 'VALVE-STEEL': 50, 'SEALANT': 400
       };
-      
+
       if (cat === 'VALVE') {
         const rule = commissionRules.find(r => r.category === 'VALVE' && r.valve_type === (isSteel ? 'STEEL' : 'RUBBER'));
         return rule ? rule.commission_amount : (isSteel ? fallback['VALVE-STEEL'] : fallback['VALVE-RUBBER']);
       }
-      
+
       const rule = commissionRules.find(r => r.category === cat);
       return rule ? rule.commission_amount : (fallback[cat] || 0);
     };
@@ -956,7 +1004,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       const cat = (item.category || '').toUpperCase();
       let rateLabel = '';
       let rate = getRule(cat);
-      
+
       if (cat === 'PCR' || cat === 'MOTORCYCLE') rateLabel = 'PCR/Motorcycle install';
       else if (cat === 'SUV' || cat === 'LT') rateLabel = 'SUV/LT install';
       else if (cat === 'LTB') rateLabel = 'LTB install';
@@ -1049,6 +1097,45 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const pagedItems = groupedItems;
   React.useEffect(() => { setProdPage(1); }, [category, search]);
   React.useEffect(() => { fetchPosItems(prodPage); /* eslint-disable-next-line */ }, [prodPage]);
+
+  // --- Enter Key Shortcut ---
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger if focus is on an input that might need Enter (though currently none are multiline)
+      // Actually, we'll allow it as a convenience as requested.
+
+      if (e.key === 'Enter') {
+        // 1. If Confirmation Modal is open, Enter confirms it.
+        if (showConfirmModal) {
+          if (!loading) {
+            e.preventDefault();
+            completeSale();
+          }
+          return;
+        }
+
+        // 2. If any other modal is open (Misc, DOT, Design), don't trigger global sale completion
+        if (showMiscModal || dotModal || designModal || showClearCartModal) return;
+
+        // 3. If Modal is NOT open, check if the main button would be enabled.
+        const canComplete = !loading &&
+          selectedHandlerId &&
+          (!needsTireman || selectedTiremen.length > 0) &&
+          cart.length > 0 &&
+          paymentSplits.length > 0 &&
+          (!hasInvoice || invoiceNumber.trim()) &&
+          saleNotes.trim();
+
+        if (canComplete) {
+          e.preventDefault();
+          completeSale();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showConfirmModal, loading, selectedHandlerId, needsTireman, selectedTiremen, cart, paymentSplits, hasInvoice, invoiceNumber, saleNotes, showMiscModal, dotModal, designModal, showClearCartModal]);
 
   return (
     <>
@@ -1320,11 +1407,16 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                 onFilterChange={setCategory}
               />
             </div>
-            <button
-              onClick={() => setShowMiscModal(true)}
-              className="pos-custom-btn"
-              title="Add a custom item not in inventory"
-            >+ Custom</button>
+            <div className="pos-actions-group">
+              <button
+                onClick={() => setShowMiscModal(true)}
+                className="pos-custom-btn"
+                title="Add a custom item not in inventory"
+              >+ Custom</button>
+              <button className="pos-quick-btn" title="Manual Ledger Entry" onClick={() => handleQuickAction('cashledger', 'openAdd')}>✍️</button>
+              <button className="pos-quick-btn" title="New Expense" onClick={() => handleQuickAction('expenses', 'openAdd')}>💸</button>
+              <button className="pos-quick-btn" title="New Bale" onClick={() => handleQuickAction('receivables', 'openBale')}>📒</button>
+            </div>
           </div>{/* end search+custom row */}
 
           {/* Catalog */}
@@ -1436,7 +1528,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           {/* Cart header */}
           <div className="pos-cart-header" style={{ padding: "0.4rem 1rem" }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0, justifyContent: 'space-between' }}>
-              <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative' }} ref={draftDropRef}>
                 <div
                   className={`pos-cart-title${showDraftsDrop ? ' active' : ''}`}
                   style={{ fontSize: '1.1rem', cursor: drafts.length > 0 ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -2047,10 +2139,115 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         )}
       </button>
 
+      {/* ── Sale Confirmation Modal ── */}
+      {showConfirmModal && ReactDOM.createPortal(
+        <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && !loading && setShowConfirmModal(false)} style={{ zIndex: 10000 }}>
+          <div className="confirm-box" style={{ maxWidth: 650, width: '95%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="confirm-title" style={{ marginBottom: 0 }}>
+                Confirm Sale Summary
+              </div>
+              <button className="pos-modal-close" onClick={() => !loading && setShowConfirmModal(false)} style={{ background: 'none', border: 'none', color: 'var(--th-text-faint)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', background: 'var(--th-bg-card-alt)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--th-border)' }}>
+              <div>
+                <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-text-faint)', fontWeight: 700, letterSpacing: '0.05em' }}>Invoice / Ref</div>
+                <div style={{ fontSize: '1rem', color: 'var(--th-text-primary)', fontWeight: 600 }}>{hasInvoice ? `#${invoiceNumber}` : 'None'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-text-faint)', fontWeight: 700, letterSpacing: '0.05em' }}>Customer</div>
+                <div style={{ fontSize: '1rem', color: 'var(--th-text-primary)', fontWeight: 600 }}>{customers.find(c => c.customer_id === selectedCustomer)?.customer_name || 'Walk-in'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-text-faint)', fontWeight: 700, letterSpacing: '0.05em' }}>Handled By</div>
+                <div style={{ fontSize: '1rem', color: 'var(--th-text-primary)', fontWeight: 600 }}>{staff.find(s => s.staff_id === selectedHandlerId)?.full_name || '—'}</div>
+              </div>
+              {selectedTiremen.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-text-faint)', fontWeight: 700, letterSpacing: '0.05em' }}>Tireman/en</div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--th-text-primary)', fontWeight: 600 }}>{selectedTiremen.map(id => staff.find(s => s.staff_id === id)?.full_name).filter(Boolean).join(', ')}</div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ maxHeight: '300px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--th-border-strong)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead style={{ position: 'sticky', top: 0, background: 'var(--th-bg-input)', borderBottom: '1px solid var(--th-border-strong)' }}>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '0.6rem 0.8rem', color: 'var(--th-text-faint)', fontWeight: 700 }}>Item Description</th>
+                    <th style={{ textAlign: 'center', padding: '0.6rem 0.8rem', color: 'var(--th-text-faint)', fontWeight: 700 }}>Qty</th>
+                    <th style={{ textAlign: 'right', padding: '0.6rem 0.8rem', color: 'var(--th-text-faint)', fontWeight: 700 }}>Price</th>
+                    <th style={{ textAlign: 'right', padding: '0.6rem 0.8rem', color: 'var(--th-text-faint)', fontWeight: 700 }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cart.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--th-border-faint)' }}>
+                      <td style={{ padding: '0.6rem 0.8rem' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--th-text-primary)' }}>{item.name}</div>
+                        {item.size && <div style={{ fontSize: '0.75rem', color: 'var(--th-text-dim)' }}>{item.size} {item.dot_number ? `· DOT ${item.dot_number}` : ''}</div>}
+                      </td>
+                      <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>{item.quantity}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>{currency(item.price)}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right', fontWeight: 600 }}>{currency(item.price * item.quantity)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--th-text-muted)' }}>Payment Method</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--th-emerald)', fontWeight: 700, textAlign: 'right' }}>
+                  {splitMode
+                    ? paymentSplits.map(p => `${p.method}: ${currency(parseFloat(p.amount) || 0)}`).join(' · ')
+                    : paymentSplits[0]?.method
+                  }
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--th-border-strong)', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--th-text-primary)' }}>Total Amount</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--th-orange)' }}>{currency(total)}</div>
+              </div>
+            </div>
+
+            {saleNotes && (
+              <div style={{ padding: '0.8rem', background: 'rgba(251, 191, 36, 0.05)', border: '1px dashed var(--th-amber)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-amber)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.3rem' }}>Notes</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--th-text-body)', fontStyle: 'italic' }}>{saleNotes}</div>
+              </div>
+            )}
+
+            <div className="confirm-actions" style={{ display: 'flex', gap: '0.8rem' }}>
+              <button
+                type="button"
+                className="confirm-btn-cancel"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={loading}
+                style={{ flex: 1, padding: '0.8rem' }}
+              >
+                Go Back & Edit
+              </button>
+              <button
+                type="button"
+                className={`pos-complete-btn${loading ? " loading" : ""}`}
+                style={{ flex: 2, padding: '0.8rem', background: 'var(--th-emerald)' }}
+                onClick={completeSale}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Confirm & Complete Sale →"}
+              </button>
+            </div>
+          </div>
+        </div>
+        , document.body)}
+
       {/* ── Clear Cart Modal ── */}
       {showClearCartModal && (
         <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setShowClearCartModal(false)} style={{ zIndex: 9999 }}>
-          <div className="confirm-box" style={{ maxWidth: 400 }}>
+          <div className="confirm-box" style={{ maxWidth: 250 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="confirm-title" style={{ marginBottom: 0, color: 'var(--th-rose)' }}>
                 Clear Cart

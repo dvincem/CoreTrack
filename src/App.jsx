@@ -1475,7 +1475,7 @@ function TireHub() {
 
           switch (page) {
             case "dashboard": return <DashboardPage key={refresh} shopId={shop} shopName={currentShopName} businessDate={businessDate} userPower={userPower} setPageContext={setPageContext} />;
-            case "pos": return <POSPage key={refresh} shopId={shop} shopName={currentShopName} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
+            case "pos": return <POSPage key={refresh} shopId={shop} shopName={currentShopName} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} setPage={setPage} />;
             case "inventory": return <InventoryPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "orders": return <OrdersPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "recap": return <RecapPage key={refresh} shopId={shop} onRefresh={doRefresh} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
@@ -1493,9 +1493,9 @@ function TireHub() {
             case "payroll": return <PayrollPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "profits": return <ProfitsPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "purchases": return <PurchasesPage key={refresh} shopId={shop} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
-            case "expenses": return <ExpensesPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
-            case "cashledger": return <CashLedgerPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
-            case "receivables": return <ReceivablesPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
+            case "expenses": return <ExpensesPage key={refresh} shopId={shop} isShopClosed={isShopClosed} pageContext={pageContext} setPageContext={setPageContext} />;
+            case "cashledger": return <CashLedgerPage key={refresh} shopId={shop} isShopClosed={isShopClosed} pageContext={pageContext} setPageContext={setPageContext} />;
+            case "receivables": return <ReceivablesPage key={refresh} shopId={shop} pageContext={pageContext} setPageContext={setPageContext} />;
             case "payables": return <PayablesPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "sales-projection": return <SalesProjectionPage key={refresh} shopId={shop} setPageContext={setPageContext} />;
             case "dryrun": return <DryRunTrackerPage key={refresh} setPageContext={setPageContext} />;

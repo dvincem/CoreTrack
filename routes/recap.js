@@ -172,8 +172,8 @@ router.post("/recap-jobs", async (req, res) => {
   const job_id = `JOB-${Date.now()}`;
   const created_at = await getEffectiveISO(shop_id);
   const item_id = `ITEM-RECAP-${Date.now()}`;
-  // Customer-owned tires are NOT for sale in POS (is_active=0); shop-owned start active
-  const item_active = isShopOwned ? 1 : 0;
+  // All recap tires start inactive. Shop-owned become active ONLY when status reaches READY_FOR_CLAIM.
+  const item_active = 0;
 
   // Compute costs — standard recap_cost and expected_selling_price are the base (labour/material)
   // If sourced from a RECAPPING inventory item, casing purchase cost is added on top of both
@@ -278,7 +278,9 @@ router.put("/recap-jobs/:job_id/status", async (req, res) => {
           [inv_id, job.shop_id, job.finished_item_id, finalCost, job_id, job.dot_number || null, performed_by_staff_id || "RECAP", now],
           (err) => {
             if (err) return res.status(500).json({ error: "Status updated but failed to add to inventory: " + err.message });
-            finishLedger("Added to inventory (shop-owned recap returned by supplier)");
+            db.run(`UPDATE item_master SET is_active = 1 WHERE item_id = ?`, [job.finished_item_id], () => {
+              finishLedger("Added to inventory (shop-owned recap returned by supplier)");
+            });
           }
         );
       } else {
@@ -554,8 +556,8 @@ router.post("/recap-jobs-bulk", async (req, res) => {
       const sz = size.trim().replace(/[\/\-]/g, "");
       const auto_sku = `RECAP-${b}-${d}-${sz}-${Date.now()}-${index}`;
       const item_name = [brand.trim(), design ? design.trim() : null, size.trim()].filter(Boolean).join(" ");
-      const item_active = isShopOwned ? 1 : 0;
       const parsedStatus = status || "READY_FOR_CLAIM";
+      const item_active = (isShopOwned && (parsedStatus === "IN_INVENTORY" || parsedStatus === "READY_FOR_CLAIM")) ? 1 : 0;
       const intakeStr = intake_date ? (String(intake_date).length === 10 ? intake_date + 'T00:00:00' : intake_date) : created_at;
 
       try {

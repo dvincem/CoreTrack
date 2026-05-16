@@ -54,8 +54,11 @@ function isPrivateLanOrigin(origin) {
       host === 'localhost' ||
       /^127\./.test(host) ||
       /^10\./.test(host) ||
+      /^100\./.test(host) || // Tailscale Shared Address Space
       /^192\.168\./.test(host) ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+      host.endsWith('.ts.net') || // Tailscale MagicDNS
+      !host.includes('.') // Local hostnames (e.g., http://jttserver:3000)
     );
   } catch {
     return false;
@@ -67,6 +70,7 @@ const corsOptions = {
     if (!origin || _allowAll || _explicitOrigins.includes(origin) || isPrivateLanOrigin(origin)) {
       return callback(null, true);
     }
+    console.error(`[CORS REJECTED] Origin: ${origin}`);
     callback(new Error('CORS: origin not allowed'));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -199,10 +203,13 @@ initializeDatabase()
         return 'localhost';
       }
 
+      const networkIP = getLocalIP();
+
       console.log(`\n${"=".repeat(70)}`);
       console.log(`CoreTrack Server Running`);
       console.log(`${"=".repeat(70)}`);
       console.log(`Local:   http://localhost:${PORT}`);
+      console.log(`Network: http://${networkIP}:${PORT}`);
       console.log(`Database: tire_shop.db`);
       console.log(`${"=".repeat(70)}\n`);
     });

@@ -121,6 +121,7 @@ function CustomerPage({ shopId }) {
       })
       const data = await r.json()
       if (!r.ok) { setAddError(data.error || 'Failed to add'); return }
+      if (data.duplicate) { setAddError(`A customer named "${data.customer_name}" already exists. Please search for them instead.`); return }
       if (addForm.car_plate_number.trim()) {
         try {
           await apiFetch(`${API_URL}/vehicle-plates`, {

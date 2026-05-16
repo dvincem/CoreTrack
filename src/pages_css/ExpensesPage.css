@@ -40,6 +40,7 @@
   .exp-header-btns-desktop { display: none; }
   .exp-mobile-actions { display: flex; }
   .exp-header-row { flex-direction: column; align-items: stretch; }
+  .exp-header-title-group { justify-content: center; }
 }
 
 /* ── Buttons ── */

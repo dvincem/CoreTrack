@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
-const { dbGet, dbAll, syncCurrentStock, findOrCreateDotVariant, logPriceHistory } = require("../lib/db");
+const { dbGet, dbAll, dbRun, syncCurrentStock, findOrCreateDotVariant, logPriceHistory } = require("../lib/db");
 const { v4: uuidv4 } = require("uuid");
 
 router.get("/items/:shop_id", async (req, res) => {
@@ -345,12 +345,13 @@ router.put("/items/:item_id/supplier", (req, res) => {
 
 router.put("/items/:item_id/details", (req, res) => {
   const { item_id } = req.params;
-  const { category, brand, design, size } = req.body;
+  const { category, brand, design, size, dot_number } = req.body;
 
   const upperBrand = brand ? brand.toUpperCase().trim() : null;
   const upperDesign = design ? design.toUpperCase().trim() : null;
   const trimmedSize = size ? size.trim() : null;
   const trimmedCat = category ? category.trim() : "MISC";
+  const trimmedDot = dot_number ? dot_number.toString().trim() : null;
 
   // item_name excludes design when design is blank (non-tire items)
   const item_name = [upperBrand, upperDesign, trimmedSize].filter(Boolean).join(' ');
@@ -358,21 +359,27 @@ router.put("/items/:item_id/details", (req, res) => {
   // Update the target item, its parent (if it has one), and all siblings sharing
   // the same parent_item_id — keeps every DOT variant of a group in sync.
   db.serialize(() => {
-    db.get(`SELECT parent_item_id FROM item_master WHERE item_id = ?`, [item_id], (err, row) => {
+    db.get(`SELECT parent_item_id, dot_number, sku FROM item_master WHERE item_id = ?`, [item_id], (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
       if (!row) return res.status(404).json({ error: "Item not found" });
 
       const parentId = row.parent_item_id;
+      const oldDot = row.dot_number;
+      const oldSku = row.sku;
 
       // Build a list of all related IDs to update in one statement:
       // – the item itself
       // – its parent (if exists)
       // – all siblings that share the same parent
       const buildIds = (cb) => {
-        if (!parentId) return cb(null, [item_id]);
+        // Find all related IDs: self, children, parent, and siblings
         db.all(
-          `SELECT item_id FROM item_master WHERE item_id = ? OR item_id = ? OR parent_item_id = ?`,
-          [item_id, parentId, parentId],
+          `SELECT item_id FROM item_master 
+           WHERE item_id = ? 
+              OR parent_item_id = ? 
+              OR (item_id = (SELECT parent_item_id FROM item_master WHERE item_id = ?))
+              OR (parent_item_id = (SELECT parent_item_id FROM item_master WHERE item_id = ?))`,
+          [item_id, item_id, item_id, item_id],
           (e2, siblings) => {
             if (e2) return cb(e2);
             cb(null, [...new Set(siblings.map(s => s.item_id))]);
@@ -382,24 +389,58 @@ router.put("/items/:item_id/details", (req, res) => {
 
       buildIds((idErr, ids) => {
         if (idErr) return res.status(500).json({ error: idErr.message });
-        const placeholders = ids.map(() => '?').join(',');
+        
+        // ── SURGICAL UPDATE ──────────────────────────────────────────────────
+        // Shared fields: Category, Brand, Size
+        // Specific fields: Design, DOT (item_id only)
+        
         db.run(
           `UPDATE item_master
-             SET category = ?, brand = ?, design = ?, size = ?, item_name = ?
-           WHERE item_id IN (${placeholders})`,
-          [trimmedCat, upperBrand, upperDesign, trimmedSize, item_name, ...ids],
-          function (err2) {
+             SET category = ?, brand = ?, size = ?
+           WHERE item_id IN (${ids.map(() => '?').join(',')})`,
+          [trimmedCat, upperBrand, trimmedSize, ...ids],
+          async function (err2) {
             if (err2) return res.status(500).json({ error: err2.message });
-            res.json({
-              item_id,
-              category: trimmedCat,
-              brand: upperBrand,
-              design: upperDesign,
-              size: trimmedSize,
-              item_name,
-              updated_count: this.changes,
-              message: "Item details updated successfully",
-            });
+
+            // Update specific fields for the target item
+            try {
+              await dbRun(
+                `UPDATE item_master SET design = ?, dot_number = ? WHERE item_id = ?`,
+                [upperDesign, trimmedDot, item_id]
+              );
+              
+              // Log DOT/Design changes if any
+              if (trimmedDot !== oldDot) {
+                logPriceHistory(item_id, 'DOT_NUMBER', oldDot, trimmedDot, null, `DOT updated via details edit`);
+              }
+
+              // Recalculate item_name for ALL siblings based on their OWN design + new Brand/Size
+              const siblings = await dbAll(`SELECT item_id, brand, design, size, sku FROM item_master WHERE item_id IN (${ids.map(() => '?').join(',')})`, ids);
+              for (const s of siblings) {
+                const newName = [s.brand, s.design, s.size].filter(Boolean).join(' ');
+                await dbRun(`UPDATE item_master SET item_name = ? WHERE item_id = ?`, [newName, s.item_id]);
+              }
+
+              // Update the SKU for the target item if it contains -DOT
+              if (trimmedDot !== oldDot && oldSku && oldSku.includes("-DOT")) {
+                const newSku = oldSku.replace(/-DOT.*$/, `-DOT${trimmedDot}`);
+                await dbRun(`UPDATE item_master SET sku = ? WHERE item_id = ?`, [newSku, item_id]);
+              }
+
+              res.json({
+                item_id,
+                category: trimmedCat,
+                brand: upperBrand,
+                design: upperDesign,
+                size: trimmedSize,
+                dot_number: trimmedDot,
+                item_name: [upperBrand, upperDesign, trimmedSize].filter(Boolean).join(' '),
+                updated_count: ids.length,
+                message: "Item details updated surgically",
+              });
+            } catch (specErr) {
+              res.status(500).json({ error: specErr.message });
+            }
           }
         );
       });

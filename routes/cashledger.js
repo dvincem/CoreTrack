@@ -35,7 +35,7 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
          ORDER BY entry_date, created_at`, [shop_id, startDate, endDate]),
 
       // 2. Sales (with items summary)
-      q(`SELECT sh.sale_id, DATE(sh.sale_datetime) AS sale_date, TIME(sh.sale_datetime) AS sale_time,
+      q(`SELECT sh.sale_id, DATE(sh.sale_datetime, 'localtime') AS sale_date, TIME(sh.sale_datetime, 'localtime') AS sale_time,
             sh.total_amount, sh.payment_method, sh.payment_splits, sh.credit_down_payment,
             sh.invoice_number, sh.created_by,
             GROUP_CONCAT(DISTINCT si.item_name) AS item_names,
@@ -43,7 +43,7 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
          FROM sale_header sh
          LEFT JOIN sale_items si ON sh.sale_id = si.sale_id
          LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
-         WHERE sh.shop_id = ? AND DATE(sh.sale_datetime) BETWEEN ? AND ? AND sh.is_void = 0
+         WHERE sh.shop_id = ? AND DATE(sh.sale_datetime, 'localtime') BETWEEN ? AND ? AND sh.is_void = 0
          GROUP BY sh.sale_id`, [shop_id, startDate, endDate]),
 
       // 3. Expenses

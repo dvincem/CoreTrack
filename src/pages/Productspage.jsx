@@ -117,7 +117,8 @@ function Productspage({ shopId }) {
     category: "",
     brand: "",
     design: "",
-    size: ""
+    size: "",
+    dot_number: ""
   });
   const [detailsSaving, setDetailsSaving] = React.useState(false);
   const [detailsVisible, setDetailsVisible] = React.useState(false);
@@ -291,7 +292,7 @@ function Productspage({ shopId }) {
 
   async function archiveItem(item) {
     try {
-      await apiFetch(`${API_URL}/items/${item.item_id}/archive`, {
+      await apiFetch(`${API_URL}/items/${encodeURIComponent(item.item_id)}/archive`, {
         method: "PUT",
       });
       toast(`"${item.item_name}" archived`);
@@ -306,7 +307,7 @@ function Productspage({ shopId }) {
 
   async function restoreItem(item) {
     try {
-      await apiFetch(`${API_URL}/items/${item.item_id}/restore`, {
+      await apiFetch(`${API_URL}/items/${encodeURIComponent(item.item_id)}/restore`, {
         method: "PUT",
       });
       toast(`"${item.item_name}" restored`);
@@ -568,7 +569,7 @@ function Productspage({ shopId }) {
     try {
       // Update each real variant — for grouped items (multi-DOT) this applies the same price to all
       await Promise.all(realIds.map(id =>
-        apiFetch(`${API_URL}/items/${id}/${pathSuffix}`, {
+        apiFetch(`${API_URL}/items/${encodeURIComponent(id)}/${pathSuffix}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -590,7 +591,7 @@ function Productspage({ shopId }) {
     const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
     try {
       await Promise.all(realIds.map(id =>
-        apiFetch(`${API_URL}/items/${id}/selling-price`, {
+        apiFetch(`${API_URL}/items/${encodeURIComponent(id)}/selling-price`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ selling_price: newVal }),
@@ -613,7 +614,7 @@ function Productspage({ shopId }) {
     const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
     try {
       await Promise.all(realIds.map(id =>
-        apiFetch(`${API_URL}/items/${id}/unit-cost`, {
+        apiFetch(`${API_URL}/items/${encodeURIComponent(id)}/unit-cost`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ unit_cost: newVal }),
@@ -655,7 +656,8 @@ function Productspage({ shopId }) {
       category: item.category || "",
       brand: item.brand || "",
       design: seedDesign,
-      size: item.size || ""
+      size: item.size || "",
+      dot_number: item.dot_number || ""
     });
     try {
       // For non-grouped tire items variant_info still holds the real item_id;
@@ -704,7 +706,7 @@ function Productspage({ shopId }) {
       } else {
         const realId = variants.length === 1 ? variants[0].item_id : item.item_id;
         const data = await apiFetch(
-          `${API_URL}/item-price-history/${realId}`,
+          `${API_URL}/item-price-history/${encodeURIComponent(realId)}`,
         ).then((r) => r.json());
         setPriceHistory(Array.isArray(data) ? data : []);
       }
@@ -723,12 +725,11 @@ function Productspage({ shopId }) {
     //   3. real_item_id from the grouped row (MAX(item_id) returned by /items)
     //   4. selected.item_id for non-grouped items (already a real id)
     const targetId = (() => {
-      if ((selected?.variant_count || 0) <= 1) return selected?.item_id;
       const v = historyVariants.find(x => x.item_id === activeHistVariantId) || historyVariants[0];
       return v?.item_id || selected?.real_item_id || selected?.item_id;
     })();
     try {
-      const res = await apiFetch(`${API_URL}/items/${targetId}/details`, {
+      const res = await apiFetch(`${API_URL}/items/${encodeURIComponent(targetId)}/details`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(detailForm),
@@ -745,9 +746,8 @@ function Productspage({ shopId }) {
       setSelected(s => ({
         ...s,
         category: data.category,
-        brand: data.brand,
-        design: data.design,
         size: data.size,
+        dot_number: data.dot_number,
         item_name: data.item_name,
       }));
     } catch (err) {
@@ -766,11 +766,10 @@ function Productspage({ shopId }) {
     try {
       // For grouped items use active variant's real item_id; fall back to first variant
       const suppTargetId = (() => {
-        if ((selected?.variant_count || 0) <= 1) return selected?.item_id;
         const v = historyVariants.find(x => x.item_id === activeHistVariantId) || historyVariants[0];
-        return v?.item_id || selected?.item_id;
+        return v?.item_id || selected?.real_item_id || selected?.item_id;
       })();
-      const res = await apiFetch(`${API_URL}/items/${suppTargetId}/supplier`, {
+      const res = await apiFetch(`${API_URL}/items/${encodeURIComponent(suppTargetId)}/supplier`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ supplier_id: assignSupplierId }),
@@ -802,17 +801,27 @@ function Productspage({ shopId }) {
     }
     // For grouped items, require a specific variant to be selected
     const isGrouped = (selected?.variant_count || 0) > 1;
-    if (isGrouped && !activeHistVariantId) {
+    let targetVariantId = activeHistVariantId;
+
+    // Auto-resolve if a design is selected that only has one DOT variant
+    if (isGrouped && !targetVariantId && activeHistDesign) {
+      const designVariants = historyVariants.filter(v => v.design === activeHistDesign);
+      if (designVariants.length === 1) {
+        targetVariantId = designVariants[0].item_id;
+      }
+    }
+
+    if (isGrouped && !targetVariantId) {
       toast("Select a DOT variant tab first to adjust its stock.", "error");
       return;
     }
     // For single-DOT tire items, selected.item_id is the synthetic group key;
     // resolve to the real item_id from variant_info.
     const realItemId = isGrouped
-      ? activeHistVariantId
+      ? targetVariantId
       : (historyVariants.length === 1 ? historyVariants[0].item_id : selected.item_id);
     const realDot = isGrouped
-      ? historyVariants.find(v => v.item_id === activeHistVariantId)?.dot_number
+      ? historyVariants.find(v => v.item_id === targetVariantId)?.dot_number
       : (historyVariants.length === 1 ? historyVariants[0].dot_number : selected.dot_number);
     const adjItem = { ...selected, item_id: realItemId, dot_number: realDot };
     setPendingAdj({ qty, item: adjItem });
@@ -841,7 +850,7 @@ function Productspage({ shopId }) {
         refetchItems();
         fetchKpi();
         const updated = await apiFetch(
-          `${API_URL}/inventory-ledger/${shopId}?item_id=${item.item_id}&page=1&perPage=20`,
+          `${API_URL}/inventory-ledger/${shopId}?item_id=${encodeURIComponent(item.item_id)}&page=1&perPage=20`,
         ).then((r) => r.json());
         const rows = Array.isArray(updated?.data) ? updated.data : (Array.isArray(updated) ? updated : []);
         setHistory(rows.slice(0, 20));
@@ -1810,8 +1819,31 @@ function Productspage({ shopId }) {
             currency={prodCurrency}
             variants={historyVariants.length > 1 ? historyVariants : undefined}
             activeVariantId={activeHistVariantId}
-            onVariantChange={setActiveHistVariantId}
-            onDesignChange={setActiveHistDesign}
+            onVariantChange={(vid) => {
+              setActiveHistVariantId(vid);
+              const v = historyVariants.find(x => x.item_id === vid);
+              if (v) {
+                setDetailForm(prev => ({ 
+                  ...prev, 
+                  dot_number: v.dot_number || "",
+                  design: v.design || prev.design 
+                }));
+              }
+            }}
+            onDesignChange={(d) => {
+              setActiveHistDesign(d);
+              if (d) {
+                setDetailForm(prev => ({ ...prev, design: d }));
+                // Auto-select variant if this design has only one DOT
+                const dv = historyVariants.filter(v => v.design === d);
+                if (dv.length === 1) {
+                  setActiveHistVariantId(dv[0].item_id);
+                  setDetailForm(prev => ({ ...prev, dot_number: dv[0].dot_number || "" }));
+                }
+              } else {
+                setActiveHistVariantId(null);
+              }
+            }}
             onUpdateCost={updateModalCost}
             onUpdatePrice={updateModalPrice}
             incomingOrders={incomingOrders}
@@ -2091,9 +2123,10 @@ function Productspage({ shopId }) {
               // Non-grouped: original behaviour
               if ((selected.current_quantity ?? 0) > 0) return null;
               // Resolve real item_id — selected.item_id may be a synthetic group key for single-DOT tires
-              const realItem = historyVariants.length === 1
-                ? { ...selected, item_id: historyVariants[0].item_id }
-                : selected;
+              const realItem = { 
+                ...selected, 
+                item_id: historyVariants.length === 1 ? historyVariants[0].item_id : (selected.real_item_id || selected.item_id) 
+              };
               return (
                 <div style={{ padding: "0.65rem 1.2rem", borderBottom: "1px solid var(--th-border)" }}>
                   <button
@@ -2121,9 +2154,16 @@ function Productspage({ shopId }) {
               {detailsVisible && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
                   {/* Warn when editing a multi-design group — all siblings will be updated */}
-                  {(selected?.design_count || 0) > 1 && (
+                  {(selected?.variant_count || 0) > 1 && (
                     <div style={{ fontSize: "0.72rem", color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, padding: "0.4rem 0.6rem", lineHeight: 1.4 }}>
-                      ⚠ This is a multi-design group ({selected.design_list?.split(',').filter(Boolean).join(', ')}). Saving will update <b>all {selected.variant_count} variants</b> to the same brand, size, and design.
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700 }}>
+                        ⚠ This is a multi-variant group.
+                      </span>
+                      <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.72rem", opacity: 0.8 }}>
+                        Changing <b>Brand, Size, or Category</b> will update all {selected.variant_count} items. 
+                        <br/>
+                        Changing <b>Design or DOT</b> will only update the specific item selected.
+                      </p>
                     </div>
                   )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
@@ -2161,25 +2201,38 @@ function Productspage({ shopId }) {
                       )}
                     </div>
                   </div>
-                  <div style={{ position: 'relative' }}>
-                    <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Brand</label>
-                    <input
-                      className="prod-adj-input"
-                      type="text"
-                      placeholder="Brand"
-                      value={detailForm.brand}
-                      onChange={e => setDetailForm({ ...detailForm, brand: e.target.value.toUpperCase() })}
-                      style={{ width: "100%" }}
-                      onFocus={() => setActiveSug({ idx: -1, field: 'brand' })}
-                      onBlur={() => setTimeout(() => setActiveSug(null), 200)}
-                    />
-                    {activeSug?.idx === -1 && activeSug?.field === 'brand' && detailForm.brand && (
-                      <div className="prod-sug-drop" style={{ width: '100%' }}>
-                        {dbBrands.filter(b => b.toLowerCase().includes(detailForm.brand.toLowerCase())).slice(0, 8).map(b => (
-                          <div key={b} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, brand: b })}>{b}</div>
-                        ))}
-                      </div>
-                    )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                    <div style={{ position: 'relative' }}>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Brand</label>
+                      <input
+                        className="prod-adj-input"
+                        type="text"
+                        placeholder="Brand"
+                        value={detailForm.brand}
+                        onChange={e => setDetailForm({ ...detailForm, brand: e.target.value.toUpperCase() })}
+                        style={{ width: "100%" }}
+                        onFocus={() => setActiveSug({ idx: -1, field: 'brand' })}
+                        onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                      />
+                      {activeSug?.idx === -1 && activeSug?.field === 'brand' && detailForm.brand && (
+                        <div className="prod-sug-drop" style={{ width: '100%' }}>
+                          {dbBrands.filter(b => b.toLowerCase().includes(detailForm.brand.toLowerCase())).slice(0, 8).map(b => (
+                            <div key={b} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, brand: b })}>{b}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>DOT / Year</label>
+                      <input
+                        className="prod-adj-input"
+                        type="text"
+                        placeholder="2025"
+                        value={detailForm.dot_number}
+                        onChange={e => setDetailForm({ ...detailForm, dot_number: e.target.value })}
+                        style={{ width: "100%", color: "var(--th-amber)" }}
+                      />
+                    </div>
                   </div>
                   <div style={{ position: 'relative' }}>
                     <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Design</label>

@@ -548,6 +548,10 @@ input.fh-date {
     font-size: var(--text-2xl);
   }
 
+  .cl-header-title-group {
+    justify-content: center;
+  }
+
   .cl-header-btns-desktop {
     display: none;
   }

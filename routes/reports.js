@@ -49,7 +49,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         expense_date as timestamp,
         'EXPENSE' as type
       FROM expenses
-      WHERE shop_id = ? AND is_void = 0 AND DATE(expense_date) = ?`,
+      WHERE shop_id = ? AND is_void = 0 AND expense_date = ?`,
       [shop_id, targetDate]
     );
 
@@ -64,7 +64,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         'PURCHASE' as type
       FROM purchase_header ph
       LEFT JOIN supplier_master sm ON ph.supplier_id = sm.supplier_id
-      WHERE ph.shop_id = ? AND ph.is_void = 0 AND DATE(ph.purchase_date) = ?
+      WHERE ph.shop_id = ? AND ph.is_void = 0 AND ph.purchase_date = ?
       
       UNION ALL
       
@@ -77,7 +77,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         o.received_at as timestamp,
         'PURCHASE' as type
       FROM orders o
-      WHERE o.shop_id = ? AND o.status = 'RECEIVED' AND DATE(o.received_at) = ? AND o.payment_mode != 'CASH'`,
+      WHERE o.shop_id = ? AND o.status = 'RECEIVED' AND DATE(o.received_at, 'localtime') = ? AND o.payment_mode != 'CASH'`,
       [shop_id, targetDate, shop_id, targetDate]
     );
 
@@ -95,7 +95,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       LEFT JOIN sale_header sh ON ll.sale_id = sh.sale_id
       WHERE ll.shop_id = ? 
         AND ll.is_void = 0 
-        AND DATE(ll.business_date) = ?
+        AND ll.business_date = ?
         AND ll.commission_amount > 0`,
       [shop_id, targetDate]
     );
@@ -112,7 +112,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       FROM receivable_payments rp
       JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
       JOIN customer_master cm ON ar.customer_id = cm.customer_id
-      WHERE rp.shop_id = ? AND rp.is_void = 0 AND DATE(rp.payment_date) = ?
+      WHERE rp.shop_id = ? AND rp.is_void = 0 AND DATE(rp.payment_date, 'localtime') = ?
         AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)`,
       [shop_id, targetDate]
     );
@@ -129,7 +129,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       FROM payable_payments pp
       JOIN accounts_payable ap ON pp.payable_id = ap.payable_id
       LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
-      WHERE pp.shop_id = ? AND pp.is_void = 0 AND DATE(pp.payment_date) = ?`,
+      WHERE pp.shop_id = ? AND pp.is_void = 0 AND DATE(pp.payment_date, 'localtime') = ?`,
       [shop_id, targetDate]
     );
 

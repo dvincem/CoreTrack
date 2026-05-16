@@ -11,10 +11,10 @@ router.get("/dashboard/:shop_id", (req, res) => {
     `SELECT
       (SELECT COUNT(*) FROM item_master WHERE is_active = 1) as total_items,
       (SELECT COALESCE(SUM(current_quantity),0) FROM current_stock WHERE shop_id = ?) as total_stock,
-      (SELECT COALESCE(SUM(total_amount),0) FROM sale_header WHERE shop_id = ? AND DATE(sale_datetime) = ? AND is_void = 0) as today_sales,
-      (SELECT COUNT(*) FROM sale_header WHERE shop_id = ? AND DATE(sale_datetime) = ? AND is_void = 0) as today_transactions,
-      (SELECT COALESCE(SUM(total_amount),0) FROM sale_header WHERE shop_id = ? AND strftime('%Y-%m', sale_datetime) = ? AND is_void = 0) as month_sales,
-      (SELECT COUNT(*) FROM sale_header WHERE shop_id = ? AND strftime('%Y-%m', sale_datetime) = ? AND is_void = 0) as month_transactions,
+      (SELECT COALESCE(SUM(total_amount),0) FROM sale_header WHERE shop_id = ? AND DATE(sale_datetime, 'localtime') = ? AND is_void = 0) as today_sales,
+      (SELECT COUNT(*) FROM sale_header WHERE shop_id = ? AND DATE(sale_datetime, 'localtime') = ? AND is_void = 0) as today_transactions,
+      (SELECT COALESCE(SUM(total_amount),0) FROM sale_header WHERE shop_id = ? AND strftime('%Y-%m', sale_datetime, 'localtime') = ? AND is_void = 0) as month_sales,
+      (SELECT COUNT(*) FROM sale_header WHERE shop_id = ? AND strftime('%Y-%m', sale_datetime, 'localtime') = ? AND is_void = 0) as month_transactions,
       (SELECT 
          (SELECT COUNT(DISTINCT staff_id) FROM staff_attendance WHERE shop_id = ? AND attendance_date = ? AND status = 'PRESENT')
          +
@@ -59,7 +59,7 @@ router.get("/dashboard-top-items/:shop_id", (req, res) => {
      FROM sale_items si
      JOIN sale_header sh ON si.sale_id = sh.sale_id
      WHERE sh.shop_id = ? AND si.sale_type = 'PRODUCT'
-       AND strftime('%Y-%m', sh.sale_datetime) = strftime('%Y-%m', 'now')
+       AND strftime('%Y-%m', sh.sale_datetime, 'localtime') = strftime('%Y-%m', 'now', 'localtime')
        AND sh.is_void = 0`;
   
   const params = [shop_id];
@@ -81,7 +81,7 @@ router.get("/dashboard-categories/:shop_id", (req, res) => {
      FROM sale_items si
      JOIN sale_header sh ON si.sale_id = sh.sale_id
      WHERE sh.shop_id = ? AND si.sale_type = 'PRODUCT'
-       AND strftime('%Y-%m', sh.sale_datetime) = strftime('%Y-%m', 'now')
+       AND strftime('%Y-%m', sh.sale_datetime, 'localtime') = strftime('%Y-%m', 'now', 'localtime')
        AND sh.is_void = 0
        AND si.category IS NOT NULL AND si.category != ''
      ORDER BY si.category ASC`,
@@ -703,7 +703,7 @@ router.get("/financial-health/:shop_id", (req, res) => {
     SELECT COALESCE(SUM(total_amount), 0) AS sales_revenue,
            COUNT(*) AS sales_count
     FROM sale_header
-    WHERE shop_id = ? AND DATE(sale_datetime) BETWEEN ? AND ?`;
+    WHERE shop_id = ? AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
 
   // 2. Total payables DUE in period — both paid and unpaid
   const qPayables = `
@@ -732,7 +732,7 @@ router.get("/financial-health/:shop_id", (req, res) => {
     SELECT COALESCE(SUM(amount), 0) AS payables_paid
     FROM payable_payments pp
     JOIN accounts_payable ap ON pp.payable_id = ap.payable_id
-    WHERE ap.shop_id = ? AND DATE(pp.payment_date) BETWEEN ? AND ?`;
+    WHERE ap.shop_id = ? AND DATE(pp.payment_date, 'localtime') BETWEEN ? AND ?`;
 
   // 6b. Receivables collected in period (cash actually coming in from credit customers)
   // Excludes opening balance down payment rows — those are pre-existing amounts, not new cash
@@ -756,7 +756,7 @@ router.get("/financial-health/:shop_id", (req, res) => {
            COUNT(*) AS overdue_payables_count
     FROM accounts_payable
     WHERE shop_id = ? AND status NOT IN ('PAID','VOIDED')
-      AND DATE(due_date) < DATE('now')`;
+      AND DATE(due_date) < DATE('now', 'localtime')`;
 
   // 9. Upcoming payables (due in next 14 days, not paid)
   const qUpcoming = `
@@ -765,7 +765,7 @@ router.get("/financial-health/:shop_id", (req, res) => {
     FROM accounts_payable ap
     LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
     WHERE ap.shop_id = ? AND ap.status NOT IN ('PAID','VOIDED')
-      AND DATE(ap.due_date) BETWEEN DATE('now') AND DATE('now', '+14 days')
+      AND DATE(ap.due_date) BETWEEN DATE('now', 'localtime') AND DATE('now', 'localtime', '+14 days')
     ORDER BY ap.due_date ASC LIMIT 8`;
 
   // 10. Period Payables (due in filtered period)
@@ -795,7 +795,7 @@ router.get("/financial-health/:shop_id", (req, res) => {
   const qPrevSales = `
     SELECT COALESCE(SUM(total_amount), 0) AS prev_sales
     FROM sale_header
-    WHERE shop_id = ? AND DATE(sale_datetime) BETWEEN ? AND ?`;
+    WHERE shop_id = ? AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
 
   const run = (q, p, multi = false) => new Promise((resolve, reject) => {
     const method = multi ? db.all.bind(db) : db.get.bind(db);

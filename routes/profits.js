@@ -131,7 +131,7 @@ router.get('/profits/by-category/:shop_id', (req, res) => {
   const catQ = `
     SELECT
       si.category,
-      DATE(sh.sale_datetime) AS day,
+      DATE(sh.sale_datetime, 'localtime') AS day,
       COUNT(DISTINCT sh.sale_id)                                                AS transactions,
       COALESCE(SUM(si.quantity), 0)                                             AS total_qty,
       COALESCE(SUM(si.line_total), 0)                                           AS revenue,
@@ -142,8 +142,8 @@ router.get('/profits/by-category/:shop_id', (req, res) => {
     LEFT JOIN item_master im ON si.item_or_service_id = im.item_id
     WHERE sh.shop_id = ? AND si.sale_type IN ('PRODUCT','RECAP')
       AND sh.is_void = 0
-      AND DATE(sh.sale_datetime) BETWEEN ? AND ?
-    GROUP BY si.category, DATE(sh.sale_datetime)`
+      AND DATE(sh.sale_datetime, 'localtime') BETWEEN ? AND ?
+    GROUP BY si.category, DATE(sh.sale_datetime, 'localtime')`
 
   db.all(commQ, [shop_id, start, end], (ce, commRows) => {
     if (ce) return res.json({ error: ce.message })
@@ -204,12 +204,12 @@ router.get('/profits/top-items/:shop_id', (req, res) => {
   const itemQ = `
     SELECT
       si.item_or_service_id, si.item_name, si.brand, si.category,
-      DATE(sh.sale_datetime) AS day,
+      DATE(sh.sale_datetime, 'localtime') AS day,
       si.quantity, si.line_total,
       si.quantity * COALESCE(si.unit_cost, im.unit_cost, 0)                    AS item_cogs,
       si.line_total - si.quantity * COALESCE(si.unit_cost, im.unit_cost, 0)    AS item_gross,
       im.unit_cost, im.selling_price,
-      SUM(si.line_total) OVER (PARTITION BY DATE(sh.sale_datetime)) AS day_revenue
+      SUM(si.line_total) OVER (PARTITION BY DATE(sh.sale_datetime, 'localtime')) AS day_revenue
     FROM sale_items si
     JOIN sale_header sh ON si.sale_id = sh.sale_id
     LEFT JOIN item_master im ON si.item_or_service_id = im.item_id
@@ -284,7 +284,7 @@ router.get('/profits/transactions/:shop_id', (req, res) => {
     LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
     LEFT JOIN staff_master sm ON sh.staff_id = sm.staff_id`
 
-  let where = ` WHERE sh.shop_id = ? AND sh.is_void = 0 AND DATE(sh.sale_datetime) BETWEEN ? AND ?`
+  let where = ` WHERE sh.shop_id = ? AND sh.is_void = 0 AND DATE(sh.sale_datetime, 'localtime') BETWEEN ? AND ?`
   const params = [shop_id, start, end]
   if (paginated && q && String(q).trim()) {
     const like = `%${String(q).trim()}%`

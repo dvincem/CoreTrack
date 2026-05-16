@@ -31,7 +31,7 @@ const STATUS_OPTS = ["ALL", "OPEN", "PAID"];
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function ReceivablesPage({ shopId }) {
+function ReceivablesPage({ shopId, pageContext, setPageContext }) {
   const [customers, setCustomers] = React.useState([]);
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [kpi, setKpi] = React.useState(null);
@@ -113,8 +113,19 @@ function ReceivablesPage({ shopId }) {
   const prefill = useSearchPrefill('receivables')
   React.useEffect(() => {
     if (prefill.q) setSearchQuery(prefill.q)
-    if (prefill.action === 'openAdd') setShowForm(true)
-  }, [])
+  }, [prefill])
+
+  React.useEffect(() => {
+    if (!pageContext) return;
+    if (pageContext.action === 'openAdd') {
+      setShowForm(true);
+      if (setPageContext) setPageContext({});
+    } else if (pageContext.action === 'openBale') {
+      setPageTab('bale');
+      setShowBaleForm(true);
+      if (setPageContext) setPageContext({});
+    }
+  }, [pageContext]);
 
   React.useEffect(() => { const obs = new MutationObserver(() => forceUpdate());
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -898,7 +909,7 @@ function ReceivablesPage({ shopId }) {
                     <div style={{fontWeight:600,color:"var(--th-text-primary)"}}>{new Date(p.created_at || p.payment_date).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}</div>
                     <div style={{fontSize:"0.78rem",color:"var(--th-text-dim)"}}>{p.payment_method}{p.notes ? ` — ${p.notes}` : ""}</div>
                   </div>
-                  <div className="rcv-hist-amt">+{rcvCurrency(p.amount)}</div>
+                  <div className="rcv-hist-amt">-{rcvCurrency(p.amount)}</div>
                 </div>
               ))}
             </div>
@@ -1101,7 +1112,7 @@ function ReceivablesPage({ shopId }) {
                     <div style={{fontWeight:600,color:"var(--th-text-primary)"}}>{new Date(p.created_at || p.payment_date).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}</div>
                     <div style={{fontSize:"0.78rem",color:"var(--th-text-dim)"}}>Cash{p.notes ? ` — ${p.notes}` : ""}</div>
                   </div>
-                  <div className="rcv-hist-amt" style={{color:"var(--th-amber)"}}>+{rcvCurrency(p.amount)}</div>
+                  <div className="rcv-hist-amt" style={{color:"var(--th-amber)"}}>-{rcvCurrency(p.amount)}</div>
                 </div>
               ))}
             </div>

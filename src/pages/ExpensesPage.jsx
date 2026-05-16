@@ -25,7 +25,7 @@ const BLANK_FORM = {
   notes: '',
 }
 
-export default function ExpensesPage({ shopId, isShopClosed }) {
+export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPageContext }) {
   const [summary, setSummary] = React.useState({ total: 0, by_method: [], by_category: [], daily: [] })
   const [categories, setCategories] = React.useState([])
   const [error, setError] = React.useState('')
@@ -72,9 +72,9 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
 
   const prefill = useSearchPrefill('expenses')
   React.useEffect(() => {
+    if (!isDraftLoaded) return;
     if (prefill.q) setSearch(prefill.q)
-    if (prefill.action === 'openAdd') setShowExpForm(true)
-  }, [])
+  }, [prefill, isDraftLoaded])
 
   // Selected expense for detail modal
   const [selectedExpense, setSelectedExpense] = React.useState(null)
@@ -103,13 +103,23 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
     try {
       const draft = localStorage.getItem(`th-exp-draft-${shopId}`);
       if (draft) setForm(JSON.parse(draft));
+      
       const open = localStorage.getItem(`th-exp-open-${shopId}`);
       if (open) setShowExpForm(open === "true");
+      
       const editId = localStorage.getItem(`th-exp-editing-${shopId}`);
       if (editId) setEditingId(editId === "null" ? null : editId);
     } catch (e) { console.error("Failed to load Expense draft", e); }
     setIsDraftLoaded(true);
   }, [shopId]);
+
+  React.useEffect(() => {
+    if (!pageContext) return;
+    if (pageContext.action === 'openAdd') {
+      setShowExpForm(true);
+      if (setPageContext) setPageContext({});
+    }
+  }, [pageContext]);
 
   React.useEffect(() => {
     if (!shopId || !isDraftLoaded) return;
@@ -393,7 +403,7 @@ export default function ExpensesPage({ shopId, isShopClosed }) {
 
       {/* Header */}
       <div className="exp-header-row">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="exp-header-title-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="th-title-format">Ex<span style={{ color: 'var(--th-rose)' }}>penses</span></div>
           {isShopClosed && (
             <div className="pos-closed-badge">

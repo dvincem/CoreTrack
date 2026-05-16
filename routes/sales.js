@@ -291,7 +291,7 @@ router.get("/sales-kpi/:shop_id", (req, res) => {
   const sql = `
     SELECT 
       COALESCE(SUM(sh.total_amount), 0) AS totalRevenue,
-      COALESCE(SUM(CASE WHEN DATE(sh.sale_datetime) = DATE('now','localtime') THEN sh.total_amount ELSE 0 END), 0) AS todayRevenue,
+      COALESCE(SUM(CASE WHEN DATE(sh.sale_datetime, 'localtime') = DATE('now','localtime') THEN sh.total_amount ELSE 0 END), 0) AS todayRevenue,
       COALESCE(SUM((SELECT COUNT(*) FROM sale_items WHERE sale_id = sh.sale_id)), 0) AS totalItems,
       COUNT(*) AS totalTransactions
     FROM sale_header sh ${where}`;  db.get(sql, params, (err, row) => {

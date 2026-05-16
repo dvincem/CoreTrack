@@ -38,13 +38,13 @@ const BLANK = {
   amount: '',
   description: '',
   entry_date: new Date().toISOString().split('T')[0],
-  entry_time: new Date().toTimeString().slice(0, 8),
+  entry_time: new Date().toTimeString().slice(0, 5),
   notes: '',
 }
 
 const PAGE_SIZE = 20
 
-export default function CashLedgerPage({ shopId, isShopClosed }) {
+export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setPageContext }) {
   const today = new Date().toISOString().split('T')[0]
 
   /* ── Date range state ── */
@@ -113,11 +113,20 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
     try {
       const draft = localStorage.getItem(`th-cl-draft-${shopId}`);
       if (draft) setForm(JSON.parse(draft));
+      
       const open = localStorage.getItem(`th-cl-open-${shopId}`);
       if (open) setShowEntryForm(open === "true");
     } catch (e) { console.error("Failed to load CashLedger draft", e); }
     setIsDraftLoaded(true);
   }, [shopId]);
+
+  React.useEffect(() => {
+    if (!pageContext) return;
+    if (pageContext.action === 'openAdd') {
+      setShowEntryForm(true);
+      if (setPageContext) setPageContext({});
+    }
+  }, [pageContext]);
 
   React.useEffect(() => {
     if (!shopId || !isDraftLoaded) return;
@@ -193,7 +202,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
       if (!r.ok) { setSaving(false); return setFormError(d.error || 'Failed to save') }
       localStorage.removeItem(`th-cl-draft-${shopId}`);
       localStorage.removeItem(`th-cl-open-${shopId}`);
-      setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 8) })
+      setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
       setEditingId(null)
       setShowEntryForm(false)
       fetchFlow()
@@ -220,7 +229,7 @@ export default function CashLedgerPage({ shopId, isShopClosed }) {
 
   function cancelEdit() {
     setEditingId(null)
-    setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 8) })
+    setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
     setFormError('')
     setShowEntryForm(false)
     localStorage.removeItem(`th-cl-draft-${shopId}`);
