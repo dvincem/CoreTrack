@@ -285,13 +285,13 @@ router.get("/sales-kpi/:shop_id", (req, res) => {
   let where = `WHERE sh.shop_id = ? AND sh.is_void = 0`;
   const params = [shop_id];
   if (startDate && endDate) {
-    where += ` AND DATE(sh.sale_datetime) BETWEEN ? AND ?`;
+    where += ` AND sh.business_date BETWEEN ? AND ?`;
     params.push(startDate, endDate);
   }
   const sql = `
     SELECT 
       COALESCE(SUM(sh.total_amount), 0) AS totalRevenue,
-      COALESCE(SUM(CASE WHEN DATE(sh.sale_datetime, 'localtime') = DATE('now','localtime') THEN sh.total_amount ELSE 0 END), 0) AS todayRevenue,
+      COALESCE(SUM(CASE WHEN sh.business_date = DATE('now','localtime') THEN sh.total_amount ELSE 0 END), 0) AS todayRevenue,
       COALESCE(SUM((SELECT COUNT(*) FROM sale_items WHERE sale_id = sh.sale_id)), 0) AS totalItems,
       COUNT(*) AS totalTransactions
     FROM sale_header sh ${where}`;  db.get(sql, params, (err, row) => {
@@ -305,13 +305,13 @@ router.get("/sales/:shop_id", (req, res) => {
   const { startDate, endDate, q, page = 1, perPage = 50 } = req.query;
 
   const parsedPage = Math.max(1, parseInt(page, 10));
-  const parsedPerPage = Math.min(200, Math.max(1, parseInt(perPage, 10)));
+  const parsedPerPage = Math.min(1000, Math.max(1, parseInt(perPage, 10)));
   const offset = (parsedPage - 1) * parsedPerPage;
 
   let where = `WHERE sh.shop_id = ?`;
   const params = [shop_id];
   if (startDate && endDate) {
-    where += ` AND DATE(sh.sale_datetime) BETWEEN ? AND ?`;
+    where += ` AND sh.business_date BETWEEN ? AND ?`;
     params.push(startDate, endDate);
   }
   if (q && String(q).trim()) {
@@ -335,7 +335,7 @@ router.get("/sales/:shop_id", (req, res) => {
     const totalPages = Math.max(1, Math.ceil(total / parsedPerPage));
 
     const query = `
-      SELECT sh.sale_id, sh.shop_id, sh.sale_datetime, sh.staff_id, sh.total_amount, sh.created_by, sh.invoice_number, sh.sale_notes, sh.customer_id, sh.tireman_ids, sh.payment_method, sh.payment_splits, sh.credit_down_payment,
+      SELECT sh.sale_id, sh.shop_id, sh.sale_datetime, sh.business_date, sh.staff_id, sh.total_amount, sh.created_by, sh.invoice_number, sh.sale_notes, sh.customer_id, sh.tireman_ids, sh.payment_method, sh.payment_splits, sh.credit_down_payment,
         sh.is_void, sh.void_reason,
         st.full_name as staff_name,
         cm.customer_name,

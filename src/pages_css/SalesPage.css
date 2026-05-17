@@ -203,6 +203,79 @@
   border-color: var(--th-sky);
 }
 
+/* Unified Filter Strip Styling */
+.sl-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--th-bg-input);
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--th-border-strong);
+}
+
+.sl-filter-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--th-text-faint);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sl-filter-date {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--th-text-primary);
+  padding: 0.1rem 0.3rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.sl-filter-date:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.sl-filter-presets {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.sl-filter-preset-btn {
+  padding: 0.3rem 0.65rem;
+  border-radius: 20px;
+  border: 1px solid var(--th-border-strong);
+  background: var(--th-bg-input);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--th-text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.sl-filter-preset-btn:hover {
+  border-color: var(--th-sky);
+  color: var(--th-sky);
+}
+
+.sl-filter-preset-btn.active {
+  background: var(--th-sky);
+  border-color: var(--th-sky);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
 .sl-export-btn {
   display: inline-flex;
   align-items: center;
@@ -862,6 +935,26 @@ table.sl-table {
     display: none;
   }
 
+  .sl-filter-presets {
+    width: 100%;
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+
+  .sl-filter-preset-btn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.72rem;
+  }
+
+  .sl-filter-group {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: space-between;
+  }
+
   /* KPI cards: 2-col */
   .sl-root .th-kpi-row {
     grid-template-columns: 1fr 1fr;
@@ -973,4 +1066,60 @@ table.sl-table {
 
 .span3 {
   grid-column: span 3;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   VIEW TOGGLE & FILTER LAYOUT SYSTEM
+   Premium responsive styles for Invoices/Items Sold toggles
+   ══════════════════════════════════════════════════════════════ */
+
+.sl-filters-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sl-view-toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--th-sky);
+  border-radius: 9px;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+.sl-view-btn {
+  padding: 0.38rem 1.05rem;
+  border: none;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@media (max-width: 480px) {
+  .sl-filters-wrapper {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+  .sl-view-toggle {
+    display: flex !important;
+    width: 100% !important;
+  }
+  .sl-view-btn {
+    flex: 1 1 0% !important;
+    justify-content: center;
+    padding: 0.38rem 0.5rem !important;
+    font-size: 0.76rem !important;
+  }
 }

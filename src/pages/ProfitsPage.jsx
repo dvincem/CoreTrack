@@ -290,11 +290,13 @@ function ProfitsPage({ shopId, setPageContext }) {
             resultLabel: "transactions",
           }}
           leftComponent={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>From</span>
-              <input className="fh-date" type="date" value={startDate} onChange={e => applyOnDateChange('start', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
-              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>To</span>
-              <input className="fh-date" type="date" value={endDate} onChange={e => applyOnDateChange('end', e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div className="sl-filter-group">
+                <span className="sl-filter-label">From</span>
+                <input className="sl-filter-date" type="date" value={startDate} onChange={e => applyOnDateChange('start', e.target.value)} />
+                <span className="sl-filter-label">To</span>
+                <input className="sl-filter-date" type="date" value={endDate} onChange={e => applyOnDateChange('end', e.target.value)} />
+              </div>
             </div>
           }
           filters={presets().map(p => ({

@@ -478,11 +478,11 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
                 <option key={k} value={k}>{m.label}</option>
               ))}
             </select>
-            <div className="fh-left" style={{ gap: '0.4rem', display: 'flex', flexDirection: 'row' }}>
-              <span className="cl-label" style={{ margin: 0, maxWidth: "50px" }}>From</span>
-              <input className="cl-input fh-date" type="date" value={startDate} max={today} onChange={e => { setStartDate(e.target.value); setActivePreset(''); setPage(1) }} />
-              <span className="cl-label" style={{ margin: 0, maxWidth: "30px" }}>To</span>
-              <input className="cl-input fh-date" type="date" value={endDate} max={today} onChange={e => { setEndDate(e.target.value); setActivePreset(''); setPage(1) }} />
+            <div className="sl-filter-group">
+              <span className="sl-filter-label">From</span>
+              <input className="sl-filter-date" type="date" value={startDate} max={today} onChange={e => { setStartDate(e.target.value); setActivePreset(''); setPage(1) }} />
+              <span className="sl-filter-label">To</span>
+              <input className="sl-filter-date" type="date" value={endDate} max={today} onChange={e => { setEndDate(e.target.value); setActivePreset(''); setPage(1) }} />
             </div>
           </div>
         }

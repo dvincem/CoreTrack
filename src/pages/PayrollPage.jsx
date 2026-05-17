@@ -7,7 +7,7 @@ import { useSearchPrefill } from '../hooks/useSearchPrefill'
 import { DataTable } from '../components/DataTable'
 import FilterHeader from '../components/FilterHeader'
 
-const fmt = (n) => `₱${Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}`
+const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 function PayrollPage({ shopId, setPageContext }) {
   const [date, setDate] = React.useState(new Date().toISOString().split('T')[0])
@@ -35,6 +35,15 @@ function PayrollPage({ shopId, setPageContext }) {
   const LOG_PAGE_SIZE = 10
 
   const [pendingLog, setPendingLog] = React.useState(null)
+
+  // Edit / void commission modal
+  const [editLog, setEditLog] = React.useState(null)         // the log row being edited
+  const [editAmount, setEditAmount] = React.useState('')
+  const [editNote, setEditNote] = React.useState('')
+  const [editVoidReason, setEditVoidReason] = React.useState('')
+  const [editMode, setEditMode] = React.useState('edit')     // 'edit' | 'void'
+  const [editError, setEditError] = React.useState('')
+  const [editSaving, setEditSaving] = React.useState(false)
 
   // Direct commission modal
   const [commModal, setCommModal] = React.useState(false)
@@ -131,7 +140,7 @@ function PayrollPage({ shopId, setPageContext }) {
     const svc = services.find(s => s.service_id === fService)
     if (!svc) return
     const rate = svc.commission_rate || 0
-    setFCommission(String(((parseFloat(price)||0) * (parseFloat(qty)||1) * rate / 100).toFixed(2)))
+    setFCommission(String(((parseFloat(price) || 0) * (parseFloat(qty) || 1) * rate / 100).toFixed(2)))
   }
 
   function handleAddLog(e) {
@@ -194,6 +203,50 @@ function PayrollPage({ shopId, setPageContext }) {
     finally { setCommSaving(false) }
   }
 
+  function openEditLog(l) {
+    setEditLog(l)
+    setEditAmount(String(l.commission_amount || 0))
+    setEditNote(l.service_name || '')
+    setEditVoidReason('')
+    setEditMode('edit')
+    setEditError('')
+  }
+
+  async function handleEditCommission() {
+    if (!editLog) return
+    const amt = parseFloat(editAmount)
+    if (isNaN(amt) || amt < 0) { setEditError('Enter a valid amount.'); return }
+    setEditSaving(true); setEditError('')
+    try {
+      const res = await apiFetch(`${API_URL}/labor-log/${editLog.log_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commission_amount: amt, service_name: editNote })
+      })
+      const data = await res.json()
+      if (data.error) { setEditError(data.error); return }
+      setEditLog(null); fetchAll()
+    } catch { setEditError('Failed to update.') }
+    finally { setEditSaving(false) }
+  }
+
+  async function handleVoidLog() {
+    if (!editLog) return
+    if (!editVoidReason.trim()) { setEditError('Please provide a void reason.'); return }
+    setEditSaving(true); setEditError('')
+    try {
+      const res = await apiFetch(`${API_URL}/labor-log/${editLog.log_id}/void`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ void_reason: editVoidReason.trim() })
+      })
+      const data = await res.json()
+      if (data.error) { setEditError(data.error); return }
+      setEditLog(null); fetchAll()
+    } catch { setEditError('Failed to void entry.') }
+    finally { setEditSaving(false) }
+  }
+
   const exportExcel = async () => {
     const XLSX = await import('xlsx')
     const rows = logs.map(l => ({
@@ -250,12 +303,14 @@ function PayrollPage({ shopId, setPageContext }) {
   const netServiceMargin = totalServiceRevenue / 2
 
   const summaryColumns = React.useMemo(() => [
-    { key: 'full_name', label: 'Tireman', render: (r) => (
-      <div className="pr-name-wrap">
-        <div className="pr-name">{r.full_name}</div>
-        <div className="pr-code">{r.staff_code}</div>
-      </div>
-    )},
+    {
+      key: 'full_name', label: 'Tireman', render: (r) => (
+        <div className="pr-name-wrap">
+          <div className="pr-name">{r.full_name}</div>
+          <div className="pr-code">{r.staff_code}</div>
+        </div>
+      )
+    },
     { key: 'service_count', label: 'Services', align: 'center' },
     {
       key: 'service_total',
@@ -290,7 +345,7 @@ function PayrollPage({ shopId, setPageContext }) {
       render: (r) => {
         const activeBale = bales.find(b => b.staff_id === r.staff_id)
         const bds = baleDeduct[r.staff_id] || { open: false, amount: '100', saving: false }
-        if (!activeBale) return <span style={{fontSize:'0.75rem',color:'var(--th-text-faint)'}}>—</span>
+        if (!activeBale) return <span style={{ fontSize: '0.75rem', color: 'var(--th-text-faint)' }}>—</span>
         return (
           <div>
             <button className="pr-bale-badge" onClick={() => setBaleDeduct(prev => ({ ...prev, [r.staff_id]: { ...bds, open: !bds.open, amount: bds.amount || '100' } }))}>
@@ -316,38 +371,52 @@ function PayrollPage({ shopId, setPageContext }) {
     {
       key: 'log_datetime',
       label: 'Time',
-      render: (l) => <span style={{fontSize:'0.78rem',color:'var(--th-text-faint)',whiteSpace:'nowrap'}}>{new Date(l.log_datetime).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}</span>,
+      render: (l) => <span style={{ fontSize: '0.78rem', color: 'var(--th-text-faint)', whiteSpace: 'nowrap' }}>{new Date(l.log_datetime).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</span>,
     },
     {
       key: 'full_name',
       label: 'Tireman',
-      render: (l) => <div className="pr-name" style={{fontSize:'0.85rem'}}>{l.full_name}</div>,
+      render: (l) => <div className="pr-name" style={{ fontSize: '0.85rem' }}>{l.full_name}</div>,
     },
-    { key: 'service_name', label: 'Service', render: (l) => <span style={{fontSize:'0.85rem'}}>{l.service_name}</span> },
-    { key: 'quantity', label: 'Qty', align: 'right', render: (l) => <span style={{fontSize:'0.85rem'}}>{l.quantity}</span> },
+    { key: 'service_name', label: 'Service', render: (l) => <span style={{ fontSize: '0.85rem' }}>{l.service_name}</span> },
+    { key: 'quantity', label: 'Qty', align: 'right', render: (l) => <span style={{ fontSize: '0.85rem' }}>{l.quantity}</span> },
     {
       key: 'unit_price',
       label: 'Unit Price',
       align: 'right',
-      render: (l) => <div className="pr-money" style={{fontSize:'0.88rem',color:'var(--th-text-body)'}}>{l.commission_amount > 0 ? '—' : fmt(l.unit_price)}</div>,
+      render: (l) => <div className="pr-money" style={{ fontSize: '0.88rem', color: 'var(--th-text-body)' }}>{l.commission_amount > 0 ? '—' : fmt(l.unit_price)}</div>,
     },
     {
       key: 'total_amount',
       label: 'Total',
       align: 'right',
-      render: (l) => <div className="pr-money sky" style={{fontSize:'0.88rem'}}>{l.commission_amount > 0 ? '—' : fmt(l.total_amount)}</div>,
+      render: (l) => <div className="pr-money sky" style={{ fontSize: '0.88rem' }}>{l.commission_amount > 0 ? '—' : fmt(l.total_amount)}</div>,
     },
     {
       key: 'commission_amount',
       label: 'Commission',
       align: 'right',
-      render: (l) => <div className="pr-money violet" style={{fontSize:'0.88rem'}}>{l.commission_amount > 0 ? fmt(l.commission_amount) : '—'}</div>,
+      render: (l) => (
+        <div
+          className="pr-money violet"
+          style={{
+            fontSize: '0.88rem',
+            cursor: l.commission_amount > 0 && !l.is_void ? 'pointer' : 'default',
+            textDecoration: l.commission_amount > 0 && !l.is_void ? 'underline dotted' : 'none',
+            textUnderlineOffset: '3px',
+          }}
+          title={l.commission_amount > 0 && !l.is_void ? 'Click to edit or void' : undefined}
+          onClick={l.commission_amount > 0 && !l.is_void ? (e) => { e.stopPropagation(); openEditLog(l); } : undefined}
+        >
+          {l.commission_amount > 0 ? fmt(l.commission_amount) : '—'}
+        </div>
+      ),
     },
     {
       key: 'status',
       label: 'Status',
       align: 'right',
-      render: (l) => l.is_void ? <span className="pr-void-badge">Voided</span> : <span style={{color:'var(--th-emerald)',fontSize:'0.7rem',fontWeight:700}}>ACTIVE</span>
+      render: (l) => l.is_void ? <span className="pr-void-badge">Voided</span> : <span style={{ color: 'var(--th-emerald)', fontSize: '0.7rem', fontWeight: 700 }}>ACTIVE</span>
     }
   ], [])
 
@@ -357,20 +426,20 @@ function PayrollPage({ shopId, setPageContext }) {
         <div className="th-title-format">Labor <span style={{ color: 'var(--th-amber)' }}>Payroll</span></div>
         <div className="pr-header-btns pr-header-btns-desktop">
           <button className="pr-comm-btn" onClick={() => { setCommModal(true); setCommError(''); setCommStaff(''); setCommAmount(''); setCommNote('') }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
             Give Commission
           </button>
-          
+
           <button className="pr-export-btn" onClick={exportExcel}>⬇ Export Excel</button>
         </div>
       </div>
 
       {/* KPI cards */}
       <div className="th-kpi-row">
-        <KpiCard label="Service Revenue"       value={fmt(totalServiceRevenue)} accent="sky"    loading={loading} sub={`${summary.reduce((s,r)=>s+r.service_count,0)} services for ${date}`} />
-        <KpiCard label="Total Payout"          value={fmt(totalServicePayout + totalCommission - totalBaleDeducted)} accent="amber"  loading={loading} sub={`÷2 + commission${totalBaleDeducted > 0 ? ' − bale' : ''}`} />
-        <KpiCard label="Net Service Margin"    value={fmt(netServiceMargin)}   accent="emerald" loading={loading} sub="Shop keeps 50%" />
-        <KpiCard label="Commission Paid Out"   value={fmt(totalCommission)}    accent="violet"  loading={loading} sub="Separate cost center" />
+        <KpiCard label="Service Revenue" value={fmt(totalServiceRevenue)} accent="sky" loading={loading} sub={`${summary.reduce((s, r) => s + r.service_count, 0)} services for ${date}`} />
+        <KpiCard label="Total Payout" value={fmt(totalServicePayout + totalCommission - totalBaleDeducted)} accent="amber" loading={loading} sub={`÷2 + commission${totalBaleDeducted > 0 ? ' − bale' : ''}`} />
+        <KpiCard label="Net Service Margin" value={fmt(netServiceMargin)} accent="emerald" loading={loading} sub="Shop keeps 50%" />
+        <KpiCard label="Commission Paid Out" value={fmt(totalCommission)} accent="violet" loading={loading} sub="Separate cost center" />
       </div>
 
       {/* Filter Header 1: Main Search + Date */}
@@ -388,7 +457,6 @@ function PayrollPage({ shopId, setPageContext }) {
           }}
           leftComponent={
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-              <span style={{ fontSize: 'inherit', fontWeight: 600, color: 'var(--th-text-muted)', whiteSpace: 'nowrap' }}>Date</span>
               <input className="fh-date" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
             </div>
           }
@@ -412,15 +480,15 @@ function PayrollPage({ shopId, setPageContext }) {
         rowKey="staff_id"
         loading={loading}
         skeletonRows={5}
-        skeletonWidths={['w60','w20','w30','w30','w30','w30','w20']}
+        skeletonWidths={['w60', 'w20', 'w30', 'w30', 'w30', 'w30', 'w20']}
         minWidth={720}
         emptyTitle="No Entries"
         emptyMessage={`No labor entries for ${date}.`}
-        emptyIcon={<svg className="th-tbl-empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
+        emptyIcon={<svg className="th-tbl-empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>}
       />
       {/* Service log table */}
       <div className="pr-section-title">Service Log</div>
-      
+
       {/* Filter Header 2: Service Log Filters */}
       <div style={{ marginTop: '0', marginBottom: '0' }}>
         <FilterHeader
@@ -429,7 +497,7 @@ function PayrollPage({ shopId, setPageContext }) {
               <select className="fh-select" style={{ minWidth: '150px' }}
                 value={staffFilter} onChange={e => setStaffFilter(e.target.value)}>
                 <option value="all">All Tiremen</option>
-                {staffList.filter(s => ['tireman','technician'].includes((s.role||'').toLowerCase())).map(s => <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>)}
+                {staffList.filter(s => ['tireman', 'technician'].includes((s.role || '').toLowerCase())).map(s => <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>)}
               </select>
             </div>
           }
@@ -448,12 +516,12 @@ function PayrollPage({ shopId, setPageContext }) {
         rowKey="log_id"
         loading={loading}
         skeletonRows={8}
-        skeletonWidths={['w20','w40','w40','w20','w30','w30','w30','w20']}
+        skeletonWidths={['w20', 'w40', 'w40', 'w20', 'w30', 'w30', 'w30', 'w20']}
         minWidth={700}
-        getRowStyle={(l) => l.is_void ? {opacity:0.45} : undefined}
+        getRowStyle={(l) => l.is_void ? { opacity: 0.45 } : undefined}
         emptyTitle="No Log Entries"
         emptyMessage="No entries."
-        emptyIcon={<svg className="th-tbl-empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>}
+        emptyIcon={<svg className="th-tbl-empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
         currentPage={logPage}
         totalPages={Math.ceil(filteredLogs.length / LOG_PAGE_SIZE) || 1}
         onPageChange={setLogPage}
@@ -486,7 +554,7 @@ function PayrollPage({ shopId, setPageContext }) {
         <div className="confirm-overlay" onClick={e => { if (e.target === e.currentTarget) setCommModal(false) }}>
           <div className="confirm-box" style={{ minWidth: 360 }}>
             <div className="confirm-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--th-violet)" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--th-violet)" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
               Give Direct Commission
             </div>
 
@@ -496,7 +564,7 @@ function PayrollPage({ shopId, setPageContext }) {
                 <select className="pr-select" value={commStaff} onChange={e => setCommStaff(e.target.value)} required>
                   <option value="">— Select staff —</option>
                   {staffList
-                    .filter(s => s.is_active && !['owner','manager'].includes((s.role||'').toLowerCase()))
+                    .filter(s => s.is_active && !['owner', 'manager'].includes((s.role || '').toLowerCase()))
                     .map(s => <option key={s.staff_id} value={s.staff_id}>{s.full_name} {s.role ? `(${s.role})` : ''}</option>)
                   }
                 </select>
@@ -554,6 +622,108 @@ function PayrollPage({ shopId, setPageContext }) {
               <button className="confirm-btn-ok" style={{ background: 'var(--th-violet)', borderColor: 'var(--th-violet)' }} onClick={confirmCommission} disabled={commSaving}>
                 {commSaving ? 'Saving…' : 'Confirm'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit / Void Commission Modal ── */}
+      {editLog && (
+        <div className="confirm-overlay" onClick={e => { if (e.target === e.currentTarget && !editSaving) setEditLog(null) }}>
+          <div className="confirm-box" style={{ minWidth: 360 }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="confirm-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--th-violet)" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" /></svg>
+                Commission Entry
+              </div>
+              <button onClick={() => setEditLog(null)} style={{ background: 'none', border: 'none', color: 'var(--th-text-faint)', fontSize: '1.1rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Info card */}
+            <div style={{ background: 'var(--th-bg-card-alt)', border: '1px solid var(--th-border)', borderRadius: 9, padding: '0.7rem 0.9rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.83rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--th-text-faint)', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>Tireman</span>
+                <span style={{ fontWeight: 700 }}>{editLog.full_name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--th-text-faint)', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>Entry</span>
+                <span style={{ color: 'var(--th-text-muted)', maxWidth: 220, textAlign: 'right' }}>{editLog.service_name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--th-text-faint)', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' }}>Current Amount</span>
+                <span style={{ fontWeight: 700, color: 'var(--th-violet)' }}>{fmt(editLog.commission_amount)}</span>
+              </div>
+            </div>
+
+            {/* Mode tabs */}
+            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem' }}>
+              {['edit', 'void'].map(m => (
+                <button key={m} onClick={() => { setEditMode(m); setEditError('') }} style={{
+                  flex: 1, padding: '0.35rem 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontWeight: 700,
+                  fontFamily: "'Barlow Condensed', sans-serif", fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em',
+                  background: editMode === m ? (m === 'void' ? 'rgba(244,63,94,0.18)' : 'rgba(139,92,246,0.18)') : 'var(--th-bg-input)',
+                  color: editMode === m ? (m === 'void' ? 'var(--th-rose)' : 'var(--th-violet)') : 'var(--th-text-faint)',
+                  outline: editMode === m ? `1px solid ${m === 'void' ? 'var(--th-rose)' : 'var(--th-violet)'}` : '1px solid var(--th-border)',
+                }}>
+                  {m === 'edit' ? '✏ Edit Amount' : '🚫 Void Entry'}
+                </button>
+              ))}
+            </div>
+
+            {editMode === 'edit' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="pr-field">
+                  <div className="pr-label">New Commission Amount (₱) <span style={{ color: 'var(--th-rose)' }}>*</span></div>
+                  <input
+                    className="pr-input"
+                    type="number" min="0" step="0.01"
+                    value={editAmount}
+                    onChange={e => setEditAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="pr-field">
+                  <div className="pr-label">Label / Note <span style={{ fontSize: '0.68rem', color: 'var(--th-text-faint)' }}>(optional)</span></div>
+                  <input
+                    className="pr-input"
+                    type="text"
+                    value={editNote}
+                    onChange={e => setEditNote(e.target.value)}
+                    placeholder="e.g. Commission correction"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="pr-field">
+                <div className="pr-label">Void Reason <span style={{ color: 'var(--th-rose)' }}>*</span></div>
+                <input
+                  className="pr-input"
+                  type="text"
+                  value={editVoidReason}
+                  onChange={e => setEditVoidReason(e.target.value)}
+                  placeholder="e.g. Entered in wrong staff, mistake"
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {editError && (
+              <div style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--th-rose)', background: 'var(--th-rose-bg)', padding: '0.45rem 0.75rem', borderRadius: 7 }}>{editError}</div>
+            )}
+
+            <div className="confirm-actions" style={{ marginTop: '1.1rem' }}>
+              <button className="confirm-btn-cancel" onClick={() => setEditLog(null)} disabled={editSaving}>Cancel</button>
+              {editMode === 'edit' ? (
+                <button className="confirm-btn-ok" style={{ background: 'var(--th-violet)', borderColor: 'var(--th-violet)' }} onClick={handleEditCommission} disabled={editSaving}>
+                  {editSaving ? 'Saving…' : '✓ Save Changes'}
+                </button>
+              ) : (
+                <button className="confirm-btn-ok" style={{ background: 'var(--th-rose)', borderColor: 'var(--th-rose)' }} onClick={handleVoidLog} disabled={editSaving}>
+                  {editSaving ? 'Voiding…' : '🚫 Confirm Void'}
+                </button>
+              )}
             </div>
           </div>
         </div>

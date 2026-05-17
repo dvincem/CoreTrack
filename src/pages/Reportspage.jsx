@@ -74,20 +74,22 @@ function presets() {
 function FilterStrip({ startDate, endDate, setStartDate, setEndDate, activePreset, applyPreset }) {
   return (
     <div className="rpt-filter-strip">
-      <span className="rpt-filter-label">From</span>
-      <input
-        className="rpt-filter-date"
-        type="date"
-        value={startDate}
-        onChange={e => { setStartDate(e.target.value); applyPreset({ label: null }) }}
-      />
-      <span className="rpt-filter-label">To</span>
-      <input
-        className="rpt-filter-date"
-        type="date"
-        value={endDate}
-        onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }}
-      />
+      <div className="sl-filter-group">
+        <span className="sl-filter-label">From</span>
+        <input
+          className="sl-filter-date"
+          type="date"
+          value={startDate}
+          onChange={e => { setStartDate(e.target.value); applyPreset({ label: null }) }}
+        />
+        <span className="sl-filter-label">To</span>
+        <input
+          className="sl-filter-date"
+          type="date"
+          value={endDate}
+          onChange={e => { setEndDate(e.target.value); applyPreset({ label: null }) }}
+        />
+      </div>
       <div className="rpt-filter-presets">
         {presets().map(p => (
           <button
@@ -106,15 +108,27 @@ function FilterStrip({ startDate, endDate, setStartDate, setEndDate, activePrese
 /* ─────────────────────────────────────────────
    CUSTOM CHART TOOLTIP
 ───────────────────────────────────────────── */
-function CustomTooltip({ itemData, series }) {
-  if (!itemData || !series || !series[0]) return null
-  const s = series[0]
-  const idx = itemData.dataIndex
-  const val = s.data[idx]
-  const prevVal = idx > 0 ? s.data[idx - 1] : null
-  const date = s.xAxisData?.[idx] || ''
-  const pct = prevVal ? (((val - prevVal) / prevVal) * 100).toFixed(2) : null
-  const isUp = pct === null || parseFloat(pct) >= 0
+function CustomTooltip({ itemData, axisIndex, series }) {
+  const idx = itemData ? itemData.dataIndex : axisIndex;
+  if (idx === undefined || idx === null || !series || !series[0]) return null;
+  const s = series[0];
+  const val = s.data[idx];
+  if (val === undefined || val === null) return null;
+  const prevVal = idx > 0 ? s.data[idx - 1] : null;
+  const date = s.xAxisData?.[idx] || '';
+  const pct = (prevVal && prevVal > 0) ? (((val - prevVal) / prevVal) * 100).toFixed(1) : null;
+  const isUp = pct === null || parseFloat(pct) >= 0;
+
+  const formatTooltipDate = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0];
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${day} ${months[monthIdx]} ${year}`;
+  };
 
   return (
     <div style={{
@@ -132,7 +146,7 @@ function CustomTooltip({ itemData, series }) {
         color: 'var(--th-text-dim)',
         marginBottom: '4px'
       }}>
-        {date ? new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+        {formatTooltipDate(date)}
       </div>
       <div style={{
         fontFamily: 'var(--font-body)',
@@ -181,8 +195,25 @@ function CustomTooltip({ itemData, series }) {
 /* ─────────────────────────────────────────────
    SPARKLINE
 ───────────────────────────────────────────── */
-function Sparkline({ data, color = '#0891B2' }) {
-  const [isDark, setIsDark] = React.useState(
+function Sparkline({ data }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const svgRef = React.useRef(null)
+  const containerRef = React.useRef(null)
+  const [width, setWidth] = useState(1000)
+
+  React.useEffect(() => {
+    if (!containerRef.current) return
+    const handleResize = () => {
+      setWidth(containerRef.current.getBoundingClientRect().width || 1000)
+    }
+    handleResize()
+    const observer = new ResizeObserver(handleResize)
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  const [isDark, setIsDark] = useState(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
   )
   React.useEffect(() => {
@@ -193,46 +224,281 @@ function Sparkline({ data, color = '#0891B2' }) {
     return () => ob.disconnect()
   }, [])
 
-  const muiTheme = React.useMemo(() =>
-    createTheme({ palette: { mode: isDark ? 'dark' : 'light' }, typography: { fontFamily: 'var(--font-body)' } }),
-    [isDark]
-  )
-  const lineColor = isDark ? '#38bdf8' : '#0284c7'
-  const gridStroke = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
-  const lineGlow = isDark
-    ? 'drop-shadow(0 0 8px rgba(56,189,248,0.65)) drop-shadow(0 2px 14px rgba(56,189,248,0.3))'
-    : 'drop-shadow(0 0 5px rgba(2,132,199,0.4)) drop-shadow(0 2px 8px rgba(2,132,199,0.2))'
-
   if (!data || data.length < 2) return <div className="pm-empty">Not enough data</div>
 
   const maxRevenue = Math.max(...data.map(d => d.value || 0), 0)
-  const yAxisMax = React.useMemo(() =>
-    maxRevenue === 0 ? 10_000 : (Math.ceil(maxRevenue / 10_000) * 10_000) + 10_000,
-    [maxRevenue]
-  )
+  const yAxisMax = maxRevenue === 0 ? 10000 : Math.ceil(maxRevenue / 10000) * 10000 + 10000
+
+  // Standard coordinate space with dynamic width
+  const viewBoxWidth = width
+  const viewBoxHeight = 280
+  const leftMargin = 70 // tight flush left margin for maximum width
+  const rightMargin = 15 // tight flush right margin for maximum width
+  const topMargin = 30
+  const bottomMargin = 45
+  const plotWidth = viewBoxWidth - leftMargin - rightMargin
+  const plotHeight = viewBoxHeight - topMargin - bottomMargin
+
+  // Map data to viewBox coordinates
+  const points = data.map((d, i) => {
+    const x = leftMargin + (i / (data.length - 1)) * plotWidth
+    const y = viewBoxHeight - bottomMargin - ((d.value || 0) / yAxisMax) * plotHeight
+    return { x, y, date: d.date, value: d.value }
+  })
+
+  // Calculate cubic bezier spline curve
+  const bezierPath = (() => {
+    if (points.length === 0) return ''
+    let d = `M ${points[0].x} ${points[0].y}`
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i]
+      const p1 = points[i + 1]
+      const cpX1 = p0.x + (p1.x - p0.x) / 3
+      const cpY1 = p0.y
+      const cpX2 = p0.x + 2 * (p1.x - p0.x) / 3
+      const cpY2 = p1.y
+      d += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p1.x} ${p1.y}`
+    }
+    return d
+  })()
+
+  const areaPath = bezierPath 
+    ? `${bezierPath} L ${points[points.length - 1].x} ${viewBoxHeight - bottomMargin} L ${points[0].x} ${viewBoxHeight - bottomMargin} Z` 
+    : ''
+
+  const handleMouseMove = (e) => {
+    if (!svgRef.current) return
+    const rect = svgRef.current.getBoundingClientRect()
+    // Map client coordinates to viewBox coordinates
+    const clientX = e.clientX - rect.left
+    const clientY = e.clientY - rect.top
+    const xSvg = (clientX / rect.width) * viewBoxWidth
+    const ySvg = (clientY / rect.height) * viewBoxHeight
+
+    // Find closest x index
+    let closestIdx = 0
+    let minDiff = Infinity
+    points.forEach((p, idx) => {
+      const diff = Math.abs(p.x - xSvg)
+      if (diff < minDiff) {
+        minDiff = diff
+        closestIdx = idx
+      }
+    })
+
+    const activePt = points[closestIdx]
+    const xPercent = (activePt.x / viewBoxWidth) * 100
+    const yPercent = (activePt.y / viewBoxHeight) * 100
+
+    setHoveredIndex(closestIdx)
+    setMousePos({ x: xPercent, y: yPercent })
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredIndex(null)
+  }
+
+  const formatXAxisDate = (dateStr) => {
+    if (!dateStr) return ''
+    return dateStr.slice(5).replace('-', '/')
+  }
+
+  const formatTooltipDate = (dateStr) => {
+    if (!dateStr) return ''
+    const parts = dateStr.split('-')
+    if (parts.length !== 3) return dateStr
+    const year = parts[0]
+    const monthIdx = parseInt(parts[1], 10) - 1
+    const day = parseInt(parts[2], 10)
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    return `${day} ${months[monthIdx]} ${year}`
+  }
+
+  // Adjust tick interval based on density
+  const tickInterval = Math.max(1, Math.ceil(points.length / 10))
+  const gridValues = [0, 0.25, 0.5, 0.75, 1].map(p => yAxisMax * p)
+  const activePoint = hoveredIndex !== null ? points[hoveredIndex] : null
+
+  const gridStroke = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
 
   return (
-    <div className="rpt-sparkline-wrap">
-      <ThemeProvider theme={muiTheme}>
-        <LineChart
-          dataset={data}
-          xAxis={[{ dataKey: 'date', scaleType: 'band', valueFormatter: d => d.slice(5).replace('-', '/'), disableLine: true, disableTicks: true, tickLabelStyle: { display: 'none' } }]}
-          yAxis={[{ max: yAxisMax, valueFormatter: v => fmtK(v), disableLine: true, disableTicks: true, tickLabelStyle: { fontFamily: 'var(--font-body)', fill: 'var(--th-text-dim)', fontSize: 11, fontWeight: 500 } }]}
-          series={[{ dataKey: 'value', area: false, color: lineColor, showMark: false, valueFormatter: v => fmt(v), curve: 'natural', xAxisData: data.map(d => d.date) }]}
-          grid={{ horizontal: true }}
-          sx={{
-            '& .MuiChartsAxis-line': { stroke: 'transparent' },
-            '& .MuiChartsAxis-tick': { stroke: 'transparent' },
-            '& .MuiChartsGrid-line': { stroke: gridStroke, strokeDasharray: '4 4' },
-            '& .MuiChartsAxis-left .MuiChartsAxis-tickLabel': { transform: 'translateX(-6px)' },
-            '& .MuiChartsAxis-bottom .MuiChartsAxis-tickLabel': { display: 'none' },
-            '.MuiLineElement-root': { strokeWidth: 2.5, filter: lineGlow },
+    <div 
+      ref={containerRef} 
+      className="rpt-sparkline-wrap" 
+      style={{ position: 'relative', width: '100%', height: '100%', userSelect: 'none', minHeight: '260px' }}
+    >
+      <svg
+        ref={svgRef}
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onTouchMove={(e) => {
+          if (e.touches && e.touches[0]) {
+            handleMouseMove(e.touches[0])
+          }
+        }}
+        onTouchEnd={handleMouseLeave}
+        style={{ overflow: 'visible', display: 'block' }}
+      >
+        <defs>
+          {/* Stunning neon multi-stop gradient for the stroke */}
+          <linearGradient id="strokeGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#0ea5e9" />
+            <stop offset="50%" stopColor="#818cf8" />
+            <stop offset="100%" stopColor="#ec4899" />
+          </linearGradient>
+
+          {/* Luxurious vertical area gradient */}
+          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(14, 165, 233, 0.22)" />
+            <stop offset="50%" stopColor="rgba(129, 140, 248, 0.08)" />
+            <stop offset="100%" stopColor="rgba(236, 72, 153, 0.0)" />
+          </linearGradient>
+
+          {/* Gorgeous glow filter */}
+          <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="5" stdDeviation="7" floodColor="#818cf8" floodOpacity="0.4" />
+          </filter>
+        </defs>
+
+        {/* Horizontal Grid lines */}
+        {gridValues.map((val, idx) => {
+          const y = viewBoxHeight - bottomMargin - (val / yAxisMax) * plotHeight
+          return (
+            <g key={idx}>
+              <line
+                x1={leftMargin}
+                y1={y}
+                x2={viewBoxWidth - rightMargin}
+                y2={y}
+                stroke={gridStroke}
+                strokeWidth="1"
+                strokeDasharray="4 6"
+              />
+              <text
+                x={leftMargin - 18}
+                y={y + 4}
+                textAnchor="end"
+                fill="var(--th-text-dim)"
+                style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600 }}
+              >
+                {fmtK(val)}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* X-Axis Labels */}
+        {points.map((p, idx) => {
+          if (idx % tickInterval !== 0 && idx !== points.length - 1) return null
+          return (
+            <text
+              key={idx}
+              x={p.x}
+              y={viewBoxHeight - bottomMargin + 25}
+              textAnchor="middle"
+              fill="var(--th-text-faint)"
+              style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600 }}
+            >
+              {formatXAxisDate(p.date)}
+            </text>
+          )
+        })}
+
+        {/* Shaded area */}
+        {areaPath && (
+          <path
+            d={areaPath}
+            fill="url(#areaGrad)"
+          />
+        )}
+
+        {/* Curved Line */}
+        {bezierPath && (
+          <path
+            d={bezierPath}
+            fill="none"
+            stroke="url(#strokeGrad)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            filter="url(#lineGlow)"
+          />
+        )}
+
+        {/* Hover interactive helpers */}
+        {activePoint && (
+          <g>
+            <line
+              x1={activePoint.x}
+              y1={topMargin}
+              x2={activePoint.x}
+              y2={viewBoxHeight - bottomMargin}
+              stroke="rgba(129, 140, 248, 0.35)"
+              strokeWidth="1.5"
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r="10"
+              fill="rgba(129, 140, 248, 0.25)"
+            />
+            <circle
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r="5"
+              fill="#ffffff"
+              stroke="#818cf8"
+              strokeWidth="2.5"
+            />
+          </g>
+        )}
+      </svg>
+
+      {/* Floating glassmorphic tooltip card */}
+      {activePoint && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${mousePos.x}%`,
+            top: `${mousePos.y - 12}%`,
+            transform: 'translate(-50%, -100%)',
+            background: 'var(--th-bg-card)',
+            border: '1px solid var(--th-border-strong)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
+            minWidth: '160px',
+            pointerEvents: 'none',
+            zIndex: 999,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            transition: 'left 0.08s ease-out, top 0.08s ease-out'
           }}
-          margin={{ top: 10, right: 20, left: 35, bottom: 10 }}
-          slots={{ tooltip: CustomTooltip }}
-          slotProps={{ legend: { hidden: true } }}
-        />
-      </ThemeProvider>
+        >
+          <span style={{ fontSize: '11px', color: 'var(--th-text-dim)', fontWeight: 500 }}>
+            {formatTooltipDate(activePoint.date)}
+          </span>
+          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 900, fontSize: '20px', color: 'var(--th-text-heading)' }}>
+            {fmt(activePoint.value)}
+          </span>
+          <div style={{
+            fontSize: '10px',
+            color: 'var(--th-text-faint)',
+            marginTop: '4px',
+            borderTop: '1px solid var(--th-border)',
+            paddingTop: '6px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+          }}>
+            Daily Revenue
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -606,7 +872,7 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
       .then(r => r.json())
       .then(salesRes => {
         if (!active) return
-        const sales = salesRes.data || []
+        const sales = (salesRes.data || []).filter(s => !s.is_void)
         const dailyMap = {}
         sales.forEach(s => {
           const d = new Date(s.sale_datetime).toLocaleDateString('en-CA')
@@ -680,7 +946,7 @@ function SectionPayment({ shopId, startDate, endDate, isOpen }) {
       .then(r => r.json())
       .then(res => {
         if (!active) return
-        const sales = res.data || []
+        const sales = (res.data || []).filter(s => !s.is_void)
         const pMap = { CASH: 0, GCASH: 0, CARD: 0, CREDIT: 0 }
         sales.forEach(s => {
           const pm = (s.payment_method || 'CASH').toUpperCase()

@@ -386,6 +386,8 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [creditDownPayment, setCreditDownPayment] = React.useState("");
   const [customers, setCustomers] = React.useState([]);
   const [commissionOverride, setCommissionOverride] = React.useState(null); // null = auto
+  const [extraCommission, setExtraCommission] = React.useState(0);
+  const [showExtraCommission, setShowExtraCommission] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
   const [category, setCategory] = React.useState("");
@@ -543,6 +545,30 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     };
     save();
   }, [cart, selectedCustomer, saleNotes, invoiceNumber, selectedTiremen, paymentSplits, splitMode, shopId, isDraftLoaded]);
+
+  const [isCartVisible, setIsCartVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsCartVisible(entry.isIntersecting);
+      },
+      {
+        root: null,
+        threshold: 0.15,
+      }
+    );
+
+    if (cartColRef.current) {
+      observer.observe(cartColRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [cartColRef]);
 
   // Scroll to cart on mobile
   const scrollToCart = () => {
@@ -805,6 +831,8 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     setCreditDueDate("");
     setCreditDownPayment("");
     setActiveDraftId(null);
+    setExtraCommission(0);
+    setShowExtraCommission(false);
     setTimeout(() => { isResettingPersistence.current = false; }, 100);
   }
 
@@ -1054,7 +1082,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     setCommissionOverride(null);
   }, [cart.length]);
 
-  const effectiveCommission = commissionOverride !== null ? commissionOverride : autoCommission;
+  const effectiveCommission = (commissionOverride !== null ? commissionOverride : autoCommission) + extraCommission;
   const perTiremanCommission = selectedTiremen.length > 0
     ? effectiveCommission / selectedTiremen.length
     : 0;
@@ -1413,9 +1441,11 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                 className="pos-custom-btn"
                 title="Add a custom item not in inventory"
               >+ Custom</button>
-              <button className="pos-quick-btn" title="Manual Ledger Entry" onClick={() => handleQuickAction('cashledger', 'openAdd')}>✍️</button>
-              <button className="pos-quick-btn" title="New Expense" onClick={() => handleQuickAction('expenses', 'openAdd')}>💸</button>
-              <button className="pos-quick-btn" title="New Bale" onClick={() => handleQuickAction('receivables', 'openBale')}>📒</button>
+              <div className="pos-emoji-group">
+                <button className="pos-quick-btn" title="Manual Ledger Entry" onClick={() => handleQuickAction('cashledger', 'openAdd')}>✍️ Cash In</button>
+                <button className="pos-quick-btn" title="New Expense" onClick={() => handleQuickAction('expenses', 'openAdd')}>💸 Expenses</button>
+                <button className="pos-quick-btn" title="New Bale" onClick={() => handleQuickAction('receivables', 'openBale')}>📒 Add Bale</button>
+              </div>
             </div>
           </div>{/* end search+custom row */}
 
@@ -2106,6 +2136,67 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             </div>
           )}
 
+          {/* Manual extra commission toggle — always visible when cart has items */}
+          {cart.length > 0 && (
+            <div style={{
+              borderTop: "1px solid var(--th-border)",
+              padding: "0.35rem 0.85rem",
+              display: "flex", alignItems: "center", gap: "0.5rem",
+              background: showExtraCommission ? "rgba(251,191,36,0.04)" : "transparent",
+              transition: "background 0.15s",
+            }}>
+              <button
+                onClick={() => { setShowExtraCommission(v => !v); if (showExtraCommission) setExtraCommission(0); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: "0.3rem",
+                  background: showExtraCommission ? "rgba(251,191,36,0.15)" : "var(--th-bg-input)",
+                  border: `1px solid ${showExtraCommission ? "var(--th-amber)" : "var(--th-border-strong)"}`,
+                  borderRadius: 5, padding: "0.15rem 0.5rem",
+                  cursor: "pointer", transition: "all 0.15s",
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontWeight: 700, fontSize: "0.68rem",
+                  textTransform: "uppercase", letterSpacing: "0.05em",
+                  color: showExtraCommission ? "var(--th-amber)" : "var(--th-text-faint)",
+                  flexShrink: 0,
+                }}
+              >
+                <span style={{ fontSize: "0.8rem", lineHeight: 1 }}>{showExtraCommission ? "✕" : "+"}</span>
+                {showExtraCommission ? "Remove" : "Add Commission"}
+              </button>
+
+              {showExtraCommission && (
+                <>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: "0.25rem", flex: 1,
+                    background: "var(--th-bg-input)",
+                    border: "1px solid var(--th-amber)",
+                    borderRadius: 7, padding: "0.25rem 0.55rem",
+                  }}>
+                    <span style={{ fontSize: "0.72rem", color: "var(--th-text-faint)" }}>₱</span>
+                    <input
+                      type="number" min="0" step="1"
+                      placeholder="0"
+                      value={extraCommission || ""}
+                      onChange={e => setExtraCommission(Math.max(0, Number(e.target.value) || 0))}
+                      autoFocus
+                      style={{
+                        flex: 1, background: "transparent", border: "none", outline: "none",
+                        color: "var(--th-amber)", fontFamily: "'Barlow Condensed',sans-serif",
+                        fontWeight: 700, fontSize: "0.95rem", textAlign: "right",
+                        minWidth: 0,
+                      }}
+                    />
+                  </div>
+                  {extraCommission > 0 && (
+                    <span style={{ fontSize: "0.7rem", color: "var(--th-amber)", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+                      +₱{extraCommission.toLocaleString()}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Footer */}
           <div className="pos-cart-footer" style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "0.6rem", alignItems: "center" }}>
             <div>
@@ -2125,7 +2216,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
       {/* Mobile floating cart button */}
       <button
-        className="pos-mobile-cart-btn"
+        className={`pos-mobile-cart-btn${isCartVisible ? ' hidden' : ''}`}
         onClick={scrollToCart}
         title="Go to cart"
       >
@@ -2150,7 +2241,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               <button className="pos-modal-close" onClick={() => !loading && setShowConfirmModal(false)} style={{ background: 'none', border: 'none', color: 'var(--th-text-faint)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', background: 'var(--th-bg-card-alt)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--th-border)' }}>
+            <div className="pos-confirm-meta-grid">
               <div>
                 <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-text-faint)', fontWeight: 700, letterSpacing: '0.05em' }}>Invoice / Ref</div>
                 <div style={{ fontSize: '1rem', color: 'var(--th-text-primary)', fontWeight: 600 }}>{hasInvoice ? `#${invoiceNumber}` : 'None'}</div>
@@ -2171,8 +2262,8 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               )}
             </div>
 
-            <div style={{ maxHeight: '300px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--th-border-strong)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <div className="pos-confirm-table-wrap">
+              <table>
                 <thead style={{ position: 'sticky', top: 0, background: 'var(--th-bg-input)', borderBottom: '1px solid var(--th-border-strong)' }}>
                   <tr>
                     <th style={{ textAlign: 'left', padding: '0.6rem 0.8rem', color: 'var(--th-text-faint)', fontWeight: 700 }}>Item Description</th>

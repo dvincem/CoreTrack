@@ -698,12 +698,12 @@ router.get("/financial-health/:shop_id", (req, res) => {
   const { start, end } = req.query;
   if (!start || !end) return res.status(400).json({ error: "start and end dates required" });
 
-  // 1. Total sales revenue in period
+  // 1. Total sales revenue in period (voided transactions excluded)
   const qSales = `
     SELECT COALESCE(SUM(total_amount), 0) AS sales_revenue,
            COUNT(*) AS sales_count
     FROM sale_header
-    WHERE shop_id = ? AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
+    WHERE shop_id = ? AND is_void = 0 AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
 
   // 2. Total payables DUE in period — both paid and unpaid
   const qPayables = `
@@ -795,7 +795,7 @@ router.get("/financial-health/:shop_id", (req, res) => {
   const qPrevSales = `
     SELECT COALESCE(SUM(total_amount), 0) AS prev_sales
     FROM sale_header
-    WHERE shop_id = ? AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
+    WHERE shop_id = ? AND is_void = 0 AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
 
   const run = (q, p, multi = false) => new Promise((resolve, reject) => {
     const method = multi ? db.all.bind(db) : db.get.bind(db);

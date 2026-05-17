@@ -26,6 +26,7 @@ function SalesPage({ shopId, isShopClosed }) {
   const [staffMap, setStaffMap] = React.useState({})
   const [startDate, setStartDate] = React.useState(weekAgo)
   const [endDate, setEndDate] = React.useState(today)
+  const [activePreset, setActivePreset] = React.useState('')
   const [suggestions, setSuggestions] = React.useState([])
   const [kpi, setKpi] = React.useState(null)
 
@@ -351,9 +352,10 @@ function SalesPage({ shopId, isShopClosed }) {
     }
   ]), [])
 
-  const totalRevenue = kpi?.totalRevenue ?? sales.reduce((s, r) => s + (r.total_amount||0), 0)
-  const todayRevenue = kpi?.todayRevenue ?? sales.filter(s => s.sale_datetime?.startsWith(today)).reduce((s,r) => s+(r.total_amount||0),0)
-  const totalItems = kpi?.totalItems ?? sales.reduce((s,r) => s+(r.item_count||0),0)
+  const totalRevenue = kpi?.totalRevenue ?? sales.filter(r => !r.is_void).reduce((s, r) => s + (r.total_amount||0), 0)
+  const todayRevenue = kpi?.todayRevenue ?? sales.filter(s => !s.is_void && s.sale_datetime?.startsWith(today)).reduce((s,r) => s+(r.total_amount||0),0)
+  const totalItems = kpi?.totalItems ?? sales.filter(r => !r.is_void).reduce((s,r) => s+(r.item_count||0),0)
+  const kpiTransactionCount = kpi?.totalTransactions ?? slTotal
 
   const itemsTotalUnits = itemStats?.totalUnits || 0
   const itemsTotalRevenue = itemStats?.totalRevenue || 0
@@ -361,10 +363,23 @@ function SalesPage({ shopId, isShopClosed }) {
 
   function handleToggleMode(mode) {
     setViewMode(mode);
-    if (mode === 'items') {
-      setStartDate(today);
-      setEndDate(today);
+  }
+
+  const applyPreset = (preset) => {
+    const now = new Date()
+    let start, end = today
+    if (preset === 'today') {
+      start = today
+    } else if (preset === 'week') {
+      start = new Date(now.setDate(now.getDate() - now.getDay())).toISOString().split('T')[0]
+    } else if (preset === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    } else if (preset === 'year') {
+      start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
     }
+    setStartDate(start)
+    setEndDate(end)
+    setActivePreset(preset)
   }
 
   function exportExcel() {
@@ -405,7 +420,7 @@ function SalesPage({ shopId, isShopClosed }) {
           'Customer':      i.customer_name || 'Walk-in'
         }))
         sheetName = 'Products Sold'
-        filename = `products-sold-${startDate}.xlsx`
+        filename = `products-sold-${startDate}-to-${endDate}.xlsx`
       }
       
       const wb = XLSX.utils.book_new()
@@ -434,7 +449,7 @@ function SalesPage({ shopId, isShopClosed }) {
       <div className="th-kpi-row">
         {viewMode === 'transactions' ? (
           <>
-            <KpiCard label="Period Revenue" value={fmtCompact(totalRevenue)} accent="sky" loading={loading} sub={`${slTotal} transactions`} />
+            <KpiCard label="Period Revenue" value={fmtCompact(totalRevenue)} accent="sky" loading={loading} sub={`${kpiTransactionCount} transactions (excl. voids)`} />
             <KpiCard label="Today's Revenue" value={fmtCompact(todayRevenue)} accent="emerald" loading={loading} />
             <KpiCard label="Items Sold" value={totalItems} accent="violet" loading={loading} sub="In selected period" />
           </>
@@ -460,34 +475,48 @@ function SalesPage({ shopId, isShopClosed }) {
             resultLabel: viewMode === 'transactions' ? "sales" : "items",
           }}
           leftComponent={
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <input className="fh-date" type="date" max={today} value={startDate} onChange={e => { setStartDate(e.target.value); if (viewMode === 'items') setEndDate(e.target.value); }} />
-              {viewMode === 'transactions' && (
-                <>
-                  <span style={{ color: 'var(--th-text-faint)', fontSize: '0.8rem' }}>to</span>
-                  <input className="fh-date" type="date" max={today} value={endDate} onChange={e => setEndDate(e.target.value)} />
-                </>
-              )}
+            <div className="sl-filters-wrapper">
+              <div className="sl-view-toggle">
+                <button
+                  onClick={() => handleToggleMode('transactions')}
+                  className="sl-view-btn"
+                  style={{
+                    borderRight: "1.5px solid var(--th-sky)",
+                    background: viewMode === 'transactions' ? "var(--th-sky)" : "transparent",
+                    color: viewMode === 'transactions' ? "#fff" : "var(--th-text-faint)",
+                    opacity: viewMode === 'transactions' ? 1 : 0.5,
+                  }}
+                >
+                  📋 Invoices
+                </button>
+                <button
+                  onClick={() => handleToggleMode('items')}
+                  className="sl-view-btn"
+                  style={{
+                    background: viewMode === 'items' ? "var(--th-sky)" : "transparent",
+                    color: viewMode === 'items' ? "#fff" : "var(--th-text-faint)",
+                    opacity: viewMode === 'items' ? 1 : 0.5,
+                  }}
+                >
+                  📦 Items Sold
+                </button>
+              </div>
+
+              <div className="sl-filter-group">
+                <span className="sl-filter-label">From</span>
+                <input className="sl-filter-date" type="date" max={today} value={startDate} onChange={e => { setStartDate(e.target.value); setActivePreset(''); }} />
+                <span className="sl-filter-label">To</span>
+                <input className="sl-filter-date" type="date" max={today} value={endDate} onChange={e => { setEndDate(e.target.value); setActivePreset(''); }} />
+              </div>
             </div>
           }
-          rightComponent={
-            <div style={{ display: 'flex', background: 'var(--th-bg-input)', borderRadius: '8px', padding: '2px', border: '1px solid var(--th-border)' }}>
-              <button 
-                onClick={() => handleToggleMode('transactions')}
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
-                  background: viewMode === 'transactions' ? 'var(--th-sky-bg)' : 'transparent', color: viewMode === 'transactions' ? 'var(--th-sky)' : 'var(--th-text-dim)' }}
-              >
-                📋 Invoices
-              </button>
-              <button 
-                onClick={() => handleToggleMode('items')}
-                style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.15s',
-                  background: viewMode === 'items' ? 'var(--th-sky-bg)' : 'transparent', color: viewMode === 'items' ? 'var(--th-sky)' : 'var(--th-text-dim)' }}
-              >
-                📦 Items Sold
-              </button>
-            </div>
-          }
+          filters={[
+            { value: 'today', label: 'Today', active: activePreset === 'today' },
+            { value: 'week', label: 'This Week', active: activePreset === 'week' },
+            { value: 'month', label: 'This Month', active: activePreset === 'month' },
+            { value: 'year', label: 'This Year', active: activePreset === 'year' }
+          ]}
+          onFilterChange={applyPreset}
           accentColor="var(--th-sky)"
         />
         

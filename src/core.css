@@ -1417,3 +1417,91 @@ button.danger {
   filter: invert(1) brightness(1.2);
   cursor: pointer;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PREMIUM FILTER DATE INPUT GROUP
+   Adds inline, border-grouped date picker style globally
+   ══════════════════════════════════════════════════════════════ */
+
+.sl-filter-group {
+  display: flex;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--th-bg-input);
+  padding: 0 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--th-border-strong);
+  box-sizing: border-box;
+  height: calc(1.4 * clamp(0.8rem, 2vw, 0.92rem) + 2 * clamp(0.35rem, 1.2vw, 0.55rem) + 2px);
+}
+
+.sl-filter-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--th-text-faint);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.sl-filter-date {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--th-text-primary);
+  padding: 0.1rem 0.3rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  min-width: 0;
+  flex: 1;
+}
+
+.sl-filter-date:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Synchronize heights of select dropdowns and standalone date inputs in FilterHeaders to match search field height */
+.fh-left select,
+.fh-left input[type="date"],
+.cl-select,
+input.fh-date {
+  height: calc(1.4 * clamp(0.8rem, 2vw, 0.92rem) + 2 * clamp(0.35rem, 1.2vw, 0.55rem) + 2px) !important;
+  box-sizing: border-box !important;
+  padding-top: clamp(0.35rem, 1.2vw, 0.55rem) !important;
+  padding-bottom: clamp(0.35rem, 1.2vw, 0.55rem) !important;
+  line-height: 1.4 !important;
+  border-radius: 8px !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE VIEWPORT OPTIMIZATIONS
+   Forces single-row fit on narrow mobile screens (width < 480px)
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+  .sl-filter-group {
+    gap: 0.15rem;
+    padding: 0 0.35rem;
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: nowrap !important;
+  }
+  .sl-filter-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.05em;
+  }
+  .sl-filter-date {
+    font-size: 0.72rem;
+    padding: 0.1rem 0.15rem;
+    min-width: 0;
+    flex: 1;
+    width: 100%;
+  }
+}

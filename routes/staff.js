@@ -451,6 +451,39 @@ router.post("/commission-direct", (req, res) => {
   );
 });
 
+router.put("/labor-log/:log_id", async (req, res) => {
+  const { log_id } = req.params;
+  const { commission_amount, service_name } = req.body;
+  if (commission_amount === undefined) return res.status(400).json({ error: "commission_amount is required" });
+  const amt = parseFloat(commission_amount);
+  if (isNaN(amt) || amt < 0) return res.status(400).json({ error: "Invalid commission_amount" });
+
+  try {
+    const log = await new Promise((resolve, reject) => {
+      db.get(`SELECT business_date, shop_id, is_void FROM labor_log WHERE log_id = ?`, [log_id], (err, row) => err ? reject(err) : resolve(row));
+    });
+    if (!log) return res.status(404).json({ error: "Log not found" });
+    if (log.is_void) return res.status(400).json({ error: "Cannot edit a voided entry" });
+
+    const payroll = await new Promise((resolve, reject) => {
+      db.get(`SELECT payout_id FROM staff_daily_revenue WHERE shop_id = ? AND business_date = ?`, [log.shop_id, log.business_date], (err, row) => err ? reject(err) : resolve(row));
+    });
+    if (payroll) return res.status(400).json({ error: "Cannot edit: Payroll already finalized for this date. Regenerate payroll first." });
+
+    const fields = ["commission_amount = ?"];
+    const params = [amt];
+    if (service_name !== undefined) { fields.push("service_name = ?"); params.push(service_name); }
+    params.push(log_id);
+
+    db.run(`UPDATE labor_log SET ${fields.join(", ")} WHERE log_id = ?`, params, function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ log_id, commission_amount: amt, message: "Entry updated" });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.put("/labor-log/:log_id/void", async (req, res) => {
   const { log_id } = req.params;
   const { void_reason } = req.body;

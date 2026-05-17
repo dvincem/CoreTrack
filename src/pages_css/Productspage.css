@@ -1347,3 +1347,47 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PRODUCTS VIEW TOGGLE LAYOUT SYSTEM
+   Premium responsive styles for Active / Archived toggles
+   ══════════════════════════════════════════════════════════════ */
+
+.prod-view-toggle {
+  display: inline-flex;
+  border-radius: 9px;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+
+.prod-view-btn {
+  padding: 0.38rem 1.05rem;
+  border: none;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  transition: all 0.18s;
+}
+
+@media (max-width: 480px) {
+  .prod-view-toggle {
+    display: flex !important;
+    width: 100% !important;
+  }
+  .prod-view-btn {
+    flex: 1 1 0% !important;
+    justify-content: center !important;
+    padding: 0.38rem 0.5rem !important;
+    font-size: 0.76rem !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  /* Ensure parent filter header expands on mobile */
+  .fh-left, .fh-left > div {
+    width: 100% !important;
+  }
+}

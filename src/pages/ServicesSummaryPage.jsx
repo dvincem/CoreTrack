@@ -284,11 +284,13 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
           <div style={{ marginBottom: '0' }}>
             <FilterHeader
               leftComponent={
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-                  <span className="ss-label" style={{ fontWeight: 600, color: 'var(--th-text-muted)' }}>From</span>
-                  <input className="fh-date" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setActiveRange(''); loadWith(e.target.value, endDate) }} style={{ flex: 1, minWidth: '120px' }} />
-                  <span className="ss-label" style={{ fontWeight: 600, color: 'var(--th-text-muted)' }}>To</span>
-                  <input className="fh-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setActiveRange(''); loadWith(startDate, e.target.value) }} style={{ flex: 1, minWidth: '120px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div className="sl-filter-group">
+                    <span className="sl-filter-label">From</span>
+                    <input className="sl-filter-date" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setActiveRange(''); loadWith(e.target.value, endDate) }} />
+                    <span className="sl-filter-label">To</span>
+                    <input className="sl-filter-date" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setActiveRange(''); loadWith(startDate, e.target.value) }} />
+                  </div>
                 </div>
               }
               filters={userRole === 'tireman' ? [
@@ -758,11 +760,13 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                 resultLabel: "records",
               }}
               leftComponent={
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem', flexWrap: 'nowrap', width: '100%', height: '100%' }}>
-                  <span className="ss-label" style={{ fontWeight: 600, color: 'var(--th-text-muted)' }}>From</span>
-                  <input className="fh-date" type="date" value={histStartDate} onChange={e => setHistStartDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
-                  <span className="ss-label" style={{ fontWeight: 600, color: 'var(--th-text-muted)' }}>To</span>
-                  <input className="fh-date" type="date" value={histEndDate} onChange={e => setHistEndDate(e.target.value)} style={{ flex: 1, minWidth: '120px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div className="sl-filter-group">
+                    <span className="sl-filter-label">From</span>
+                    <input className="sl-filter-date" type="date" value={histStartDate} onChange={e => setHistStartDate(e.target.value)} />
+                    <span className="sl-filter-label">To</span>
+                    <input className="sl-filter-date" type="date" value={histEndDate} onChange={e => setHistEndDate(e.target.value)} />
+                  </div>
                 </div>
               }
               filters={userRole === 'tireman' ? [

@@ -1626,34 +1626,21 @@ function Productspage({ shopId }) {
         {/* Toolbar */}
         <FilterHeader
           leftComponent={
-            <div style={{
-              display: "inline-flex",
+            <div className="prod-view-toggle" style={{
               border: !showArchived
                 ? "1.5px solid var(--th-orange)"
                 : "1.5px solid var(--th-amber)",
-              borderRadius: 9,
-              overflow: "hidden",
-              flexShrink: 0,
-              transition: "border-color 0.2s",
               boxShadow: !showArchived
                 ? "0 0 0 3px rgba(255,107,0,0.12)"
                 : "0 0 0 3px rgba(251,191,36,0.12)",
             }}>
               <button
                 onClick={() => setShowArchived(false)}
+                className="prod-view-btn"
                 style={{
-                  padding: "0.38rem 1.05rem",
-                  border: "none",
                   borderRight: !showArchived
                     ? "1.5px solid var(--th-orange)"
                     : "1.5px solid var(--th-amber)",
-                  cursor: "pointer",
-                  fontFamily: "'Barlow Condensed', sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.82rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.07em",
-                  transition: "all 0.18s",
                   background: !showArchived ? "var(--th-orange)" : "transparent",
                   color: !showArchived ? "#fff" : "var(--th-text-faint)",
                   opacity: !showArchived ? 1 : 0.5,
@@ -1663,16 +1650,8 @@ function Productspage({ shopId }) {
               </button>
               <button
                 onClick={() => { setShowArchived(true); refetchArchived(); }}
+                className="prod-view-btn"
                 style={{
-                  padding: "0.38rem 1.05rem",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "'Barlow Condensed', sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.82rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.07em",
-                  transition: "all 0.18s",
                   background: showArchived ? "var(--th-amber)" : "transparent",
                   color: showArchived ? "#fff" : "var(--th-text-faint)",
                   opacity: showArchived ? 1 : 0.5,
