@@ -5,10 +5,14 @@ const fs = require("fs");
 // ─── Connection ───────────────────────────────────────────────────────────────
 const dbPath = path.join(__dirname, "tire_shop.db");
 
-// Database connection
+// Database connection with proper error handling
 const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error("Database connection error:", err);
-  else console.log("Connected to SQLite database");
+  if (err) {
+    console.error("Database connection error:", err);
+    process.exit(1);
+  } else {
+    console.log("Connected to SQLite database");
+  }
 });
 
 // Performance & concurrency settings — must run before any writes
@@ -106,35 +110,41 @@ db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='returns'", (e
 });
 
 db.serialize(() => {
-  db.run(`ALTER TABLE labor_log ADD COLUMN sale_id TEXT`, () => { });
-  db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 5`, () => { });
-  db.run(`ALTER TABLE item_master ADD COLUMN supplier_id TEXT`, () => { });
-  db.run(`ALTER TABLE item_master ADD COLUMN dot_number TEXT`, () => { });
-  db.run(`ALTER TABLE item_master ADD COLUMN parent_item_id TEXT`, () => { });
-  db.run(`ALTER TABLE inventory_ledger ADD COLUMN supplier_id TEXT`, () => { });
-  db.run(`ALTER TABLE order_items ADD COLUMN supplier_id TEXT`, () => { });
-  db.run(`ALTER TABLE order_items ADD COLUMN is_new_item INTEGER DEFAULT 0`, () => { });
-  db.run(`ALTER TABLE recap_job_master ADD COLUMN dot_number TEXT`, () => { });
-  db.run(`ALTER TABLE services_master ADD COLUMN commission_rate REAL DEFAULT 0`, () => { });
-  db.run(`ALTER TABLE sale_header ADD COLUMN payment_method TEXT DEFAULT 'CASH'`, () => { });
-  db.run(`ALTER TABLE sale_header ADD COLUMN payment_splits TEXT`, () => { });
-  db.run(`ALTER TABLE accounts_receivable ADD COLUMN receivable_type TEXT`, () => { });
-  db.run(`ALTER TABLE accounts_receivable ADD COLUMN description TEXT`, () => { });
-  db.run(`ALTER TABLE accounts_receivable ADD COLUMN down_payment REAL DEFAULT 0`, () => { });
-  db.run(`ALTER TABLE accounts_receivable ADD COLUMN due_date TEXT`, () => { });
-  db.run(`ALTER TABLE accounts_receivable ADD COLUMN notes TEXT`, () => { });
-  db.run(`ALTER TABLE inventory_ledger ADD COLUMN dot_number TEXT`, () => { });
-  db.run(`ALTER TABLE order_items ADD COLUMN dot_number TEXT`, () => { });
-  db.run(`ALTER TABLE sale_header ADD COLUMN is_void INTEGER DEFAULT 0`, () => { });
-  db.run(`ALTER TABLE sale_header ADD COLUMN void_reason TEXT`, () => { });
-  db.run(`ALTER TABLE purchase_header ADD COLUMN handled_by TEXT`, () => { });
-  db.run(`ALTER TABLE purchase_header ADD COLUMN supplier_id TEXT`, () => { });
-  db.run(`ALTER TABLE sale_header ADD COLUMN credit_down_payment REAL DEFAULT 0`, () => { });
-  db.run(`ALTER TABLE sale_header ADD COLUMN business_date DATE`, () => {
+  db.run(`ALTER TABLE labor_log ADD COLUMN sale_id TEXT`, (err) => { if (err) console.error("Error altering labor_log:", err); });
+  db.run(`ALTER TABLE item_master ADD COLUMN reorder_point INTEGER DEFAULT 5`, (err) => { if (err) console.error("Error altering item_master (reorder_point):", err); });
+  db.run(`ALTER TABLE item_master ADD COLUMN supplier_id TEXT`, (err) => { if (err) console.error("Error altering item_master (supplier_id):", err); });
+  db.run(`ALTER TABLE item_master ADD COLUMN dot_number TEXT`, (err) => { if (err) console.error("Error altering item_master (dot_number):", err); });
+  db.run(`ALTER TABLE item_master ADD COLUMN parent_item_id TEXT`, (err) => { if (err) console.error("Error altering item_master (parent_item_id):", err); });
+  db.run(`ALTER TABLE inventory_ledger ADD COLUMN supplier_id TEXT`, (err) => { if (err) console.error("Error altering inventory_ledger:", err); });
+  db.run(`ALTER TABLE order_items ADD COLUMN supplier_id TEXT`, (err) => { if (err) console.error("Error altering order_items (supplier_id):", err); });
+  db.run(`ALTER TABLE order_items ADD COLUMN is_new_item INTEGER DEFAULT 0`, (err) => { if (err) console.error("Error altering order_items (is_new_item):", err); });
+  db.run(`ALTER TABLE recap_job_master ADD COLUMN dot_number TEXT`, (err) => { if (err) console.error("Error altering recap_job_master:", err); });
+  db.run(`ALTER TABLE services_master ADD COLUMN commission_rate REAL DEFAULT 0`, (err) => { if (err) console.error("Error altering services_master:", err); });
+  db.run(`ALTER TABLE sale_header ADD COLUMN payment_method TEXT DEFAULT 'CASH'`, (err) => { if (err) console.error("Error altering sale_header (payment_method):", err); });
+  db.run(`ALTER TABLE sale_header ADD COLUMN payment_splits TEXT`, (err) => { if (err) console.error("Error altering sale_header (payment_splits):", err); });
+  db.run(`ALTER TABLE accounts_receivable ADD COLUMN receivable_type TEXT`, (err) => { if (err) console.error("Error altering accounts_receivable (receivable_type):", err); });
+  db.run(`ALTER TABLE accounts_receivable ADD COLUMN description TEXT`, (err) => { if (err) console.error("Error altering accounts_receivable (description):", err); });
+  db.run(`ALTER TABLE accounts_receivable ADD COLUMN down_payment REAL DEFAULT 0`, (err) => { if (err) console.error("Error altering accounts_receivable (down_payment):", err); });
+  db.run(`ALTER TABLE accounts_receivable ADD COLUMN due_date TEXT`, (err) => { if (err) console.error("Error altering accounts_receivable (due_date):", err); });
+  db.run(`ALTER TABLE accounts_receivable ADD COLUMN notes TEXT`, (err) => { if (err) console.error("Error altering accounts_receivable (notes):", err); });
+  db.run(`ALTER TABLE inventory_ledger ADD COLUMN dot_number TEXT`, (err) => { if (err) console.error("Error altering inventory_ledger (dot_number):", err); });
+  db.run(`ALTER TABLE order_items ADD COLUMN dot_number TEXT`, (err) => { if (err) console.error("Error altering order_items (dot_number):", err); });
+  db.run(`ALTER TABLE sale_header ADD COLUMN is_void INTEGER DEFAULT 0`, (err) => { if (err) console.error("Error altering sale_header (is_void):", err); });
+  db.run(`ALTER TABLE sale_header ADD COLUMN void_reason TEXT`, (err) => { if (err) console.error("Error altering sale_header (void_reason):", err); });
+  db.run(`ALTER TABLE purchase_header ADD COLUMN handled_by TEXT`, (err) => { if (err) console.error("Error altering purchase_header (handled_by):", err); });
+  db.run(`ALTER TABLE purchase_header ADD COLUMN supplier_id TEXT`, (err) => { if (err) console.error("Error altering purchase_header (supplier_id):", err); });
+  db.run(`ALTER TABLE sale_header ADD COLUMN credit_down_payment REAL DEFAULT 0`, (err) => { if (err) console.error("Error altering sale_header (credit_down_payment):", err); });
+  db.run(`ALTER TABLE sale_header ADD COLUMN business_date DATE`, (err) => {
+    if (err) {
+      console.error("Error altering sale_header (business_date):", err);
+      return;
+    }
     // Set default business_date to DATE(sale_datetime) for existing records
-    db.run(`UPDATE sale_header SET business_date = DATE(sale_datetime) WHERE business_date IS NULL`, () => { });
+    db.run(`UPDATE sale_header SET business_date = DATE(sale_datetime) WHERE business_date IS NULL`, (updateErr) => {
+      if (updateErr) console.error("Error updating sale_header business_date:", updateErr);
+    });
   });
-  db.run(`ALTER TABLE staff_master ADD COLUMN profile_picture TEXT`, () => { });
+  db.run(`ALTER TABLE staff_master ADD COLUMN profile_picture TEXT`, (err) => { if (err) console.error("Error altering staff_master:", err); });
 });
 
 // Add brand_assets table if it doesn't exist (safe migration)
@@ -189,10 +199,10 @@ function initializeDatabase() {
         last_closed_at DATETIME,
         last_opened_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`);
-      db.run(`ALTER TABLE shop_master ADD COLUMN is_closed BOOLEAN DEFAULT 0`, () => { });
-      db.run(`ALTER TABLE shop_master ADD COLUMN last_closed_at DATETIME`, () => { });
-      db.run(`ALTER TABLE shop_master ADD COLUMN last_opened_at DATETIME`, () => { });
+      )`, (err) => { if (err) console.error("Error creating shop_master table:", err); });
+      db.run(`ALTER TABLE shop_master ADD COLUMN is_closed BOOLEAN DEFAULT 0`, (err) => { if (err) console.error("Error altering shop_master (is_closed):", err); });
+      db.run(`ALTER TABLE shop_master ADD COLUMN last_closed_at DATETIME`, (err) => { if (err) console.error("Error altering shop_master (last_closed_at):", err); });
+      db.run(`ALTER TABLE shop_master ADD COLUMN last_opened_at DATETIME`, (err) => { if (err) console.error("Error altering shop_master (last_opened_at):", err); });
 
       db.run(`CREATE TABLE IF NOT EXISTS daily_closures (
         closure_id TEXT PRIMARY KEY,
@@ -209,8 +219,8 @@ function initializeDatabase() {
         closed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(shop_id, business_date),
         FOREIGN KEY (shop_id) REFERENCES shop_master(shop_id)
-      )`);
-      db.run(`CREATE INDEX IF NOT EXISTS idx_daily_closures_shop ON daily_closures(shop_id, business_date DESC)`);
+      )`, (err) => { if (err) console.error("Error creating daily_closures table:", err); });
+      db.run(`CREATE INDEX IF NOT EXISTS idx_daily_closures_shop ON daily_closures(shop_id, business_date DESC)`, (err) => { if (err) console.error("Error creating index on daily_closures:", err); });
 
       db.run(`CREATE TABLE IF NOT EXISTS item_master (
         item_id TEXT PRIMARY KEY,
@@ -253,7 +263,7 @@ function initializeDatabase() {
         is_commissionable BOOLEAN DEFAULT 1,
         is_active BOOLEAN DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`);
+      )`, (err) => { if (err) console.error("Error creating services_master table:", err); });
 
       db.run(`CREATE TABLE IF NOT EXISTS staff_master (
         staff_id TEXT PRIMARY KEY,

@@ -455,7 +455,7 @@ function Servicespage() {
                 <button
                   className="svc-btn-primary"
                   onClick={handleSave}
-                  disabled={saving}
+                  disabled={saving || !form.service_name || !form.base_price}
                 >
                   {saving
                     ? "Saving…"

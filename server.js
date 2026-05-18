@@ -184,6 +184,20 @@ app.get("*", (_req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Process-level error handlers
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Log the error but don't exit immediately to allow cleanup
+  // In production, you might want to exit after finishing requests
+  // process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Application specific logging, don't exit as it might be recoverable
+});
+
 initializeDatabase()
   .then(() => {
     console.log("✅ Database structure ready and seeded.");

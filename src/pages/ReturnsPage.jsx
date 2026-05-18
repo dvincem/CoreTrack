@@ -976,7 +976,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                   <div style={{ marginTop: "0.85rem", display: "flex", gap: "0.5rem" }}>
                     <button
                       className="ret-btn ret-btn-emerald"
-                      disabled={custSubmitting || checkedCount === 0 || autoStockLoading ||
+                      disabled={custSubmitting || checkedCount === 0 || !returnScenario || autoStockLoading ||
                         (returnScenario === "DEFECTIVE_REPLACE_NOW" && Object.values(autoStockCheck).some(s => (s.on_hand || 0) === 0))}
                       onClick={submitCustomerReturn}
                       style={{ flex: 1 }}
@@ -1212,7 +1212,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                   <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
                     <button
                       className="ret-btn ret-btn-sky"
-                      disabled={suppSubmitting}
+                      disabled={suppSubmitting || !selectedOrderItem || !suppQty || suppQty <= 0 || (selectedOrderItem && suppQty > selectedOrderItem.returnable_qty)}
                       onClick={submitSupplierReturn}
                       style={{ flex: 1 }}
                     >
@@ -1453,7 +1453,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
               </div>
               <div className="ret-modal-footer">
                 <button className="ret-btn ret-btn-slate" onClick={() => setWarrantyModal(null)}>Cancel</button>
-                <button className="ret-btn ret-btn-sky" style={{ flex: 1 }} disabled={warrantySubmitting} onClick={submitWarrantyResult}>
+                <button className="ret-btn ret-btn-sky" style={{ flex: 1 }} disabled={warrantySubmitting || !warrantyResult} onClick={submitWarrantyResult}>
                   {warrantySubmitting ? "Saving…" : "✓ Save Result"}
                 </button>
               </div>

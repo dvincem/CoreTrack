@@ -586,7 +586,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
         footer={
           <>
             <button className="th-btn th-btn-ghost" onClick={cancelAdd}>Cancel</button>
-            <button className="th-btn th-btn-orange" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding...' : '✓ Add Staff'}</button>
+            <button className="th-btn th-btn-orange" onClick={handleAdd} disabled={addSaving || !addForm.full_name.trim() || !addForm.role}>{addSaving ? 'Adding...' : '✓ Add Staff'}</button>
           </>
         }
       >
@@ -621,7 +621,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
         footer={
           <>
             <button className="th-btn th-btn-ghost" onClick={() => setEditTarget(null)}>Cancel</button>
-            <button className="th-btn th-btn-orange" onClick={handleEdit} disabled={editSaving}>{editSaving ? 'Saving...' : '✓ Save Changes'}</button>
+            <button className="th-btn th-btn-orange" onClick={handleEdit} disabled={editSaving || !editForm.full_name.trim() || !editForm.role}>{editSaving ? 'Saving...' : '✓ Save Changes'}</button>
           </>
         }
       >

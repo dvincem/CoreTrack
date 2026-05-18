@@ -389,7 +389,7 @@ function CustomerPage({ shopId }) {
               {addError && <div className="cp-modal-error">{addError}</div>}
               <div className="cp-modal-actions">
                 <button className="cp-modal-cancel" onClick={cancelAdd}>Cancel</button>
-                <button className="cp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Customer'}</button>
+                <button className="cp-modal-ok" onClick={handleAdd} disabled={addSaving || !addForm.customer_name.trim()}>{addSaving ? 'Adding…' : '✓ Add Customer'}</button>
               </div>
             </div>
           </div>
@@ -434,7 +434,7 @@ function CustomerPage({ shopId }) {
               {/* Row 4: Actions footer */}
               <div className="cp-modal-actions">
                 <button className="cp-modal-cancel" onClick={() => setEditTarget(null)}>Cancel</button>
-                <button className="cp-modal-ok" onClick={handleEdit} disabled={editSaving}>{editSaving ? 'Saving…' : '✓ Save Changes'}</button>
+                <button className="cp-modal-ok" onClick={handleEdit} disabled={editSaving || !editForm.customer_name.trim()}>{editSaving ? 'Saving…' : '✓ Save Changes'}</button>
               </div>
             </div>
           </div>

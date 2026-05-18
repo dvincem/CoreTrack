@@ -3,6 +3,16 @@
 ## Overview
 TireHub is a management system for tire shops, covering inventory, POS, financials, and specialized recap workflows.
 
+## System Workflow
+1. **Startup**: `node server.js` loads environment variables, initializes SQLite database, and starts Express server
+2. **Database**: SQLite database (`tire_shop.db`) is automatically initialized with tables and triggers on startup
+3. **API Server**: Express server runs on port 3000 (or PORT env var), binding to 0.0.0.0 for network access
+4. **Auto-backup**: Every 30 minutes, the system backs up all database tables to `backup.xlsx`
+5. **Security**: Includes helmet (with LAN-specific adjustments), rate limiting, and CORS allowing private LAN IPs
+6. **Authentication**: JWT-based auth middleware protects all /api routes except public endpoints
+7. **Frontend**: Built with Vite, served statically in production, proxied during development
+8. **SPA Handling**: All non-API routes serve the frontend index.html for client-side routing
+
 ## Getting Started
 1. **Environment**: Copy `.env.example` to `.env` and configure variables.
 2. **Database**: The database is SQLite (`tire_shop.db`). It initializes automatically on server start.

@@ -507,7 +507,7 @@ function SuppliersPage({ shopId }) {
               {/* Row 4: Actions */}
               <div className="supp-modal-actions">
                 <button className="supp-modal-cancel" onClick={cancelAdd}>Cancel</button>
-                <button className="supp-modal-ok" onClick={handleAdd} disabled={addSaving}>{addSaving ? 'Adding…' : '✓ Add Supplier'}</button>
+                <button className="supp-modal-ok" onClick={handleAdd} disabled={addSaving || !addForm.supplier_name.trim()}>{addSaving ? 'Adding…' : '✓ Add Supplier'}</button>
               </div>
             </div>
           </div>
@@ -558,7 +558,7 @@ function SuppliersPage({ shopId }) {
               {/* Row 4: Actions */}
               <div className="supp-modal-actions">
                 <button className="supp-modal-cancel" onClick={() => setEditTarget(null)}>Cancel</button>
-                <button className="supp-modal-ok" onClick={handleEdit} disabled={editSaving}>{editSaving ? 'Saving…' : '✓ Save Changes'}</button>
+                <button className="supp-modal-ok" onClick={handleEdit} disabled={editSaving || !editForm.supplier_name.trim()}>{editSaving ? 'Saving…' : '✓ Save Changes'}</button>
               </div>
             </div>
           </div>

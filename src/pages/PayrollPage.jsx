@@ -543,7 +543,9 @@ function PayrollPage({ shopId, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingLog(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmAddLog}>Confirm</button>
+              <button className="confirm-btn-ok" onClick={confirmAddLog} disabled={fAdding || !pendingLog}>
+                {fAdding ? 'Adding…' : 'Confirm'}
+              </button>
             </div>
           </div>
         </div>
@@ -597,7 +599,7 @@ function PayrollPage({ shopId, setPageContext }) {
 
               <div className="confirm-actions">
                 <button type="button" className="confirm-btn-cancel" onClick={() => setCommModal(false)}>Cancel</button>
-                <button type="submit" className="confirm-btn-ok" style={{ background: 'var(--th-violet)', borderColor: 'var(--th-violet)' }} disabled={commSaving}>
+                <button type="submit" className="confirm-btn-ok" style={{ background: 'var(--th-violet)', borderColor: 'var(--th-violet)' }} disabled={commSaving || !commStaff || !commAmount}>
                   {commSaving ? 'Saving…' : 'Review & Confirm'}
                 </button>
               </div>
@@ -619,7 +621,7 @@ function PayrollPage({ shopId, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setCommPending(null)}>Back</button>
-              <button className="confirm-btn-ok" style={{ background: 'var(--th-violet)', borderColor: 'var(--th-violet)' }} onClick={confirmCommission} disabled={commSaving}>
+              <button className="confirm-btn-ok" style={{ background: 'var(--th-violet)', borderColor: 'var(--th-violet)' }} onClick={confirmCommission} disabled={commSaving || !commPending}>
                 {commSaving ? 'Saving…' : 'Confirm'}
               </button>
             </div>
