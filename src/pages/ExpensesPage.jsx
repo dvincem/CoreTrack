@@ -106,10 +106,10 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
     try {
       const draft = localStorage.getItem(`th-exp-draft-${shopId}`);
       if (draft) setForm(JSON.parse(draft));
-      
+
       const open = localStorage.getItem(`th-exp-open-${shopId}`);
       if (open) setShowExpForm(open === "true");
-      
+
       const editId = localStorage.getItem(`th-exp-editing-${shopId}`);
       if (editId) setEditingId(editId === "null" ? null : editId);
     } catch (e) { console.error("Failed to load Expense draft", e); }
@@ -392,7 +392,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
   return (
     <div className="exp-root">
       {/* Confirm Save Expense */}
-      {pendingExpense && (
+      {pendingExpense && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">{pendingExpense.isEdit ? 'Confirm Update Expense' : 'Confirm Record Expense'}</div>
@@ -415,11 +415,12 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Void modal */}
-      {voidTarget && (
+      {voidTarget && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Void Expense?</div>
@@ -445,7 +446,8 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Toast */}

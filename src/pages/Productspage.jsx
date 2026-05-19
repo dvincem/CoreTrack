@@ -1,5 +1,6 @@
 import '../pages_css/Productspage.css';
 import React from "react";
+import ReactDOM from "react-dom";
 import { API_URL, apiFetch, currency } from "../lib/config";
 import DataTable from "../components/DataTable";
 import FilterHeader from "../components/FilterHeader";
@@ -2375,7 +2376,7 @@ function Productspage({ shopId }) {
         </div>
 
         {/* Confirm Add Product */}
-        {pending && Array.isArray(pending) && (
+        {pending && Array.isArray(pending) && ReactDOM.createPortal(
           <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setPending(null)}>
             <div className="confirm-box" style={{ maxWidth: "600px", width: "90vw" }}>
               <div className="confirm-title" style={{ color: "var(--th-orange)" }}>Confirm Bulk Add</div>
@@ -2427,12 +2428,13 @@ function Productspage({ shopId }) {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
 
         {/* Add New Category Modal */}
-        {addCatModal.open && (
+        {addCatModal.open && ReactDOM.createPortal(
           <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setAddCatModal(m => ({ ...m, open: false }))}>
             <div className="confirm-box" style={{ maxWidth: "380px", width: "90vw" }}>
               <div className="confirm-title" style={{ color: "var(--th-orange)" }}>
@@ -2486,11 +2488,12 @@ function Productspage({ shopId }) {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Confirm Stock Adjustment */}
-        {pendingAdj && (
+        {pendingAdj && ReactDOM.createPortal(
           <div className="confirm-overlay">
             <div className="confirm-box">
               <div className="confirm-title">Confirm Stock Adjustment</div>
@@ -2541,7 +2544,8 @@ function Productspage({ shopId }) {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </>
