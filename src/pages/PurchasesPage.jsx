@@ -1,6 +1,6 @@
 import '../pages_css/PurchasesPage.css';
 import React from 'react'
-import { API_URL, currency, apiFetch } from '../lib/config'
+import { API_URL, currency, apiFetch, calculateAutoAdjustedPrice } from '../lib/config'
 import SearchInput from '../components/SearchInput'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 import DataTable from '../components/DataTable'
@@ -234,7 +234,15 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const updateItemToAdd = (idx, k, v) => {
     setItemsToAdd(prev => {
       const next = [...prev]
-      next[idx] = { ...next[idx], [k]: v }
+      const oldItem = next[idx]
+      let updatedItem = { ...oldItem, [k]: v }
+
+      // Auto-adjust price if cost changes and we have a valid old cost/price
+      if (k === 'unit_cost' && v && oldItem.unit_cost && oldItem.selling_price) {
+        updatedItem.selling_price = calculateAutoAdjustedPrice(oldItem.selling_price, oldItem.unit_cost, v, updatedItem.category)
+      }
+
+      next[idx] = updatedItem
       return next
     })
   }

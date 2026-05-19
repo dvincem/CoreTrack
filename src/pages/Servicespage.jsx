@@ -7,7 +7,7 @@ import FilterHeader from '../components/FilterHeader'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
   /* ============================================================
-     TIREHUB — SERVICES PAGE
+     CORETRACK — SERVICES PAGE
      Fetches:
        GET    /api/services                  — list all services
        POST   /api/services                  — create service

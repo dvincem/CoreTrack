@@ -4,6 +4,7 @@ const { db } = require("../Database");
 const { v4: uuidv4 } = require("uuid");
 const { syncCurrentStock } = require("../lib/db");
 const { getEffectiveISO, getEffectiveYYYYMMDD } = require("../lib/businessDate");
+const { calculateAutoAdjustedPrice } = require("../lib/pricing");
 
 // ── List purchases ────────────────────────────────────────────────────────────
 router.get("/purchases/:shop_id", async (req, res) => {
@@ -184,9 +185,15 @@ router.post("/purchases/:shop_id", async (req, res) => {
                 item_master_id = variantId;
               } else {
                 item_master_id = existing.item_id;
+                let finalPrice = sellPrice;
+                // If price in request is 0 or matches current, auto-adjust using new butal logic
+                const current = await dbGet(`SELECT unit_cost, selling_price, category FROM item_master WHERE item_id = ?`, [item_master_id]);
+                if (current && (!finalPrice || Math.abs(finalPrice - current.selling_price) < 0.01)) {
+                   finalPrice = calculateAutoAdjustedPrice(current.selling_price, current.unit_cost, cost, current.category);
+                }
                 await dbRun(
                   `UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`,
-                  [cost, sellPrice, item_master_id]
+                  [cost, finalPrice, item_master_id]
                 );
               }
             } else {
@@ -195,17 +202,19 @@ router.post("/purchases/:shop_id", async (req, res) => {
               const sku = item.sku || `SKU-${uuidv4().split("-")[0].toUpperCase()}`;
               const upperBrand = item.brand ? item.brand.toUpperCase() : null;
               const upperDesign = item.design ? item.design.toUpperCase() : null;
+              // For new items, ensure sellPrice is rounded if it was the default
+              const finalNewPrice = item.selling_price ? parseFloat(item.selling_price) : Math.round((cost * 1.3) / 100) * 100;
               try {
                 await dbRun(
                   `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, dot_number, is_active, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-                  [new_id, sku, itemName, cat, upperBrand, upperDesign, item.size || null, item.rim_size || null, cost, sellPrice, item.dot_number || null, now]
+                  [new_id, sku, itemName, cat, upperBrand, upperDesign, item.size || null, item.rim_size || null, cost, finalNewPrice, item.dot_number || null, now]
                 );
                 item_master_id = new_id;
               } catch (err) {
                 // If insertion failed, it's likely a SKU collision not caught by our initial find (e.g. concurrent request or case diff)
                 if (item.sku) {
-                  const collided = await dbGet(`SELECT item_id FROM item_master WHERE sku = ? LIMIT 1`, [item.sku]);
+                  const collided = await dbGet(`SELECT item_id, unit_cost, selling_price, category FROM item_master WHERE sku = ? LIMIT 1`, [item.sku]);
                   if (collided) {
                     if (item.dot_number) {
                       const { item_id: variantId } = await findOrCreateDotVariant(
@@ -218,9 +227,13 @@ router.post("/purchases/:shop_id", async (req, res) => {
                       item_master_id = variantId;
                     } else {
                       item_master_id = collided.item_id;
+                      let finalCollidedPrice = sellPrice;
+                      if (!finalCollidedPrice || Math.abs(finalCollidedPrice - collided.selling_price) < 0.01) {
+                         finalCollidedPrice = calculateAutoAdjustedPrice(collided.selling_price, collided.unit_cost, cost, collided.category);
+                      }
                       await dbRun(
                         `UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`,
-                        [cost, sellPrice, item_master_id]
+                        [cost, finalCollidedPrice, item_master_id]
                       );
                     }
                   }

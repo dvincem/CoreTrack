@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
 const { dbRun, dbGet, dbAll, dbSerialize, syncCurrentStock, logPriceHistory, findOrCreateDotVariant } = require("../lib/db");
+const { calculateAutoAdjustedPrice } = require("../lib/pricing");
 
 router.post("/orders", async (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;
@@ -292,7 +293,7 @@ router.post("/orders/:order_id/receive", async (req, res) => {
           const newCost = parseFloat(item.unit_cost);
           const costDelta = newCost - (current.unit_cost || 0);
           if (Math.abs(costDelta) > 0.001) {
-            const newPrice = (current.selling_price || 0) + costDelta;
+            const newPrice = calculateAutoAdjustedPrice(current.selling_price, current.unit_cost, newCost, current.category);
             await dbRun(`UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`, [newCost, newPrice, item.item_id]);
             const ts = new Date().toISOString();
             logPriceHistory(item.item_id, 'UNIT_COST', current.unit_cost, newCost, received_by, null, ts);
@@ -712,7 +713,7 @@ router.post("/orders/quick-receive", async (req, res) => {
         const newCost = cost;
         const costDelta = newCost - (item.unit_cost || 0);
         if (Math.abs(costDelta) > 0.001) {
-          const newPrice = (item.selling_price || 0) + costDelta;
+          const newPrice = calculateAutoAdjustedPrice(item.selling_price, item.unit_cost, newCost, item.category);
           await dbRun(`UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`, [newCost, newPrice, finalItemId]);
           const ts = new Date().toISOString();
           logPriceHistory(finalItemId, 'UNIT_COST', item.unit_cost, newCost, received_by, null, ts);

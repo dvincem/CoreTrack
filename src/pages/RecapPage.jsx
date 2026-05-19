@@ -10,7 +10,7 @@ import usePaginatedResource from '../hooks/usePaginatedResource'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
   /* ============================================================
-     TIREHUB — ENHANCED RECAP TIRES PAGE
+     CORETRACK — ENHANCED RECAP TIRES PAGE
      Drop-in replacement. Requires API_URL global + currency().
      ============================================================ */
 

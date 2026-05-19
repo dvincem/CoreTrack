@@ -41,6 +41,37 @@ export async function apiFetch(url, options = {}) {
 }
 
 /**
+ * Pricing utility for "butal" rounding logic.
+ */
+const ROUNDED_CATEGORIES = [
+  'PCR', 'SUV', 'TBR', 'LT', 'LTB', 'RECAP', 'RECAPPING', 'BATTERY', 'USED TIRE', 'MOTORCYCLE', 'TUBE'
+];
+
+export function getEffectiveCost(cost) {
+  if (cost == null || isNaN(cost)) return 0;
+  const c = parseFloat(cost);
+  const base = Math.floor(c / 100) * 100;
+  const butal = c % 100;
+  return butal <= 29 ? base : base + 100;
+}
+
+export function calculateAutoAdjustedPrice(oldPrice, oldCost, newCost, category) {
+  const p = parseFloat(oldPrice) || 0;
+  const oc = parseFloat(oldCost) || 0;
+  const nc = parseFloat(newCost) || 0;
+
+  if (category && ROUNDED_CATEGORIES.includes(category.toUpperCase())) {
+    const effOld = getEffectiveCost(oc);
+    const effNew = getEffectiveCost(nc);
+    const rawNewPrice = p + (effNew - effOld);
+    return Math.round(rawNewPrice / 100) * 100;
+  } else {
+    // Constant increase (simple delta)
+    return p + (nc - oc);
+  }
+}
+
+/**
  * SkeletonRows — animated placeholder rows for table loading states.
  * @param {number} rows - number of skeleton rows (default 6)
  * @param {number} cols - number of columns (default 5)

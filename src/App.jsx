@@ -34,7 +34,7 @@ import Modal from './components/Modal'
 import GlobalSearch from './components/GlobalSearch'
 
 /* ============================================================
-   TIREHUB — APP SHELL
+   CORETRACK — APP SHELL
    Theme toggle lives in the sidebar. ThemeProvider wraps
    the entire app so dark/light mode applies everywhere.
    ============================================================ */
@@ -888,7 +888,7 @@ const NAV_SECTIONS = [
 /* ══════════════════════════════════════════
    MAIN APP
 ══════════════════════════════════════════ */
-function TireHub() {
+function CoreTrack() {
   const [page, setPage] = React.useState(() => localStorage.getItem("th-page") || "dashboard");
   const [pageContext, setPageContext] = React.useState({ view: "Dashboard" });
   const [shop, setShop] = React.useState("SHOP-001");
@@ -1995,4 +1995,4 @@ function TireHub() {
 }
 
 
-export default TireHub
+export default CoreTrack

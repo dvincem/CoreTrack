@@ -27,7 +27,6 @@ function SalesPage({ shopId, isShopClosed }) {
   const [startDate, setStartDate] = React.useState(weekAgo)
   const [endDate, setEndDate] = React.useState(today)
   const [activePreset, setActivePreset] = React.useState('')
-  const [suggestions, setSuggestions] = React.useState([])
   const [kpi, setKpi] = React.useState(null)
 
   const [viewMode, setViewMode] = React.useState('transactions') // 'transactions' | 'items'
@@ -168,36 +167,6 @@ function SalesPage({ shopId, isShopClosed }) {
     const tiremanNames = (Array.isArray(ids) ? ids : []).map(id => staffMap[id]).filter(Boolean).join(', ')
     return { ...s, tiremanNames }
   }), [sales, staffMap])
-
-  React.useEffect(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) { setSuggestions([]); return }
-    const seen = new Set()
-    const results = []
-    const add = (text, type, icon) => {
-      if (!text || seen.has(text.trim())) return
-      seen.add(text.trim())
-      results.push({ text: text.trim(), type, icon })
-    }
-    for (const s of salesWithTiremen) {
-      if (results.length >= 12) break
-      if (s.invoice_number?.toLowerCase().includes(q)) add(s.invoice_number, 'INVOICE', '📋')
-      if (s.customer_name?.toLowerCase().includes(q)) add(s.customer_name, 'CUSTOMER', '👤')
-      if (s.staff_name?.toLowerCase().includes(q)) add(s.staff_name, 'HANDLED BY', '👷')
-      if (s.sale_notes?.toLowerCase().includes(q)) add(s.sale_notes, 'NOTES', '📝')
-      if (s.tiremanNames?.toLowerCase().includes(q)) {
-        s.tiremanNames.split(', ').forEach(n => { if (n.toLowerCase().includes(q)) add(n, 'TIREMAN', '🔧') })
-      }
-      if (s.item_names) {
-        s.item_names.split(',').forEach(name => { if (name.trim().toLowerCase().includes(q)) add(name.trim(), 'ITEM', '📦') })
-      }
-      if (s.brand?.toLowerCase().includes(q)) add(s.brand, 'BRAND', '🏷️')
-      if (s.design?.toLowerCase().includes(q)) add(s.design, 'DESIGN', '🔖')
-      if (s.tire_size?.toLowerCase().includes(q)) add(s.tire_size, 'SIZE', '📏')
-      if (s.sale_id?.toLowerCase().includes(q)) add(s.sale_id, 'SALE ID', '🧾')
-    }
-    setSuggestions(results.slice(0, 12))
-  }, [search, salesWithTiremen])
 
   const pencilIcon = (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: '4px', cursor: 'pointer', opacity: 0.6 }}>
@@ -468,7 +437,7 @@ function SalesPage({ shopId, isShopClosed }) {
             value: viewMode === 'transactions' ? search : itemSearch,
             onChange: viewMode === 'transactions' ? setSearch : setItemSearch,
             placeholder: viewMode === 'transactions' ? "Search invoice, customer, tireman, item..." : "Search item, brand, size, invoice...",
-            suggestions: suggestions,
+            suggestions: [],
             onSuggestionSelect: s => viewMode === 'transactions' ? setSearch(s.text) : setItemSearch(s.text),
             resultCount: viewMode === 'transactions' ? (search.trim() ? salesWithTiremen.length : undefined) : (itemSearch.trim() ? (itemsList ? itemsList.length : 0) : undefined),
             totalCount: viewMode === 'transactions' ? slTotal : itemTotal,

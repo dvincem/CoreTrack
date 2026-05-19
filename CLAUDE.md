@@ -1,7 +1,7 @@
-# TireHub Project Guide
+# CoreTrack Project Guide
 
 ## Overview
-TireHub is a management system for tire shops, covering inventory, POS, financials, and specialized recap workflows.
+CoreTrack is a management system for tire shops, covering inventory, POS, financials, and specialized recap workflows.
 
 ## System Workflow
 1. **Startup**: `node server.js` loads environment variables, initializes SQLite database, and starts Express server

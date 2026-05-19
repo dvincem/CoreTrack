@@ -69,6 +69,9 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
   const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
+  const confirmSaveExpenseBtnRef = React.useRef(null)
+  const confirmVoidBtnRef = React.useRef(null)
+  const [formIsValid, setFormIsValid] = React.useState(false)
 
   const prefill = useSearchPrefill('expenses')
   React.useEffect(() => {
@@ -128,6 +131,21 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
     localStorage.setItem(`th-exp-editing-${shopId}`, String(editingId));
   }, [form, showExpForm, editingId, shopId, isDraftLoaded]);
 
+  // Validate form whenever form changes
+  React.useEffect(() => {
+    if (!isDraftLoaded) {
+      setFormIsValid(false);
+      return;
+    }
+
+    let isValid = true;
+    if (!form.description.trim()) isValid = false;
+    if (!form.amount || parseFloat(form.amount) <= 0) isValid = false;
+    if (!form.expense_date) isValid = false;
+
+    setFormIsValid(isValid);
+  }, [form, isDraftLoaded]);
+
   React.useEffect(() => { fetchSummary() }, [shopId, startDate, endDate])
 
   // Expense Suggestions
@@ -149,6 +167,24 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
     }
     setSuggestions(results)
   }, [search, expenses])
+
+  // Handle Enter key in modals
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Enter') {
+        if (pendingExpense && confirmSaveExpenseBtnRef.current) {
+          e.preventDefault();
+          confirmSaveExpense();
+        } else if (voidTarget && confirmVoidBtnRef.current) {
+          e.preventDefault();
+          confirmVoid();
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pendingExpense, voidTarget]);
 
   async function fetchSummary() {
     try {
@@ -369,7 +405,14 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingExpense(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSaveExpense}>Confirm</button>
+              <button
+                ref={confirmSaveExpenseBtnRef}
+                className="confirm-btn-ok"
+                onClick={confirmSaveExpense}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveExpense(); }}
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
@@ -392,7 +435,14 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => { setVoidTarget(null); setVoidReason('') }}>Cancel</button>
-              <button className="confirm-btn-ok danger" onClick={confirmVoid}>Void</button>
+              <button
+                ref={confirmVoidBtnRef}
+                className="confirm-btn-ok danger"
+                onClick={confirmVoid}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmVoid(); }}
+              >
+                Void
+              </button>
             </div>
           </div>
         </div>
@@ -478,7 +528,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
               <div className="exp-form-modal-title">{editingId ? '✏ Edit Expense' : '+ New Expense'}</div>
               <button className="exp-form-modal-close" onClick={hideForm}>✕</button>
             </div>
-            <form onSubmit={saveExpense} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            <form onSubmit={saveExpense} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!saving && formIsValid) saveExpense(e); } }} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               <div className="exp-form-grid">
                 <div>
                   <label className="exp-label">Description *</label>
@@ -516,7 +566,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
               {formError && <div className="exp-error">{formError}</div>}
               <div className="exp-form-actions">
                 <button type="button" className="exp-btn exp-btn-ghost" onClick={cancelEdit}>Cancel</button>
-                <button type="submit" className="exp-btn exp-btn-rose" disabled={saving}>
+                <button type="submit" className="exp-btn exp-btn-rose" disabled={saving || !formIsValid}>
                   {saving ? 'Saving…' : editingId ? '✓ Update' : '+ Record Expense'}
                 </button>
               </div>

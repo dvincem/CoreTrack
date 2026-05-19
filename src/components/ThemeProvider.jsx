@@ -1,7 +1,7 @@
 import React from 'react'
 
 /* ============================================================
-   TIREHUB — THEME PROVIDER
+   CORETRACK — THEME PROVIDER
    Injects CSS custom properties for dark/light mode.
    Wrap your app root with <ThemeProvider> and use
    <ThemeToggle /> anywhere to switch modes.

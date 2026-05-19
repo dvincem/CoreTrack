@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 
 /* ============================================================
-   TIREHUB — DRY RUN TRACKER PAGE
+   CORETRACK — DRY RUN TRACKER PAGE
    A dedicated page for logging bugs, feature requests, and
    optimizations during the 30-day system testing phase.
    ============================================================ */

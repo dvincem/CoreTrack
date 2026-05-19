@@ -95,14 +95,43 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
   const [showEntryForm, setShowEntryForm] = React.useState(false)
   const [isDraftLoaded, setIsDraftLoaded] = React.useState(false)
 
-  /* ── Selected entry for detail modal ── */
-  const [selectedEntry, setSelectedEntry] = React.useState(null)
+  // Form validation
+  const isFormValid = React.useMemo(() => {
+    return !!(form.description || '').trim() &&
+           form.amount &&
+           parseFloat(form.amount) > 0;
+  }, [form.description, form.amount]);
+
+  // Refs for modal buttons to handle Enter key
+  const confirmSaveBtnRef = React.useRef(null);
+  const confirmVoidBtnRef = React.useRef(null);
 
   /* ── Confirm / void / toast ── */
   const [pendingEntry, setPendingEntry] = React.useState(null)
   const [voidTarget, setVoidTarget] = React.useState(null)
   const [voidReason, setVoidReason] = React.useState('')
   const [toast, setToast] = React.useState(null)
+
+  // Handle Enter key in modals
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Enter') {
+        if (pendingEntry && confirmSaveBtnRef.current) {
+          e.preventDefault();
+          confirmSaveEntry();
+        } else if (voidTarget && confirmVoidBtnRef.current) {
+          e.preventDefault();
+          confirmVoid();
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pendingEntry, voidTarget]);
+
+  /* ── Selected entry for detail modal ── */
+  const [selectedEntry, setSelectedEntry] = React.useState(null)
 
   /* ── Fetch unified cash flow ── */
   React.useEffect(() => { fetchFlow() }, [shopId, startDate, endDate])
@@ -112,7 +141,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
     if (!shopId) return;
     try {
       const draft = localStorage.getItem(`th-cl-draft-${shopId}`);
-      if (draft) setForm(JSON.parse(draft));
+      if (draft) setForm({ ...BLANK, ...JSON.parse(draft) });
       
       const open = localStorage.getItem(`th-cl-open-${shopId}`);
       if (open) setShowEntryForm(open === "true");
@@ -151,16 +180,17 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
     const seen = new Set()
     const results = []
     const add = (text, type, icon) => {
-      if (!text || seen.has(text.trim())) return
-      seen.add(text.trim())
-      results.push({ text: text.trim(), type, icon })
+      const safeText = String(text || '').trim()
+      if (!safeText || seen.has(safeText)) return
+      seen.add(safeText)
+      results.push({ text: safeText, type, icon })
     }
     for (const r of rows) {
       if (results.length >= 10) break
-      if (r.description?.toLowerCase().includes(q)) add(r.description, 'DESC', '📝')
-      if (r.source_label?.toLowerCase().includes(q)) add(r.source_label, 'SOURCE', '📊')
-      if (r.recorded_by?.toLowerCase().includes(q)) add(r.recorded_by, 'USER', '👤')
-      if (r.notes?.toLowerCase().includes(q)) add(r.notes, 'NOTES', '📄')
+      if (String(r.description || '').toLowerCase().includes(q)) add(r.description, 'DESC', '📝')
+      if (String(r.source_label || '').toLowerCase().includes(q)) add(r.source_label, 'SOURCE', '📊')
+      if (String(r.recorded_by || '').toLowerCase().includes(q)) add(r.recorded_by, 'USER', '👤')
+      if (String(r.notes || '').toLowerCase().includes(q)) add(r.notes, 'NOTES', '📄')
     }
     setSuggestions(results)
   }, [search, rows])
@@ -175,7 +205,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
   function saveEntry(e) {
     e.preventDefault()
     setFormError('')
-    if (!form.description.trim()) return setFormError('Description is required')
+    if (!(form.description || '').trim()) return setFormError('Description is required')
     if (!form.amount || parseFloat(form.amount) <= 0) return setFormError('Enter a valid amount')
     setPendingEntry({ ...form, amount: parseFloat(form.amount), isEdit: !!editingId })
   }
@@ -279,10 +309,10 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
     if (search.trim()) {
       const q = search.toLowerCase()
       f = f.filter(r => 
-        r.description?.toLowerCase().includes(q) ||
-        r.source_label?.toLowerCase().includes(q) ||
-        r.recorded_by?.toLowerCase().includes(q) ||
-        r.notes?.toLowerCase().includes(q)
+        String(r.description || '').toLowerCase().includes(q) ||
+        String(r.source_label || '').toLowerCase().includes(q) ||
+        String(r.recorded_by || '').toLowerCase().includes(q) ||
+        String(r.notes || '').toLowerCase().includes(q)
       )
     }
     return f
@@ -380,7 +410,14 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingEntry(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSaveEntry}>Confirm</button>
+              <button
+                ref={confirmSaveBtnRef}
+                className="confirm-btn-ok"
+                onClick={confirmSaveEntry}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveEntry(); }}
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
@@ -402,7 +439,14 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => { setVoidTarget(null); setVoidReason('') }}>Cancel</button>
-              <button className="confirm-btn-ok danger" onClick={confirmVoid}>Void</button>
+              <button
+                ref={confirmVoidBtnRef}
+                className="confirm-btn-ok danger"
+                onClick={confirmVoid}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmVoid(); }}
+              >
+                Void
+              </button>
             </div>
           </div>
         </div>
@@ -557,7 +601,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
               <div className="cl-form-modal-title">{editingId ? '✏ Edit Entry' : '+ Manual Entry'}</div>
               <button className="cl-form-modal-close" onClick={cancelEdit}>✕</button>
             </div>
-            <form onSubmit={saveEntry} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <form onSubmit={saveEntry} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!saving && isFormValid) saveEntry(e); } }} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               <div>
                 <label className="cl-label">Type *</label>
                 <div className="cl-type-grid">
@@ -604,7 +648,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
               {formError && <div className="cl-form-error">{formError}</div>}
               <div className="cl-form-actions">
                 <button type="button" className="cl-btn cl-btn-ghost" onClick={cancelEdit}>Cancel</button>
-                <button type="submit" className={`cl-btn ${form.entry_type.endsWith('_IN') ? 'cl-btn-emerald' : 'cl-btn-rose'}`} disabled={saving}>
+                <button type="submit" className={`cl-btn ${(form.entry_type || '').endsWith('_IN') ? 'cl-btn-emerald' : 'cl-btn-rose'}`} disabled={!isFormValid || saving}>
                   {saving ? 'Saving…' : editingId ? '✓ Update' : `+ Record ${ENTRY_TYPES[form.entry_type]?.label || 'Entry'}`}
                 </button>
               </div>

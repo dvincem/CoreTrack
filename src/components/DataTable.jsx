@@ -3,7 +3,7 @@ import { SkeletonRows } from '../lib/config'
 import Pagination from './Pagination'
 
 /**
- * DataTable — shared table component for TireHub pages.
+ * DataTable — shared table component for CoreTrack pages.
  * Supports automatic sorting and pagination UI.
  */
 export function DataTable({

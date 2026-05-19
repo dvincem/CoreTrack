@@ -10,7 +10,7 @@ import usePaginatedResource from '../hooks/usePaginatedResource'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 /* ============================================================
-   TIREHUB — STAFF MANAGEMENT PAGE (UNIFIED)
+   CORETRACK — STAFF MANAGEMENT PAGE (UNIFIED)
    A single-view dashboard for staff details & attendance.
    Optimized for PC and Mobile with unified modal & roster.
    ============================================================ */

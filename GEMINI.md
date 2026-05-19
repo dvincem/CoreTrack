@@ -74,6 +74,6 @@ This file provides project-specific context and instructions for the Gemini CLI 
 - **Theme Engine:** Fully reactive OLED Midnight Glass interface supporting dynamic Dark/Light mode transitions.
 
 ### Legacy / Removed Features
-- **TireHub AI Assistant:** (v2.1) Removed Local Llama 3.2 engine integration to reduce dependency bloat.
+- **CoreTrack AI Assistant:** (v2.1) Removed Local Llama 3.2 engine integration to reduce dependency bloat.
 - **Financial Health Page:** (v2.1) Consolidated into the more comprehensive Profits & Margins dashboard.
 - **Sales Ledger Table:** (v2.1) Audited and marked as dead/deprecated in favor of unified Sale Header/Items structure.

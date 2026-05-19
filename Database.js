@@ -929,6 +929,14 @@ function initializeDatabase() {
           db.run(`CREATE INDEX IF NOT EXISTS idx_expenses_shop_date ON expenses(shop_id, expense_date)`, () => { });
           db.run(`CREATE INDEX IF NOT EXISTS idx_vehicle_plates_customer ON vehicle_plates(customer_id)`, () => { });
 
+          // Additional indexes for frequently searched text columns
+          db.run(`CREATE INDEX IF NOT EXISTS idx_sale_items_item_name ON sale_items(item_name)`, () => { });
+          db.run(`CREATE INDEX IF NOT EXISTS idx_sale_items_brand ON sale_items(brand)`, () => { });
+          db.run(`CREATE INDEX IF NOT EXISTS idx_sale_items_tire_size ON sale_items(tire_size)`, () => { });
+          db.run(`CREATE INDEX IF NOT EXISTS idx_customer_master_name ON customer_master(customer_name)`, () => { });
+          db.run(`CREATE INDEX IF NOT EXISTS idx_staff_master_full_name ON staff_master(full_name)`, () => { });
+
+
           // ── Phase 3: composite indexes for profit / financial-health aggregations & paginated lookups ──
           // sale_items join + aggregation by type/item
           db.run(`CREATE INDEX IF NOT EXISTS idx_sale_items_sale_type_item ON sale_items(sale_id, sale_type, item_or_service_id)`, () => { });
@@ -954,7 +962,18 @@ function initializeDatabase() {
             WHEN NEW.unit_cost != OLD.unit_cost AND NEW.selling_price = OLD.selling_price
             BEGIN
               UPDATE item_master
-              SET selling_price = OLD.selling_price + (NEW.unit_cost - OLD.unit_cost)
+              SET selling_price = CASE 
+                WHEN UPPER(NEW.category) IN ('PCR', 'SUV', 'TBR', 'LT', 'LTB', 'RECAP', 'RECAPPING', 'BATTERY', 'USED TIRE', 'MOTORCYCLE', 'TUBE') THEN
+                  CAST((
+                    (
+                      OLD.selling_price + 
+                      (CAST((NEW.unit_cost + 70) / 100 AS INTEGER) * 100) - 
+                      (CAST((OLD.unit_cost + 70) / 100 AS INTEGER) * 100)
+                    ) + 50
+                  ) / 100 AS INTEGER) * 100
+                ELSE
+                  OLD.selling_price + (NEW.unit_cost - OLD.unit_cost)
+              END
               WHERE item_id = NEW.item_id;
             END;`);
 

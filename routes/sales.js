@@ -289,12 +289,18 @@ router.get("/sales-kpi/:shop_id", (req, res) => {
     params.push(startDate, endDate);
   }
   const sql = `
-    SELECT 
+    SELECT
       COALESCE(SUM(sh.total_amount), 0) AS totalRevenue,
       COALESCE(SUM(CASE WHEN sh.business_date = DATE('now','localtime') THEN sh.total_amount ELSE 0 END), 0) AS todayRevenue,
-      COALESCE(SUM((SELECT COUNT(*) FROM sale_items WHERE sale_id = sh.sale_id)), 0) AS totalItems,
+      COALESCE(SUM(si.item_count), 0) AS totalItems,
       COUNT(*) AS totalTransactions
-    FROM sale_header sh ${where}`;  db.get(sql, params, (err, row) => {
+    FROM sale_header sh
+    LEFT JOIN (
+      SELECT sale_id, COUNT(*) as item_count
+      FROM sale_items
+      GROUP BY sale_id
+    ) si ON sh.sale_id = si.sale_id
+    ${where}`;  db.get(sql, params, (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(row || { totalRevenue: 0, todayRevenue: 0, totalItems: 0, totalTransactions: 0 });
   });

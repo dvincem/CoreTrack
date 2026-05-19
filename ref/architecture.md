@@ -1,6 +1,6 @@
 # Project Architecture
 
-TireHub is a management system for tire shops, built with a Node.js/Express backend and a React/Vite frontend.
+CoreTrack is a management system for tire shops, built with a Node.js/Express backend and a React/Vite frontend.
 
 ## Backend (Node.js/Express)
 - **Entry Point**: `server.js`

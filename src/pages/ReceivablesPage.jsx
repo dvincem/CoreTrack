@@ -9,7 +9,7 @@ import usePaginatedResource from '../hooks/usePaginatedResource'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 /* ============================================================
-   TIREHUB — RECEIVABLES PAGE (with entry form + payments)
+   CORETRACK — RECEIVABLES PAGE (with entry form + payments)
    ============================================================ */
 
 ;

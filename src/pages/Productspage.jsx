@@ -68,6 +68,8 @@ function generateSKU(type, brand, design, size, dot) {
 function Productspage({ shopId }) {
   const [catFilter, setCatFilter] = React.useState("ALL");
   const [suggestions, setSuggestions] = React.useState([]);
+  const [formIsValid, setFormIsValid] = React.useState(false);
+  const confirmBoxRef = React.useRef(null);
 
   const {
     data: items,
@@ -248,6 +250,43 @@ function Productspage({ shopId }) {
     localStorage.setItem(`th-prod-add-items-${shopId}`, JSON.stringify(itemsToAdd));
     localStorage.setItem(`th-prod-add-open-${shopId}`, String(formOpen));
   }, [itemsToAdd, formOpen, shopId, isDraftLoaded]);
+
+  // Validate form whenever itemsToAdd changes
+  React.useEffect(() => {
+    if (!isDraftLoaded) {
+      setFormIsValid(false);
+      return;
+    }
+
+    let isValid = true;
+    for (let i = 0; i < itemsToAdd.length; i++) {
+      const item = itemsToAdd[i];
+      const isTire = item.itemType === "TIRE";
+
+      if (isTire && (!item.brand || !item.design || !item.size)) {
+        isValid = false;
+        break;
+      }
+      if (!isTire && !item.item_name) {
+        isValid = false;
+        break;
+      }
+      if (!item.category) {
+        isValid = false;
+        break;
+      }
+      if (!item.unit_cost || !item.selling_price) {
+        isValid = false;
+        break;
+      }
+      if (isTire && !item.dot_number?.trim()) {
+        isValid = false;
+        break;
+      }
+    }
+
+    setFormIsValid(isValid);
+  }, [itemsToAdd, isDraftLoaded]);
 
   async function fetchLiveCats() {
     if (!shopId) return;
@@ -1522,7 +1561,13 @@ function Productspage({ shopId }) {
                   </button>
                   <button
                     onClick={handleAddItem}
-                    disabled={saving}
+                    disabled={saving || !formIsValid}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !saving && formIsValid) {
+                        e.preventDefault();
+                        handleAddItem();
+                      }
+                    }}
                     style={{
                       padding: "0.6rem 2rem",
                       borderRadius: 8,
@@ -1531,7 +1576,7 @@ function Productspage({ shopId }) {
                       fontWeight: 700,
                       fontSize: "0.9rem",
                       border: "none",
-                      cursor: saving ? "not-allowed" : "pointer",
+                      cursor: (saving || !formIsValid) ? "not-allowed" : "pointer",
                       boxShadow: "0 4px 12px rgba(255, 107, 0, 0.2)"
                     }}
                   >
@@ -2367,7 +2412,17 @@ function Productspage({ shopId }) {
                 >
                   Cancel
                 </button>
-                <button className="confirm-btn-ok" style={{ background: "var(--th-orange)" }} onClick={confirmAddItem}>
+                <button
+                  className="confirm-btn-ok"
+                  style={{ background: "var(--th-orange)" }}
+                  onClick={confirmAddItem}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      confirmAddItem();
+                    }
+                  }}
+                >
                   Confirm Save
                 </button>
               </div>

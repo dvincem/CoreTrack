@@ -9,7 +9,7 @@ import usePaginatedResource from '../hooks/usePaginatedResource'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 
 /* ============================================================
-   TIREHUB — ENHANCED INVENTORY PAGE
+   CORETRACK — ENHANCED INVENTORY PAGE
    Drop-in replacement. Requires API_URL global + currency().
    ============================================================ */
 

@@ -10,7 +10,7 @@ const MANAGEMENT_ROLES = ['Owner', 'Manager', 'General Manager', 'Operations Man
 const SERVICE_ROLES = ['Tireman', 'Technician', 'Mechanic', 'Vulcanizer', 'Helper', 'Service Staff']
 
   /* ============================================================
-     TIREHUB — ENHANCED POS PAGE
+     CORETRACK — ENHANCED POS PAGE
      Drop-in replacement for the original POSPage component.
      Requires: API_URL global, currency() helper (or uses built-in).
      ============================================================ */

@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? null : "tirehub-dev-secret-change-in-production");
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? null : "coretrack-dev-secret-change-in-production");
 
 if (process.env.NODE_ENV === "production" && !JWT_SECRET) {
   console.error("FATAL: JWT_SECRET not set in production!");

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
 const { dbGet, dbAll, dbRun, syncCurrentStock, findOrCreateDotVariant, logPriceHistory } = require("../lib/db");
+const { calculateAutoAdjustedPrice } = require("../lib/pricing");
 const { v4: uuidv4 } = require("uuid");
 
 router.get("/items/:shop_id", async (req, res) => {
@@ -307,10 +308,10 @@ router.put("/items/:item_id/unit-cost", (req, res) => {
     return res.status(400).json({ error: "Unit cost is required" });
   }
   const newCost = parseFloat(unit_cost);
-  db.get(`SELECT unit_cost, selling_price FROM item_master WHERE item_id = ?`, [item_id], (err, row) => {
+  db.get(`SELECT unit_cost, selling_price, category FROM item_master WHERE item_id = ?`, [item_id], (err, row) => {
     if (err || !row) return res.status(404).json({ error: "Item not found" });
     const costDelta = newCost - (row.unit_cost || 0);
-    const newPrice = (row.selling_price || 0) + costDelta;
+    const newPrice = calculateAutoAdjustedPrice(row.selling_price, row.unit_cost, newCost, row.category);
     db.run(`UPDATE item_master SET unit_cost = ?, selling_price = ? WHERE item_id = ?`, [newCost, newPrice, item_id], function (err2) {
       if (err2) return res.status(400).json({ error: err2.message });
       if (Math.abs(costDelta) > 0.001) {
