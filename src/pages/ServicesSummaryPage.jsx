@@ -1,6 +1,6 @@
 import '../pages_css/ServicesSummaryPage.css';
 import React from 'react'
-import { API_URL, apiFetch } from '../lib/config'
+import { API_URL, apiFetch, allowOnlyDecimals } from '../lib/config'
 import usePaginatedResource from '../hooks/usePaginatedResource'
 import KpiCard from '../components/KpiCard'
 import { DataTable } from '../components/DataTable'
@@ -381,6 +381,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                               {cardBds.open && (
                                 <div className="ss-bale-panel">
                                   <input className="ss-bale-input" type="number" min="1" step="1" value={cardBds.amount}
+                                    onKeyDown={allowOnlyDecimals}
                                     onChange={e => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...cardBds, amount: e.target.value } }))} />
                                   <button className="ss-bale-confirm" disabled={cardBds.saving} onClick={() => submitBaleDeduct(tireman.staff_id)}>
                                     {cardBds.saving ? '…' : '✓'}
@@ -614,6 +615,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                                 {bds.open && (
                                   <div className="ss-bale-panel">
                                     <input className="ss-bale-input" type="number" min="1" step="1" value={bds.amount}
+                                      onKeyDown={allowOnlyDecimals}
                                       onChange={e => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, amount: e.target.value } }))} />
                                     <button className="ss-bale-confirm" disabled={bds.saving} onClick={() => submitBaleDeduct(tireman.staff_id)}>
                                       {bds.saving ? '…' : '✓ Deduct'}

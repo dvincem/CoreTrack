@@ -1,6 +1,6 @@
 import '../pages_css/SuppliersPage.css';
 import React from 'react'
-import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
+import { API_URL, apiFetch, SkeletonRows, allowOnlyDigits } from '../lib/config'
 import Pagination from '../components/Pagination'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
@@ -500,7 +500,7 @@ function SuppliersPage({ shopId }) {
                 </div>
                 <div className="supp-modal-field">
                   <label className="supp-modal-label">Payment Terms (days)</label>
-                  <input className="supp-modal-input" type="number" min="0" value={addForm.default_payment_terms_days} onChange={e => setAddForm(f => ({ ...f, default_payment_terms_days: e.target.value }))} />
+                  <input className="supp-modal-input" type="number" min="0" value={addForm.default_payment_terms_days} onKeyDown={allowOnlyDigits} onChange={e => setAddForm(f => ({ ...f, default_payment_terms_days: e.target.value }))} />
                 </div>
               </div>
               {addError && <div className="supp-modal-error">{addError}</div>}
@@ -551,7 +551,7 @@ function SuppliersPage({ shopId }) {
                 </div>
                 <div className="supp-modal-field">
                   <label className="supp-modal-label">Payment Terms (days)</label>
-                  <input className="supp-modal-input" type="number" min="0" value={editForm.default_payment_terms_days} onChange={e => setEditForm(f => ({ ...f, default_payment_terms_days: e.target.value }))} />
+                  <input className="supp-modal-input" type="number" min="0" value={editForm.default_payment_terms_days} onKeyDown={allowOnlyDigits} onChange={e => setEditForm(f => ({ ...f, default_payment_terms_days: e.target.value }))} />
                 </div>
               </div>
               {editError && <div className="supp-modal-error">{editError}</div>}

@@ -1,7 +1,7 @@
 import '../pages_css/ExpensesPage.css';
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, compactCurrency, apiFetch } from '../lib/config'
+import { API_URL, currency, compactCurrency, apiFetch, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import { DataTable } from '../components/DataTable'
@@ -548,7 +548,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
                 </div>
                 <div>
                   <label className="exp-label">Amount (₱) *</label>
-                  <input type="number" step="0.01" min="0" className="exp-input" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                  <input type="number" step="0.01" min="0" className="exp-input" placeholder="0.00" value={form.amount} onKeyDown={allowOnlyDecimals} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
                 </div>
               </div>
               <div className="exp-form-grid">

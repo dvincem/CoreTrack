@@ -1,6 +1,6 @@
 import '../pages_css/ReturnsPage.css';
 import React, { useState, useEffect, useCallback } from "react";
-import { API_URL, apiFetch } from "../lib/config";
+import { API_URL, apiFetch, allowOnlyDigits } from "../lib/config";
 import Pagination from '../components/Pagination'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -815,6 +815,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                               min="1"
                               max={si.returnable_qty}
                               value={state.qty}
+                              onKeyDown={allowOnlyDigits}
                               onChange={(e) => {
                                 const v = Math.min(parseFloat(e.target.value) || 1, si.returnable_qty);
                                 setCustChecked((prev) => ({ ...prev, [si.sale_item_id]: { ...prev[si.sale_item_id], qty: v } }));
@@ -1170,6 +1171,7 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
                         min="1"
                         max={selectedOrderItem.returnable_qty}
                         value={suppQty}
+                        onKeyDown={allowOnlyDigits}
                         onChange={(e) => setSuppQty(e.target.value)}
                       />
                       <span style={{ fontSize: "0.72rem", color: "var(--th-text-dim)", marginTop: "0.2rem" }}>

@@ -1,6 +1,7 @@
 import '../pages_css/PayablesPage.css';
 import React from 'react'
-import { API_URL, currency, compactCurrency, apiFetch, SkeletonRows } from '../lib/config'
+import ReactDOM from 'react-dom'
+import { API_URL, currency, compactCurrency, apiFetch, SkeletonRows, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -565,6 +566,117 @@ function PayablesPage({ shopId }) {
     setSaving(false);
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        if (pendingPayable) {
+          e.preventDefault();
+          confirmSubmitForm();
+          return;
+        }
+        if (pendingEditPayable) {
+          e.preventDefault();
+          confirmSubmitEdit();
+          return;
+        }
+        if (pendingPayment) {
+          e.preventDefault();
+          confirmSubmitPayment();
+          return;
+        }
+        if (pendingMarkPaid) {
+          e.preventDefault();
+          confirmMarkPaidFull();
+          return;
+        }
+        if (weekBulkPending) {
+          e.preventDefault();
+          confirmWeekBulkPay();
+          return;
+        }
+        if (voidTarget) {
+          e.preventDefault();
+          handleVoid();
+          return;
+        }
+        if (deleteTarget) {
+          e.preventDefault();
+          handleDeletePayable();
+          return;
+        }
+
+        // Ignore inside textareas
+        if (document.activeElement?.tagName === 'TEXTAREA') {
+          return;
+        }
+
+        if (showForm) {
+          const canSubmit = form.payable_type === 'SUPPLIER'
+            ? (form.supplier_id && form.original_amount && parseFloat(form.original_amount) > 0)
+            : (form.payee_name && form.original_amount && parseFloat(form.original_amount) > 0);
+          if (canSubmit) {
+            e.preventDefault();
+            submitForm();
+          }
+        } else if (editTarget) {
+          const canSubmit = editForm.payable_type === 'SUPPLIER'
+            ? (editForm.supplier_id && editForm.original_amount && parseFloat(editForm.original_amount) > 0)
+            : (editForm.payee_name && editForm.original_amount && parseFloat(editForm.original_amount) > 0);
+          if (canSubmit) {
+            e.preventDefault();
+            submitEdit();
+          }
+        } else if (detailTarget && detailTarget.status !== "PAID") {
+          const amt = parseFloat(payForm.amount);
+          const canSubmit = amt && amt > 0 && amt <= (detailTarget.balance_amount + 0.01);
+          if (canSubmit) {
+            e.preventDefault();
+            submitPayment();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        if (pendingPayable) {
+          e.preventDefault();
+          setPendingPayable(null);
+        } else if (pendingEditPayable) {
+          e.preventDefault();
+          setPendingEditPayable(null);
+        } else if (pendingPayment) {
+          e.preventDefault();
+          setPendingPayment(null);
+        } else if (pendingMarkPaid) {
+          e.preventDefault();
+          setPendingMarkPaid(null);
+        } else if (weekBulkPending) {
+          e.preventDefault();
+          setWeekBulkPending(null);
+        } else if (voidTarget) {
+          e.preventDefault();
+          setVoidTarget(null);
+        } else if (deleteTarget) {
+          e.preventDefault();
+          setDeleteTarget(null);
+        } else if (detailTarget) {
+          e.preventDefault();
+          closeDetail();
+        } else if (showForm) {
+          e.preventDefault();
+          setShowForm(false);
+        } else if (editTarget) {
+          e.preventDefault();
+          setEditTarget(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    pendingPayable, pendingEditPayable, pendingPayment, pendingMarkPaid, weekBulkPending, voidTarget, deleteTarget,
+    detailTarget, showForm, editTarget, form, editForm, payForm, voidReason,
+    confirmSubmitForm, confirmSubmitEdit, confirmSubmitPayment, confirmMarkPaidFull, confirmWeekBulkPay, handleVoid, handleDeletePayable, closeDetail, submitForm, submitEdit, submitPayment
+  ]);
+
   /* Stats — from KPI endpoint */
   const totalPayables = kpi?.totalPayables || 0;
   const monthBalance = kpi?.monthBalance || 0;
@@ -885,7 +997,7 @@ function PayablesPage({ shopId }) {
       )}
 
       {/* ── ADD PAYABLE SIDEBAR ── */}
-      {showForm && (
+      {showForm && ReactDOM.createPortal(
         <div className="confirm-overlay" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="pay-sidebar">
             <div className="pay-sidebar-head">
@@ -921,7 +1033,7 @@ function PayablesPage({ shopId }) {
               </div>
               <div>
                 <label className="pay-form-label">Amount <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                <input className="pay-form-input" type="number" min="0.01" step="0.01" placeholder="₱ 0.00" value={form.original_amount} onChange={e => setForm(f => ({ ...f, original_amount: e.target.value }))} />
+                <input className="pay-form-input" type="number" min="0.01" step="0.01" placeholder="₱ 0.00" value={form.original_amount} onKeyDown={allowOnlyDecimals} onChange={e => setForm(f => ({ ...f, original_amount: e.target.value }))} />
               </div>
               {/* Recurring toggle */}
               <div>
@@ -943,7 +1055,7 @@ function PayablesPage({ shopId }) {
                   <div className="pay-rec-row">
                     <div>
                       <label className="pay-form-label">Day of Month <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input className="pay-form-input" type="number" min="1" max="31" placeholder="e.g. 15" value={recurringDay} onChange={e => setRecurringDay(e.target.value)} />
+                      <input className="pay-form-input" type="number" min="1" max="31" placeholder="e.g. 15" value={recurringDay} onKeyDown={allowOnlyDigits} onChange={e => setRecurringDay(e.target.value)} />
                     </div>
                     <div>
                       <label className="pay-form-label">Start Month / Year</label>
@@ -953,7 +1065,7 @@ function PayablesPage({ shopId }) {
                             <option key={i} value={i}>{m}</option>
                           ))}
                         </select>
-                        <input className="pay-form-input" style={{ flex: 1, minWidth: 0 }} type="number" min="2020" max="2100" value={recurringStartYear} onChange={e => setRecurringStartYear(e.target.value)} />
+                        <input className="pay-form-input" style={{ flex: 1, minWidth: 0 }} type="number" min="2020" max="2100" value={recurringStartYear} onKeyDown={allowOnlyDigits} onChange={e => setRecurringStartYear(e.target.value)} />
                       </div>
                     </div>
                   </div>
@@ -977,7 +1089,7 @@ function PayablesPage({ shopId }) {
                   {recurringEndMode === "months" && (
                     <div>
                       <label className="pay-form-label">Number of Months <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input className="pay-form-input" type="number" min="1" max="360" placeholder="e.g. 36" value={recurringMonths} onChange={e => setRecurringMonths(e.target.value)} />
+                      <input className="pay-form-input" type="number" min="1" max="360" placeholder="e.g. 36" value={recurringMonths} onKeyDown={allowOnlyDigits} onChange={e => setRecurringMonths(e.target.value)} />
                     </div>
                   )}
                   {recurringEndMode === "until" && (
@@ -1012,10 +1124,11 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="pay-sidebar-foot">
               <button className="pay-btn-cancel" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="pay-btn-primary" disabled={saving} onClick={submitForm}>{saving ? "Saving…" : "✓ Record Payable"}</button>
+              <button className="pay-btn-primary" disabled={saving || (form.payable_type === 'SUPPLIER' ? (!form.supplier_id || !form.original_amount || parseFloat(form.original_amount) <= 0) : (!form.payee_name || !form.original_amount || parseFloat(form.original_amount) <= 0))} onClick={submitForm}>{saving ? "Saving…" : "✓ Record Payable"}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── DAY DETAIL MODAL ── */}
@@ -1096,7 +1209,7 @@ function PayablesPage({ shopId }) {
       })()}
 
       {/* ── DETAIL MODAL ── */}
-      {detailTarget && (
+      {detailTarget && ReactDOM.createPortal(
         <div className="confirm-overlay" onClick={e => { if (e.target === e.currentTarget) closeDetail(); }}>
           <div className="pay-detail-modal">
             <div className="pay-modal-head" style={{ padding: "1rem 1.2rem 0.85rem", gap: "0.75rem" }}>
@@ -1150,7 +1263,7 @@ function PayablesPage({ shopId }) {
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     <div style={{ flex: 1 }}>
                       <label className="pay-form-label">Amount <span style={{ color: "var(--th-rose)" }}>*</span></label>
-                      <input className="pay-form-input" type="number" min="0.01" step="0.01" value={editForm.original_amount} onChange={e => setEditForm(f => ({ ...f, original_amount: e.target.value }))} />
+                      <input className="pay-form-input" type="number" min="0.01" step="0.01" value={editForm.original_amount} onKeyDown={allowOnlyDecimals} onChange={e => setEditForm(f => ({ ...f, original_amount: e.target.value }))} />
                     </div>
                     {editScope === "one" && (
                       <div style={{ flex: 1 }}>
@@ -1165,7 +1278,7 @@ function PayablesPage({ shopId }) {
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.2rem" }}>
                     <button className="pay-btn-cancel" style={{ flex: 1 }} onClick={() => setEditTarget(null)}>Cancel</button>
-                    <button className="pay-btn-primary" style={{ flex: 2 }} disabled={editSaving} onClick={submitEdit}>{editSaving ? "Saving…" : "✓ Save Changes"}</button>
+                    <button className="pay-btn-primary" style={{ flex: 2 }} disabled={editSaving || (editForm.payable_type === 'SUPPLIER' ? (!editForm.supplier_id || !editForm.original_amount || parseFloat(editForm.original_amount) <= 0) : (!editForm.payee_name || !editForm.original_amount || parseFloat(editForm.original_amount) <= 0))} onClick={submitEdit}>{editSaving ? "Saving…" : "✓ Save Changes"}</button>
                   </div>
                 </div>
               </div>
@@ -1212,6 +1325,7 @@ function PayablesPage({ shopId }) {
                     <input type="number" min="0.01" step="0.01" className="pay-form-input" placeholder="₱ 0.00"
                       max={detailTarget?.balance_amount}
                       value={payForm.amount}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => {
                         const val = parseFloat(e.target.value);
                         const bal = detailTarget?.balance_amount || 0;
@@ -1236,7 +1350,7 @@ function PayablesPage({ shopId }) {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.65rem" }}>
-                  <button className="pay-btn-primary" style={{ flex: 1 }} onClick={submitPayment} disabled={paying}>
+                  <button className="pay-btn-primary" style={{ flex: 1 }} onClick={submitPayment} disabled={paying || !payForm.amount || parseFloat(payForm.amount) <= 0 || parseFloat(payForm.amount) > (detailTarget.balance_amount + 0.01)}>
                     {paying ? "Saving…" : "✓ Confirm Payment"}
                   </button>
                 </div>
@@ -1294,7 +1408,8 @@ function PayablesPage({ shopId }) {
               <button className="pay-btn-cancel" onClick={closeDetail} style={{ minWidth: 80 }}>Close</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {selectedWeek && (() => {
@@ -1445,7 +1560,7 @@ function PayablesPage({ shopId }) {
       })()}
 
       {/* Confirm: Bulk Weekly Payment */}
-      {weekBulkPending && (
+      {weekBulkPending && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Bulk Payment</div>
@@ -1463,11 +1578,12 @@ function PayablesPage({ shopId }) {
               <button className="pay-btn-primary" onClick={confirmWeekBulkPay}>Confirm Payment</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Add Payable */}
-      {pendingPayable && (
+      {pendingPayable && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Add Payable</div>
@@ -1485,11 +1601,12 @@ function PayablesPage({ shopId }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitForm} disabled={saving}>Save</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Edit Payable */}
-      {pendingEditPayable && (
+      {pendingEditPayable && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Update Payable</div>
@@ -1504,11 +1621,12 @@ function PayablesPage({ shopId }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitEdit} disabled={editSaving}>Update</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Record Payment */}
-      {pendingPayment && (
+      {pendingPayment && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Record Payment</div>
@@ -1523,11 +1641,12 @@ function PayablesPage({ shopId }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitPayment} disabled={paying}>Confirm</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Mark Paid Full */}
-      {pendingMarkPaid && (
+      {pendingMarkPaid && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Mark Paid in Full</div>
@@ -1541,10 +1660,11 @@ function PayablesPage({ shopId }) {
               <button className="confirm-btn-ok" onClick={confirmMarkPaidFull} disabled={paying}>Confirm</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Void confirmation */}
-      {voidTarget && (
+      {voidTarget && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Void this Payable?</div>
@@ -1564,10 +1684,11 @@ function PayablesPage({ shopId }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Delete confirmation — GENERAL payables only */}
-      {deleteTarget && (
+      {deleteTarget && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Delete Payable?</div>
@@ -1584,7 +1705,8 @@ function PayablesPage({ shopId }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

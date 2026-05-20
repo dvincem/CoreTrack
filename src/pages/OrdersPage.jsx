@@ -2,7 +2,7 @@ import "../pages_css/OrdersPage.css";
 import React from "react";
 import Pagination from "../components/Pagination";
 import SearchInput from "../components/SearchInput";
-import { API_URL, currency, apiFetch } from "../lib/config";
+import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from "../lib/config";
 import usePaginatedResource from "../hooks/usePaginatedResource";
 import { useSearchPrefill } from "../hooks/useSearchPrefill";
 
@@ -899,6 +899,7 @@ function CreateOrderModal({
                         min="1"
                         placeholder="1"
                         value={newItemForm.quantity}
+                        onKeyDown={allowOnlyDigits}
                         onChange={(e) =>
                           setNewItemForm((f) => ({
                             ...f,
@@ -928,6 +929,7 @@ function CreateOrderModal({
                         step="0.01"
                         placeholder="0.00"
                         value={newItemForm.unit_cost}
+                        onKeyDown={allowOnlyDecimals}
                         onChange={(e) =>
                           setNewItemForm((f) => ({
                             ...f,
@@ -958,6 +960,7 @@ function CreateOrderModal({
                         step="0.01"
                         placeholder="0.00"
                         value={newItemForm.selling_price}
+                        onKeyDown={allowOnlyDecimals}
                         onChange={(e) =>
                           setNewItemForm((f) => ({
                             ...f,
@@ -986,6 +989,7 @@ function CreateOrderModal({
                         min="0"
                         placeholder="0"
                         value={newItemForm.reorder_point}
+                        onKeyDown={allowOnlyDigits}
                         onChange={(e) =>
                           setNewItemForm((f) => ({
                             ...f,
@@ -1310,6 +1314,7 @@ function CreateOrderModal({
                           type="number"
                           min="1"
                           value={oi.quantity}
+                          onKeyDown={allowOnlyDigits}
                           onChange={(e) =>
                             onUpdateQty(
                               oi.order_item_id,
@@ -2706,6 +2711,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                       min="1"
                       placeholder="1"
                       value={newItemForm.quantity}
+                      onKeyDown={allowOnlyDigits}
                       onChange={(e) =>
                         setNewItemForm((f) => ({
                           ...f,
@@ -2743,6 +2749,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                             : undefined,
                       }}
                       value={newItemForm.dot_number}
+                      onKeyDown={allowOnlyDigits}
                       onChange={(e) =>
                         setNewItemForm((f) => ({
                           ...f,
@@ -2782,6 +2789,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                       step="0.01"
                       placeholder="0.00"
                       value={newItemForm.unit_cost}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={(e) =>
                         setNewItemForm((f) => ({
                           ...f,
@@ -2813,6 +2821,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                       step="0.01"
                       placeholder="0.00"
                       value={newItemForm.selling_price}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={(e) =>
                         setNewItemForm((f) => ({
                           ...f,
@@ -2842,6 +2851,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                       min="0"
                       placeholder="0"
                       value={newItemForm.reorder_point}
+                      onKeyDown={allowOnlyDigits}
                       onChange={(e) =>
                         setNewItemForm((f) => ({
                           ...f,
@@ -2977,6 +2987,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                           step="1"
                           style={{ textAlign: "center", fontWeight: 700 }}
                           value={line.quantity}
+                          onKeyDown={allowOnlyDigits}
                           onChange={(e) =>
                             updateLine(line._key, "quantity", e.target.value)
                           }
@@ -2997,6 +3008,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                               color: "var(--th-amber)",
                             }}
                             value={line.unit_cost}
+                            onKeyDown={allowOnlyDecimals}
                             onChange={(e) =>
                               updateLine(line._key, "unit_cost", e.target.value)
                             }
@@ -3019,6 +3031,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                                 : undefined,
                             }}
                             value={line.dot_number}
+                            onKeyDown={allowOnlyDigits}
                             onChange={(e) =>
                               updateLine(
                                 line._key,
@@ -5050,6 +5063,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                           Qty
                           <input type="number" min="0.01" step="any" value={ei.quantity}
+                            onKeyDown={allowOnlyDecimals}
                             onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
                             style={{
                               display: "block", width: "100%", boxSizing: "border-box",
@@ -5061,6 +5075,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                           Unit Cost
                           <input type="number" min="0" step="any" value={ei.unit_cost}
+                            onKeyDown={allowOnlyDecimals}
                             onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
                             style={{
                               display: "block", width: "100%", boxSizing: "border-box",
@@ -5072,6 +5087,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                           DOT #
                           <input type="text" value={ei.dot_number}
+                            onKeyDown={allowOnlyDigits}
                             onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
                             placeholder="e.g. 2524"
                             style={{
@@ -5141,6 +5157,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                               Qty
                               <input type="number" min="0.01" step="any" value={ap.quantity}
+                                onKeyDown={allowOnlyDecimals}
                                 onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
                                 style={{
                                   display: "block", width: "100%", boxSizing: "border-box",
@@ -5152,6 +5169,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                               Unit Cost
                               <input type="number" min="0" step="any" value={ap.unit_cost}
+                                onKeyDown={allowOnlyDecimals}
                                 onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
                                 style={{
                                   display: "block", width: "100%", boxSizing: "border-box",
@@ -5163,6 +5181,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
                               DOT #
                               <input type="text" value={ap.dot_number}
+                                onKeyDown={allowOnlyDigits}
                                 onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
                                 placeholder="e.g. 2524"
                                 style={{
@@ -5829,6 +5848,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             min="0.01"
                             step="any"
                             value={dispQty}
+                            onKeyDown={allowOnlyDecimals}
                             onChange={(e) =>
                               setReceiveOverrides((prev) => ({
                                 ...prev,
@@ -5862,6 +5882,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             min="0"
                             step="0.01"
                             value={dispCost}
+                            onKeyDown={allowOnlyDecimals}
                             onChange={(e) =>
                               setReceiveOverrides((prev) => ({
                                 ...prev,
@@ -5898,6 +5919,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                               type="text"
                               placeholder="e.g. 2025"
                               value={dispDot}
+                              onKeyDown={allowOnlyDigits}
                               onChange={(e) =>
                                 setReceiveOverrides((prev) => ({
                                   ...prev,

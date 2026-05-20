@@ -1,7 +1,7 @@
 import '../pages_css/POSPage.css';
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, apiFetch } from '../lib/config'
+import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import Pagination from '../components/Pagination'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -120,6 +120,7 @@ function CartItemConsumables({ item, valveItems, weightItems, onUpdate, balancin
               <label className="pos-sub-label">Tires Balanced</label>
               <input type="number" className="pos-sub-num"
                 value={item.balancing_quantity || item.quantity} min="1"
+                onKeyDown={allowOnlyDigits}
                 onChange={e => update({ balancing_quantity: Math.max(1, parseInt(e.target.value) || 1) })}
                 style={{ flex: 1, height: '32px', width: '100%' }} />
             </div>
@@ -127,6 +128,7 @@ function CartItemConsumables({ item, valveItems, weightItems, onUpdate, balancin
               <label className="pos-sub-label">Weight Qty {!item.wheel_weights_item_id && <span style={{ color: 'var(--th-rose)' }}>*</span>}</label>
               <input type="number" className="pos-sub-num"
                 value={item.wheel_weights_qty || 0} min="0"
+                onKeyDown={allowOnlyDigits}
                 onChange={e => update({ wheel_weights_qty: Math.max(0, parseInt(e.target.value) || 0) })}
                 style={{ flex: 1, height: '32px', width: '100%' }} />
             </div>
@@ -160,10 +162,11 @@ function CartItemConsumables({ item, valveItems, weightItems, onUpdate, balancin
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', height: '32px', background: 'var(--th-bg-input)', border: '1px solid var(--th-border-strong)', borderRadius: '6px', padding: '0.25rem 0.4rem' }}>
                 <span style={dim}>₱</span>
                 <input type="number" className="pos-sub-num"
-                  value={item.balancing_labor_price ?? balancingServicePrice ?? 0}
-                  min="0" step="1"
-                  onChange={e => update({ balancing_labor_price: Math.max(0, Number(e.target.value)) })}
-                  style={{ flex: 1, minWidth: 0, height: '100%', background: 'transparent', border: 'none', padding: 0, textAlign: 'right' }} />
+                value={item.balancing_labor_price ?? balancingServicePrice ?? 0}
+                min="0" step="1"
+                onKeyDown={allowOnlyDecimals}
+                onChange={e => update({ balancing_labor_price: Math.max(0, Number(e.target.value)) })}
+                style={{ flex: 1, minWidth: 0, height: '100%', background: 'transparent', border: 'none', padding: 0, textAlign: 'right' }} />
               </div>
             </div>
           </div>
@@ -279,6 +282,7 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
               value={item.quantity}
               min="1"
               max={item.type === "PRODUCT" ? item.stock : 99}
+              onKeyDown={allowOnlyDigits}
               onChange={e => {
                 const max = item.type === "PRODUCT" ? item.stock : 99;
                 const q = Math.min(Math.max(1, parseInt(e.target.value) || 1), max);
@@ -1126,7 +1130,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   React.useEffect(() => { setProdPage(1); }, [category, search]);
   React.useEffect(() => { fetchPosItems(prodPage); /* eslint-disable-next-line */ }, [prodPage]);
 
-  // --- Enter Key Shortcut ---
+  // --- Keyboard Shortcuts (Enter to confirm/submit, Escape to cancel) ---
   React.useEffect(() => {
     const handleKeyDown = (e) => {
       // Don't trigger if focus is on an input that might need Enter (though currently none are multiline)
@@ -1157,6 +1161,23 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         if (canComplete) {
           e.preventDefault();
           completeSale();
+        }
+      } else if (e.key === 'Escape') {
+        if (showConfirmModal) {
+          e.preventDefault();
+          setShowConfirmModal(false);
+        } else if (showClearCartModal) {
+          e.preventDefault();
+          setShowClearCartModal(false);
+        } else if (dotModal) {
+          e.preventDefault();
+          setDotModal(null);
+        } else if (designModal) {
+          e.preventDefault();
+          setDesignModal(null);
+        } else if (showMiscModal) {
+          e.preventDefault();
+          setShowMiscModal(false);
         }
       }
     };
@@ -1334,6 +1355,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     <input
                       type="number" min="0" step="0.01" placeholder="0.00"
                       value={miscForm.price}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => setMiscForm(f => ({ ...f, price: e.target.value }))}
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
                     />
@@ -1343,6 +1365,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     <input
                       type="number" min="0" step="0.01" placeholder="0.00"
                       value={miscForm.cost}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => setMiscForm(f => ({ ...f, cost: e.target.value }))}
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
                     />
@@ -1352,6 +1375,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     <input
                       type="number" min="1" step="1"
                       value={miscForm.qty}
+                      onKeyDown={allowOnlyDigits}
                       onChange={e => setMiscForm(f => ({ ...f, qty: e.target.value }))}
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
                     />
@@ -1855,6 +1879,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       <input
                         type="number" min="0" step="0.01" placeholder="0.00"
                         value={split.amount}
+                        onKeyDown={allowOnlyDecimals}
                         onChange={e => setPaymentSplits(prev => prev.map((p, i) => i === idx ? { ...p, amount: e.target.value } : p))}
                         style={{
                           background: "var(--th-bg-card)", border: "1px solid var(--th-border-strong)",
@@ -1919,7 +1944,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                         fontFamily: "var(--font-body)", fontSize: "0.85rem", outline: "none"
                       }} />
                     <input type="number" min="0" step="0.01" placeholder="Down payment (opt.)"
-                      value={creditDownPayment} onChange={e => setCreditDownPayment(e.target.value)}
+                      value={creditDownPayment} onKeyDown={allowOnlyDecimals} onChange={e => setCreditDownPayment(e.target.value)}
                       style={{
                         flex: 1, background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)",
                         color: "var(--th-text-primary)", padding: "0.35rem 0.5rem", borderRadius: 6,
@@ -2052,6 +2077,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     <input
                       type="number" min="0" step="1"
                       value={effectiveCommission}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => setCommissionOverride(Math.max(0, Number(e.target.value)))}
                       onClick={e => e.stopPropagation()}
                       style={{
@@ -2105,6 +2131,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       <input
                         type="number" min="0" step="1"
                         value={effectiveCommission}
+                        onKeyDown={allowOnlyDecimals}
                         onChange={e => setCommissionOverride(Math.max(0, Number(e.target.value)))}
                         style={{
                           width: 68, background: "transparent", border: "none", outline: "none",
@@ -2177,6 +2204,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       type="number" min="0" step="1"
                       placeholder="0"
                       value={extraCommission || ""}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => setExtraCommission(Math.max(0, Number(e.target.value) || 0))}
                       autoFocus
                       style={{

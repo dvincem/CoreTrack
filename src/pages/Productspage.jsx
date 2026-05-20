@@ -1,7 +1,7 @@
 import '../pages_css/Productspage.css';
 import React from "react";
 import ReactDOM from "react-dom";
-import { API_URL, apiFetch, currency } from "../lib/config";
+import { API_URL, apiFetch, currency, allowOnlyDigits, allowOnlyDecimals, allowOnlySignedDigits } from "../lib/config";
 import DataTable from "../components/DataTable";
 import FilterHeader from "../components/FilterHeader";
 import KpiCard from "../components/KpiCard";
@@ -251,6 +251,59 @@ function Productspage({ shopId }) {
     localStorage.setItem(`th-prod-add-items-${shopId}`, JSON.stringify(itemsToAdd));
     localStorage.setItem(`th-prod-add-open-${shopId}`, String(formOpen));
   }, [itemsToAdd, formOpen, shopId, isDraftLoaded]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+
+      if (e.key === 'Enter') {
+        if (isInput && !e.target.classList.contains('prod-adj-input')) {
+          return;
+        }
+
+        if (pendingAdj) {
+          e.preventDefault();
+          confirmAdjust();
+        } else if (addCatModal.open) {
+          return;
+        } else if (pending) {
+          e.preventDefault();
+          confirmAddItem();
+        } else if (formOpen) {
+          if (formIsValid && !saving) {
+            e.preventDefault();
+            handleAddItem();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        if (isInput) {
+          return;
+        }
+        if (pendingAdj) {
+          e.preventDefault();
+          setPendingAdj(null);
+        } else if (addCatModal.open) {
+          e.preventDefault();
+          setAddCatModal({ open: false, idx: null, itemType: null, value: "" });
+        } else if (pending) {
+          e.preventDefault();
+          setPending(null);
+        } else if (formOpen) {
+          e.preventDefault();
+          setFormOpen(false);
+        } else if (selected) {
+          e.preventDefault();
+          setSelected(null);
+          setHistoryVariants([]);
+          setActiveHistVariantId(null);
+          setActiveHistDesign(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pendingAdj, addCatModal, pending, formOpen, formIsValid, saving, selected, historyVariants, activeHistVariantId, activeHistDesign]);
 
   // Validate form whenever itemsToAdd changes
   React.useEffect(() => {
@@ -1188,7 +1241,11 @@ function Productspage({ shopId }) {
           <div className="prod-inline-edit" onClick={(e) => e.stopPropagation()}>
             {isEditCost ? (
               <input autoFocus className="prod-inline-input" type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item); if (e.key === "Escape") setEditCell(null); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEdit(item);
+                  if (e.key === "Escape") setEditCell(null);
+                  allowOnlyDecimals(e);
+                }}
               />
             ) : (
               <>
@@ -1218,7 +1275,11 @@ function Productspage({ shopId }) {
           <div className="prod-inline-edit" onClick={(e) => e.stopPropagation()}>
             {isEditPrice ? (
               <input autoFocus className="prod-inline-input" type="number" value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item); if (e.key === "Escape") setEditCell(null); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEdit(item);
+                  if (e.key === "Escape") setEditCell(null);
+                  allowOnlyDecimals(e);
+                }}
               />
             ) : (
               <>
@@ -1286,7 +1347,7 @@ function Productspage({ shopId }) {
         </div>
 
         {/* Add Product Modal */}
-        {formOpen && (
+        {formOpen && ReactDOM.createPortal(
           <div className="confirm-overlay" onClick={(e) => e.target === e.currentTarget && setFormOpen(false)}>
             <div className="confirm-box" style={{ maxWidth: "1100px", width: "95vw", padding: "1.2rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1472,7 +1533,7 @@ function Productspage({ shopId }) {
                           </div>
                           <div style={{ flex: "0.8", minWidth: "90px" }}>
                             <label className="prod-label" style={{ color: "var(--th-amber)" }}>DOT / Year *</label>
-                            <input className="prod-input" placeholder="2025" value={item.dot_number} onChange={e => updateItemToAdd(idx, "dot_number", e.target.value)} />
+                            <input className="prod-input" placeholder="2025" value={item.dot_number} onKeyDown={allowOnlyDigits} onChange={e => updateItemToAdd(idx, "dot_number", e.target.value.replace(/\D/g, '').slice(0, 4))} />
                           </div>
                         </>
                       ) : (
@@ -1505,20 +1566,20 @@ function Productspage({ shopId }) {
 
                       <div style={{ flex: "0.8", minWidth: "80px" }}>
                         <label className="prod-label">Cost *</label>
-                        <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.unit_cost} onChange={e => updateItemToAdd(idx, "unit_cost", e.target.value)} />
+                        <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.unit_cost} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, "unit_cost", e.target.value)} />
                       </div>
                       <div style={{ flex: "0.8", minWidth: "80px" }}>
                         <label className="prod-label">Price *</label>
-                        <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.selling_price} onChange={e => updateItemToAdd(idx, "selling_price", e.target.value)} />
+                        <input className="prod-input" type="number" step="0.01" placeholder="0.00" value={item.selling_price} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, "selling_price", e.target.value)} />
                       </div>
 
                       <div style={{ flex: "0.6", minWidth: "60px" }}>
                         <label className="prod-label">Qty</label>
-                        <input className="prod-input" type="number" min="1" placeholder="4" value={item.quantity} onChange={e => updateItemToAdd(idx, "quantity", e.target.value)} />
+                        <input className="prod-input" type="number" min="1" placeholder="4" value={item.quantity} onKeyDown={allowOnlyDigits} onChange={e => updateItemToAdd(idx, "quantity", e.target.value)} />
                       </div>
                       <div style={{ flex: "0.6", minWidth: "90px" }}>
                         <label className="prod-label">Reorder Pt.</label>
-                        <input className="prod-input" type="number" min="0" value={item.reorder_point} onChange={e => updateItemToAdd(idx, "reorder_point", e.target.value)} />
+                        <input className="prod-input" type="number" min="0" value={item.reorder_point} onKeyDown={allowOnlyDigits} onChange={e => updateItemToAdd(idx, "reorder_point", e.target.value)} />
                       </div>
                       <div style={{ flex: "1", minWidth: "110px" }}>
                         <label className="prod-label">Supplier</label>
@@ -1587,7 +1648,7 @@ function Productspage({ shopId }) {
               </div>
             </div>
           </div>
-        )}
+        , document.body)}
 
         {/* KPI Cards */}
         {(() => {
@@ -1837,7 +1898,7 @@ function Productspage({ shopId }) {
         {/* end flex row */}
 
         {/* History Modal */}
-        {selected && (
+        {selected && ReactDOM.createPortal(
           <ItemHistoryModal
             item={selected}
             onClose={() => { setSelected(null); setHistoryVariants([]); setActiveHistVariantId(null); setActiveHistDesign(null); }}
@@ -2351,7 +2412,10 @@ function Productspage({ shopId }) {
                   placeholder="e.g. +10 or -3"
                   value={adjQty}
                   onChange={(e) => setAdjQty(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAdjust()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAdjust();
+                    allowOnlySignedDigits(e);
+                  }}
                 />
                 <button
                   className="prod-btn-primary"
@@ -2363,7 +2427,8 @@ function Productspage({ shopId }) {
                 </button>
               </div>
             </div>
-          </ItemHistoryModal>
+          </ItemHistoryModal>,
+          document.body
         )}
 
         {/* Toasts */}

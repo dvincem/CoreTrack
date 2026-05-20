@@ -1,6 +1,6 @@
 import '../pages_css/Servicespage.css';
 import React from 'react'
-import { API_URL, apiFetch } from '../lib/config'
+import { API_URL, apiFetch, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -414,6 +414,7 @@ function Servicespage() {
                     className="svc-input"
                     type="number"
                     value={form.base_price}
+                    onKeyDown={allowOnlyDecimals}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, base_price: e.target.value }))
                     }
@@ -429,6 +430,7 @@ function Servicespage() {
                     max="100"
                     step="0.1"
                     value={form.commission_rate}
+                    onKeyDown={allowOnlyDecimals}
                     onChange={(e) => setForm((f) => ({ ...f, commission_rate: e.target.value }))}
                     placeholder="e.g. 10"
                     disabled={!form.is_commissionable}
@@ -688,7 +690,11 @@ function Servicespage() {
                           style={{ width: '60px', padding: '0.2rem', background: 'var(--th-bg-input)', border: '1px solid var(--th-border)', color: 'var(--th-text-primary)', borderRadius: '4px' }}
                           value={ruleEditValue}
                           onChange={e => setRuleEditValue(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveCommissionRule(rule.rule_id); if (e.key === 'Escape') setEditingRule(null); }}
+                          onKeyDown={e => {
+                            allowOnlyDecimals(e);
+                            if (e.key === 'Enter') saveCommissionRule(rule.rule_id);
+                            if (e.key === 'Escape') setEditingRule(null);
+                          }}
                         />
                       </div>
                     ) : (

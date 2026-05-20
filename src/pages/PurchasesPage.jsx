@@ -1,6 +1,7 @@
 import '../pages_css/PurchasesPage.css';
 import React from 'react'
-import { API_URL, currency, apiFetch, calculateAutoAdjustedPrice } from '../lib/config'
+import ReactDOM from 'react-dom'
+import { API_URL, currency, apiFetch, calculateAutoAdjustedPrice, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import SearchInput from '../components/SearchInput'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 import DataTable from '../components/DataTable'
@@ -55,7 +56,7 @@ function CategorySelect({ value, onChange, options, setOptions, storageKey, heig
         <option value={ADD_NEW}>+ Add category…</option>
       </select>
 
-      {showCatModal && (
+      {showCatModal && ReactDOM.createPortal(
         <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setShowCatModal(false)} style={{ zIndex: 9999 }}>
           <div className="confirm-box" style={{ maxWidth: 400 }}>
             <div className="confirm-title" style={{ color: 'var(--th-sky)' }}>Add New Category</div>
@@ -77,7 +78,8 @@ function CategorySelect({ value, onChange, options, setOptions, storageKey, heig
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
@@ -225,6 +227,71 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
     }
     setSuggestions(results)
   }, [search, baseRows])
+
+  const isFormValid = React.useMemo(() => {
+    if (itemsToAdd.length === 0) return false;
+    return itemsToAdd.every(item => {
+      if (modalTab === 'inv') {
+        if (item.itemType === 'TIRE') {
+          return item.brand && item.design && item.size && item.dot_number && item.unit_cost && parseFloat(item.unit_cost) > 0;
+        } else {
+          return item.item_name && item.unit_cost && parseFloat(item.unit_cost) > 0;
+        }
+      } else {
+        return item.item_name && item.unit_cost && parseFloat(item.unit_cost) > 0;
+      }
+    });
+  }, [itemsToAdd, modalTab]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+
+      if (e.key === 'Enter') {
+        if (e.target.tagName === 'TEXTAREA') return;
+        if (isInput && !e.target.classList.contains('pur-input') && !e.target.classList.contains('confirm-btn-ok')) {
+          return;
+        }
+
+        if (voidingId) {
+          if (voidReason.trim() && !loading) {
+            e.preventDefault();
+            submitVoid();
+          }
+        } else if (pending) {
+          if (!saving) {
+            e.preventDefault();
+            savePending();
+          }
+        } else if (showModal) {
+          if (isFormValid && !saving) {
+            e.preventDefault();
+            handleConfirm();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        if (isInput && e.target.tagName !== 'SELECT') {
+          return;
+        }
+        if (voidingId) {
+          e.preventDefault();
+          setVoidingId(null);
+        } else if (pending) {
+          e.preventDefault();
+          setPending(null);
+        } else if (detailRow) {
+          e.preventDefault();
+          setDetailRow(null);
+        } else if (showModal) {
+          e.preventDefault();
+          closeModal();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [voidingId, voidReason, loading, pending, saving, showModal, isFormValid, detailRow]);
 
   function showToast(msg, ok = true) {
     setToast({ msg, ok })
@@ -652,7 +719,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
         />
 
         {/* ── Modal ── */}
-        {showModal && (
+        {showModal && ReactDOM.createPortal(
           <div className="pur-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
             <div className="pur-modal">
               <div className="pur-modal-header">
@@ -827,6 +894,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                             <div style={{ flex: 1 }}>
                               <label className="pur-label" style={{ color: 'var(--th-amber)' }}>DOT *</label>
                               <input className="pur-input" placeholder="2025" value={item.dot_number}
+                                onKeyDown={allowOnlyDigits}
                                 onChange={e => updateItemToAdd(idx, 'dot_number', e.target.value.replace(/\D/g, '').slice(0, 4))} />
                             </div>
                             <div style={{ flex: 1 }}>
@@ -835,15 +903,15 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Cost *</label>
-                              <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
+                              <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Price *</label>
-                              <input className="pur-input" type="number" step="0.01" value={item.selling_price} onChange={e => updateItemToAdd(idx, 'selling_price', e.target.value)} />
+                              <input className="pur-input" type="number" step="0.01" value={item.selling_price} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, 'selling_price', e.target.value)} />
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Qty</label>
-                              <input className="pur-input" type="number" min="1" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
+                              <input className="pur-input" type="number" min="1" value={item.quantity} onKeyDown={allowOnlyDigits} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
                             </div>
                           </div>
                         </>
@@ -860,15 +928,15 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Cost *</label>
-                              <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
+                              <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Price *</label>
-                              <input className="pur-input" type="number" step="0.01" value={item.selling_price} onChange={e => updateItemToAdd(idx, 'selling_price', e.target.value)} />
+                              <input className="pur-input" type="number" step="0.01" value={item.selling_price} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, 'selling_price', e.target.value)} />
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Qty</label>
-                              <input className="pur-input" type="number" min="1" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
+                              <input className="pur-input" type="number" min="1" value={item.quantity} onKeyDown={allowOnlyDigits} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
                             </div>
                           </div>
                         </>
@@ -887,11 +955,11 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                           </div>
                           <div style={{ flex: 0.6 }}>
                             <label className="pur-label">Qty</label>
-                            <input className="pur-input" type="number" min="0.01" step="0.01" value={item.quantity} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
+                            <input className="pur-input" type="number" min="0.01" step="0.01" value={item.quantity} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, 'quantity', e.target.value)} />
                           </div>
                           <div style={{ flex: 1 }}>
                             <label className="pur-label">Unit Cost *</label>
-                            <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
+                            <input className="pur-input" type="number" step="0.01" value={item.unit_cost} onKeyDown={allowOnlyDecimals} onChange={e => updateItemToAdd(idx, 'unit_cost', e.target.value)} />
                           </div>
                         </div>
                       </>
@@ -919,16 +987,16 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
 
               <div className="pur-modal-footer">
                 <button className="pur-clear-btn" onClick={closeModal}>Cancel</button>
-                <button className={`pur-save-btn ${modalTab === 'inv' ? 'inv' : 'sup'}`} style={{ width: 'auto' }} onClick={handleConfirm} disabled={saving}>
+                <button className={`pur-save-btn ${modalTab === 'inv' ? 'inv' : 'sup'}`} style={{ width: 'auto' }} onClick={handleConfirm} disabled={saving || !isFormValid}>
                   {editMode ? '✓ Update Purchase' : `✓ Record ${itemsToAdd.length} item(s)`}
                 </button>
               </div>
             </div>
           </div>
-        )}
+        , document.body)}
 
         {/* ── Pending Confirmation Dialog ── */}
-        {pending && (
+        {pending && ReactDOM.createPortal(
           <div className="confirm-overlay">
             <div className="confirm-box" style={{ maxWidth: 500 }}>
               <div className="confirm-title">Confirm {pending.type === 'inv' ? 'Inventory Purchase' : 'Supply Record'}</div>
@@ -969,12 +1037,13 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 
       {/* ── Detail modal ── */}
-      {detailRow && (
+      {detailRow && ReactDOM.createPortal(
         <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setDetailRow(null)}>
           <div className="confirm-box" style={{ maxWidth: 460 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -1038,10 +1107,11 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* ── Void Modal ── */}
-      {voidingId && (
+      {voidingId && ReactDOM.createPortal(
         <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setVoidingId(null)} style={{ zIndex: 9999 }}>
           <div className="confirm-box" style={{ maxWidth: 460 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -1078,7 +1148,8 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </>

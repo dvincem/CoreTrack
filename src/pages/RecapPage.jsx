@@ -1,6 +1,7 @@
 import '../pages_css/RecapPage.css';
 import React from 'react'
-import { API_URL, currency, apiFetch } from '../lib/config'
+import ReactDOM from 'react-dom'
+import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import Pagination from '../components/Pagination'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
@@ -366,6 +367,135 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     });
     setSuggestions(sug.slice(0, 8));
   }, [searchQuery, jobs]);
+
+  const isNewJobValid = React.useMemo(() => {
+    if (newJob.ownership_type === "CUSTOMER_OWNED" && !newJob.customer_id) return false;
+    if (!newJob.supplier_id) return false;
+    return casings.every(c => c.brand && c.size && c.dot_number && c.dot_number.length === 4);
+  }, [newJob, casings]);
+
+  const isRecapIntakeValid = React.useMemo(() => {
+    return recapIntakeForm.supplier_id &&
+           recapIntakeForm.recap_cost && parseFloat(recapIntakeForm.recap_cost) > 0 &&
+           recapIntakeForm.expected_selling_price && parseFloat(recapIntakeForm.expected_selling_price) > 0;
+  }, [recapIntakeForm]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+
+      if (e.key === 'Enter') {
+        if (e.target.tagName === 'TEXTAREA') return;
+        const isTargetFormInput = e.target.classList.contains('rc-input') || 
+                                  e.target.classList.contains('rc-price-input') || 
+                                  e.target.classList.contains('rc-textarea');
+        if (isInput && !isTargetFormInput) {
+          return;
+        }
+
+        if (showClaimModal && claimTarget) {
+          if (!loading && !(claimInstalled && claimTiremen.length === 0)) {
+            e.preventDefault();
+            submitClaim();
+          }
+        } else if (showStatusModal && nextStatus && selectedJob) {
+          if (!loading) {
+            e.preventDefault();
+            submitStatusUpdate();
+          }
+        } else if (showBatchModal && batchAction) {
+          if (!batchResults && !batchLoading) {
+            e.preventDefault();
+            batchUpdateStatus(batchAction.ids, batchAction.newStatus, batchAction.label.toLowerCase());
+          }
+        } else if (showForfeitModal && forfeitTarget) {
+          if (!loading && !(forfeitTarget?.status !== "READY_FOR_CLAIM" && !forfeitReason.trim())) {
+            e.preventDefault();
+            submitForfeit();
+          }
+        } else if (showPricingModal) {
+          if (!pricingSaving) {
+            e.preventDefault();
+            savePricingDefaults();
+          }
+        } else if (showNewJobForm) {
+          if (!loading && isNewJobValid) {
+            e.preventDefault();
+            createJob();
+          }
+        } else if (selectedRecapItem) {
+          if (!recapIntaking && isRecapIntakeValid) {
+            e.preventDefault();
+            handleRecapIntake();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        if (isInput && e.target.tagName !== 'SELECT') {
+          return;
+        }
+        if (showQuickAddCustomer) {
+          e.preventDefault();
+          setShowQuickAddCustomer(false);
+        } else if (showClaimModal) {
+          e.preventDefault();
+          setShowClaimModal(false);
+          setSalePrice("");
+          setClaimInstalled(false);
+          setClaimTiremen([]);
+          setClaimFittingPrice(250);
+          setError("");
+        } else if (showStatusModal) {
+          e.preventDefault();
+          setShowStatusModal(false);
+          setNextStatus("");
+          setRejectionReason("");
+          setError("");
+        } else if (showBatchModal) {
+          e.preventDefault();
+          if (!batchLoading) {
+            setShowBatchModal(false);
+            setBatchResults(null);
+            setBatchAction(null);
+          }
+        } else if (showForfeitModal) {
+          e.preventDefault();
+          setShowForfeitModal(false);
+          setForfeitReason("");
+          setError("");
+        } else if (showPricingModal) {
+          e.preventDefault();
+          setShowPricingModal(false);
+        } else if (showNewJobForm) {
+          e.preventDefault();
+          setShowNewJobForm(false);
+          setError("");
+          resetForm();
+        } else if (selectedJob) {
+          e.preventDefault();
+          setSelectedJob(null);
+          setJobHistory([]);
+          setNextStatus('');
+          setError('');
+        } else if (selectedRecapItem) {
+          e.preventDefault();
+          setSelectedRecapItem(null);
+          setError('');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showClaimModal, claimTarget, loading, claimInstalled, claimTiremen,
+    showStatusModal, nextStatus, selectedJob,
+    showBatchModal, batchAction, batchResults, batchLoading,
+    showForfeitModal, forfeitTarget, forfeitReason,
+    showPricingModal, pricingSaving, pricingDraft,
+    showNewJobForm, isNewJobValid, newJob, casings, showQuickAddCustomer,
+    selectedRecapItem, recapIntaking, isRecapIntakeValid, recapIntakeForm,
+    suppliers, defaultSupplierId
+  ]);
 
   function fetchJobs() { refetchJobs(); }
   function fetchCustomers() {
@@ -793,7 +923,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
       )}
 
       {/* ── Claim Modal ── */}
-      {showClaimModal && claimTarget && (
+      {showClaimModal && claimTarget && ReactDOM.createPortal(
         <div
           className="rc-overlay rc-overlay-top"
           onClick={(e) =>
@@ -834,7 +964,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 <div>
                   <label className="rc-form-label">Sale Price (₱)</label>
-                  <input type="number" step="0.01" className="rc-input" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder="Leave blank to use expected selling price" />
+                  <input type="number" step="0.01" className="rc-input" value={salePrice} onKeyDown={allowOnlyDecimals} onChange={(e) => setSalePrice(e.target.value)} placeholder="Leave blank to use expected selling price" />
                 </div>
                 {/* Installation toggle */}
                 <div style={{ background: "var(--th-bg-card-alt)", border: "1px solid var(--th-border)", borderRadius: "8px", padding: "0.75rem" }}>
@@ -874,7 +1004,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                         <div>
                           <label className="rc-form-label">Fitting Fee (₱) per tire</label>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <input type="number" step="1" min="0" className="rc-input" value={claimFittingPrice} onChange={e => setClaimFittingPrice(Math.max(0, Number(e.target.value)))} style={{ flex: 1 }} />
+                            <input type="number" step="1" min="0" className="rc-input" value={claimFittingPrice} onKeyDown={allowOnlyDecimals} onChange={e => setClaimFittingPrice(Math.max(0, Number(e.target.value)))} style={{ flex: 1 }} />
                             {claimTiremen.length > 0 && (
                               <span style={{ fontSize: "0.78rem", color: "var(--th-text-dim)", whiteSpace: "nowrap" }}>
                                 ÷ {claimTiremen.length} = ₱{(claimFittingPrice / claimTiremen.length).toFixed(0)} each
@@ -913,11 +1043,12 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Status Confirm Modal ── */}
-      {showStatusModal && nextStatus && selectedJob && (
+      {showStatusModal && nextStatus && selectedJob && ReactDOM.createPortal(
         <div className="rc-overlay rc-overlay-top" onClick={(e) => e.target === e.currentTarget && setShowStatusModal(false)}>
           <div className="rc-modal">
             <div className="rc-modal-header">
@@ -972,11 +1103,12 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Batch Update Modal ── */}
-      {showBatchModal && batchAction && (
+      {showBatchModal && batchAction && ReactDOM.createPortal(
         <div className="rc-overlay rc-overlay-top" onClick={e => e.target === e.currentTarget && !batchLoading && setShowBatchModal(false)}>
           <div className="rc-modal">
             <div className="rc-modal-header">
@@ -1023,11 +1155,12 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Forfeit / Reject Modal ── */}
-      {showForfeitModal && forfeitTarget && (
+      {showForfeitModal && forfeitTarget && ReactDOM.createPortal(
         <div
           className="rc-overlay rc-overlay-top"
           onClick={(e) =>
@@ -1113,11 +1246,12 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Pricing Settings Modal ── */}
-      {showPricingModal && (
+      {showPricingModal && ReactDOM.createPortal(
         <div className="rc-modal-overlay rc-overlay-top" onClick={(e) => e.target === e.currentTarget && setShowPricingModal(false)}>
           <div className="rc-pricing-modal" onClick={e => e.stopPropagation()}>
             <div className="rc-pricing-head">
@@ -1153,6 +1287,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                               className="rc-price-input"
                               placeholder="0.00"
                               value={val.recap_cost ?? ''}
+                              onKeyDown={allowOnlyDecimals}
                               onChange={e => setPricingDraft(d => ({ ...d, [key]: { ...d[key], recap_cost: e.target.value } }))}
                             />
                           </td>
@@ -1163,6 +1298,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                               className="rc-price-input"
                               placeholder="0.00"
                               value={val.selling_price ?? ''}
+                              onKeyDown={allowOnlyDecimals}
                               onChange={e => setPricingDraft(d => ({ ...d, [key]: { ...d[key], selling_price: e.target.value } }))}
                             />
                           </td>
@@ -1187,7 +1323,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
               >Cancel</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Page layout ── */}
@@ -1320,7 +1457,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
           </div>
 
           {/* New job modal */}
-          {showNewJobForm && (
+          {showNewJobForm && ReactDOM.createPortal(
             <div className="rc-modal-overlay rc-overlay-top" onClick={() => { setShowNewJobForm(false); setError(""); resetForm(); }}>
               <div className="rc-form-panel" onClick={e => e.stopPropagation()}>
                 <button className="rc-modal-close" onClick={() => { setShowNewJobForm(false); setError(""); resetForm(); }}>✕</button>
@@ -1462,18 +1599,18 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                         <div style={{ flex: '0.8 1 80px', minWidth: '70px' }}>
                           <label className="rc-form-label" style={{ color: 'var(--th-amber)' }}>DOT *</label>
                           <input className="rc-input" inputMode="numeric" maxLength={4} placeholder="2425"
-                            value={c.dot_number} onChange={e => updateCasing(i, { dot_number: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                            value={c.dot_number} onKeyDown={allowOnlyDigits} onChange={e => updateCasing(i, { dot_number: e.target.value.replace(/\D/g, '').slice(0, 4) })}
                             style={c.dot_number.length === 4 ? {} : { borderColor: 'var(--th-rose)' }} />
                         </div>
                         <div style={{ flex: '1 1 100px', minWidth: '80px' }}>
                           <label className="rc-form-label">Cost (₱)</label>
                           <input className="rc-input" type="number" step="0.01" placeholder="0.00"
-                            value={c.recap_cost} onChange={e => updateCasing(i, { recap_cost: e.target.value })} />
+                            value={c.recap_cost} onKeyDown={allowOnlyDecimals} onChange={e => updateCasing(i, { recap_cost: e.target.value })} />
                         </div>
                         <div style={{ flex: '1 1 100px', minWidth: '80px' }}>
                           <label className="rc-form-label">Price (₱)</label>
                           <input className="rc-input" type="number" step="0.01" placeholder="0.00"
-                            value={c.expected_selling_price} onChange={e => updateCasing(i, { expected_selling_price: e.target.value })} />
+                            value={c.expected_selling_price} onKeyDown={allowOnlyDecimals} onChange={e => updateCasing(i, { expected_selling_price: e.target.value })} />
                         </div>
                       </div>
                     </div>
@@ -1484,7 +1621,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                 <div className="rc-form-actions">
                   <button
                     className="rc-btn rc-btn-emerald"
-                    disabled={loading}
+                    disabled={loading || !isNewJobValid}
                     onClick={createJob}
                   >
                     {loading ? "Creating…" : "✓ Create Job"}
@@ -1501,7 +1638,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {/* Table + detail panel in a flex row */}
@@ -1750,7 +1888,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
           </div>{/* end rc-layout-row */}
 
           {/* ── Job Detail Modal ── */}
-          {selectedJob && (
+          {selectedJob && ReactDOM.createPortal(
             <div className="rc-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelectedJob(null); setJobHistory([]); setNextStatus(''); setError(''); } }}>
               <div className="rc-detail-modal">
                 <div className="rc-detail-header">
@@ -2000,11 +2138,12 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                 </div>
 
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {/* ── Recapping item detail modal ── */}
-          {selectedRecapItem && (
+          {selectedRecapItem && ReactDOM.createPortal(
             <div className="rc-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelectedRecapItem(null); setError(''); } }}>
               <div className="rc-detail-modal">
                 <div className="rc-detail-header">
@@ -2070,11 +2209,11 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <div style={{ flex: 1 }}>
                           <label className="rc-form-label">Recap Cost (₱)</label>
-                          <input className="rc-input" type="number" placeholder="0.00" value={recapIntakeForm.recap_cost} onChange={e => setRecapIntakeForm(f => ({ ...f, recap_cost: e.target.value }))} />
+                          <input className="rc-input" type="number" placeholder="0.00" value={recapIntakeForm.recap_cost} onKeyDown={allowOnlyDecimals} onChange={e => setRecapIntakeForm(f => ({ ...f, recap_cost: e.target.value }))} />
                         </div>
                         <div style={{ flex: 1 }}>
                           <label className="rc-form-label">Selling Price (₱)</label>
-                          <input className="rc-input" type="number" placeholder="0.00" value={recapIntakeForm.expected_selling_price} onChange={e => setRecapIntakeForm(f => ({ ...f, expected_selling_price: e.target.value }))} />
+                          <input className="rc-input" type="number" placeholder="0.00" value={recapIntakeForm.expected_selling_price} onKeyDown={allowOnlyDecimals} onChange={e => setRecapIntakeForm(f => ({ ...f, expected_selling_price: e.target.value }))} />
                         </div>
                       </div>
                       {/* Summary of how final cost/selling is built */}
@@ -2098,7 +2237,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                     {error && <div className="rc-error" style={{ marginTop: '0.5rem' }}><span>{error}</span><button className="rc-error-x" onClick={() => setError('')}>✕</button></div>}
 
                     <button className="rc-action-btn orange" style={{ width: '100%', marginTop: '0.85rem', justifyContent: 'center' }}
-                      onClick={handleRecapIntake} disabled={recapIntaking}>
+                      onClick={handleRecapIntake} disabled={recapIntaking || !isRecapIntakeValid}>
                       {recapIntaking ? 'Creating…' : '📋 Intake for Recapping'}
                     </button>
                   </div>

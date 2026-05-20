@@ -1,6 +1,6 @@
 import '../pages_css/InventoryPage.css';
 import React from 'react'
-import { API_URL, currency, apiFetch } from '../lib/config'
+import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import SearchInput from '../components/SearchInput'
 import KpiCard from '../components/KpiCard'
 import DataTable from '../components/DataTable'
@@ -396,19 +396,19 @@ function CreateOrderModal({
                     </div>
                     <div>
                       <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Qty to Order <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" type="number" min="1" placeholder="1" value={newItemForm.quantity} onChange={e => setNewItemForm(f => ({...f, quantity: e.target.value}))} />
+                      <input className="inv-input" type="number" min="1" placeholder="1" value={newItemForm.quantity} onKeyDown={allowOnlyDigits} onChange={e => setNewItemForm(f => ({...f, quantity: e.target.value}))} />
                     </div>
                     <div>
                       <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Unit Cost <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.unit_cost} onChange={e => setNewItemForm(f => ({...f, unit_cost: e.target.value}))} />
+                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.unit_cost} onKeyDown={allowOnlyDecimals} onChange={e => setNewItemForm(f => ({...f, unit_cost: e.target.value}))} />
                     </div>
                     <div>
                       <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Selling Price <span style={{color:"#38bdf8"}}>*</span></label>
-                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.selling_price} onChange={e => setNewItemForm(f => ({...f, selling_price: e.target.value}))} />
+                      <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00" value={newItemForm.selling_price} onKeyDown={allowOnlyDecimals} onChange={e => setNewItemForm(f => ({...f, selling_price: e.target.value}))} />
                     </div>
                     <div>
                       <label style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#64748b", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>Reorder Point</label>
-                      <input className="inv-input" type="number" min="0" placeholder="0" value={newItemForm.reorder_point} onChange={e => setNewItemForm(f => ({...f, reorder_point: e.target.value}))} />
+                      <input className="inv-input" type="number" min="0" placeholder="0" value={newItemForm.reorder_point} onKeyDown={allowOnlyDigits} onChange={e => setNewItemForm(f => ({...f, reorder_point: e.target.value}))} />
                     </div>
                   </div>
                   {newItemError && <div style={{ fontSize: "0.8rem", color: "#fb7185", background: "rgba(251,113,133,0.1)", border: "1px solid #fb7185", borderRadius: 6, padding: "0.4rem 0.65rem" }}>{newItemError}</div>}
@@ -562,6 +562,7 @@ function CreateOrderModal({
                           className="inv-qty-display"
                           type="number"
                           value={oi.quantity}
+                          onKeyDown={allowOnlyDigits}
                           onChange={(e) => onUpdateQty(oi.order_item_id, parseInt(e.target.value) || 1)}
                         />
                         <button className="inv-qty-btn" onClick={() => onUpdateQty(oi.order_item_id, oi.quantity + 1)}>+</button>

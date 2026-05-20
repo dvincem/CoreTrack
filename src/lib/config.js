@@ -89,3 +89,39 @@ export function SkeletonRows({ rows = 6, cols = 5, widths }) {
     )
   )
 }
+
+export const allowOnlyDigits = (e) => {
+  const allowedKeys = ['Backspace', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Delete', 'Home', 'End'];
+  if (allowedKeys.includes(e.key) || e.ctrlKey || e.metaKey) return;
+  if (!/^\d$/.test(e.key)) {
+    e.preventDefault();
+  }
+};
+
+export const allowOnlyDecimals = (e) => {
+  const allowedKeys = ['Backspace', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Delete', 'Home', 'End'];
+  if (allowedKeys.includes(e.key) || e.ctrlKey || e.metaKey) return;
+  if (e.key === '.') {
+    if (e.target.value.includes('.')) {
+      e.preventDefault();
+    }
+    return;
+  }
+  if (!/^\d$/.test(e.key)) {
+    e.preventDefault();
+  }
+};
+
+export const allowOnlySignedDigits = (e) => {
+  const allowedKeys = ['Backspace', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Delete', 'Home', 'End'];
+  if (allowedKeys.includes(e.key) || e.ctrlKey || e.metaKey) return;
+  if (e.key === '+' || e.key === '-') {
+    if (e.target.value.includes('+') || e.target.value.includes('-')) {
+      e.preventDefault();
+    }
+    return;
+  }
+  if (!/^\d$/.test(e.key)) {
+    e.preventDefault();
+  }
+};

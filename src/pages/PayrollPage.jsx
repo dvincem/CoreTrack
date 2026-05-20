@@ -1,6 +1,6 @@
 import '../pages_css/PayrollPage.css';
 import React from 'react'
-import { API_URL, currency, apiFetch, SkeletonRows } from '../lib/config'
+import { API_URL, currency, apiFetch, SkeletonRows, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
@@ -354,6 +354,7 @@ function PayrollPage({ shopId, setPageContext }) {
             {bds.open && (
               <div className="pr-bale-deduct-row">
                 <input className="pr-bale-input" type="number" min="1" step="1" value={bds.amount}
+                  onKeyDown={allowOnlyDecimals}
                   onChange={e => setBaleDeduct(prev => ({ ...prev, [r.staff_id]: { ...bds, amount: e.target.value } }))} />
                 <button className="pr-bale-confirm" disabled={bds.saving} onClick={() => submitBaleDeduct(r.staff_id)}>
                   {bds.saving ? '…' : '✓ Deduct'}
@@ -579,6 +580,7 @@ function PayrollPage({ shopId, setPageContext }) {
                   type="number" min="1" step="0.01"
                   placeholder="e.g. 500"
                   value={commAmount}
+                  onKeyDown={allowOnlyDecimals}
                   onChange={e => setCommAmount(e.target.value)}
                   required
                 />
@@ -682,6 +684,7 @@ function PayrollPage({ shopId, setPageContext }) {
                     className="pr-input"
                     type="number" min="0" step="0.01"
                     value={editAmount}
+                    onKeyDown={allowOnlyDecimals}
                     onChange={e => setEditAmount(e.target.value)}
                     autoFocus
                   />

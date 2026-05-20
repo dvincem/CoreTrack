@@ -1,6 +1,6 @@
 import '../pages_css/Reportspage.css';
 import React, { useState, useEffect } from 'react'
-import { API_URL, apiFetch, SkeletonRows, currency, compactCurrency } from '../lib/config'
+import { API_URL, apiFetch, SkeletonRows, currency, compactCurrency, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import DataTable from '../components/DataTable'
 import SearchInput from '../components/SearchInput'
@@ -1834,13 +1834,13 @@ function SetGoalModal({ shopId, initial, onClose, onSaved }) {
         {/* Revenue target */}
         <div className="gl-modal-field">
           <label className="gl-modal-label">Gross Sales Target (₱)</label>
-          <input className="gl-modal-input" type="number" min="0" placeholder="Leave blank to clear" value={revTarget} onChange={e => setRevTarget(e.target.value)} />
+          <input className="gl-modal-input" type="number" min="0" placeholder="Leave blank to clear" value={revTarget} onKeyDown={allowOnlyDecimals} onChange={e => setRevTarget(e.target.value)} />
         </div>
 
         {/* Profit target */}
         <div className="gl-modal-field">
           <label className="gl-modal-label">Net Profit Target (₱)</label>
-          <input className="gl-modal-input" type="number" min="0" placeholder="Leave blank to clear" value={prfTarget} onChange={e => setPrfTarget(e.target.value)} />
+          <input className="gl-modal-input" type="number" min="0" placeholder="Leave blank to clear" value={prfTarget} onKeyDown={allowOnlyDecimals} onChange={e => setPrfTarget(e.target.value)} />
         </div>
 
         {error && <div className="gl-modal-error">{error}</div>}

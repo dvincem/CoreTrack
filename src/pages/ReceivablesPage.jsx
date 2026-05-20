@@ -1,6 +1,7 @@
 import '../pages_css/ReceivablesPage.css';
 import React from 'react'
-import { API_URL, currency, compactCurrency, apiFetch, SkeletonRows } from '../lib/config'
+import ReactDOM from 'react-dom'
+import { API_URL, currency, compactCurrency, apiFetch, SkeletonRows, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -465,6 +466,124 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
     setBaleAdding(false);
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        if (pendingRcv) {
+          e.preventDefault();
+          confirmSubmitForm();
+          return;
+        }
+        if (pendingPay) {
+          e.preventDefault();
+          confirmSubmitPayment();
+          return;
+        }
+        if (pendingBale) {
+          e.preventDefault();
+          confirmSubmitBale();
+          return;
+        }
+        if (pendingBalePay) {
+          e.preventDefault();
+          confirmSubmitBalePayment();
+          return;
+        }
+        if (pendingBaleAdd) {
+          e.preventDefault();
+          confirmSubmitBaleAdd();
+          return;
+        }
+        if (voidTarget) {
+          e.preventDefault();
+          handleVoid();
+          return;
+        }
+
+        // Ignore inside textareas
+        if (document.activeElement?.tagName === 'TEXTAREA') {
+          return;
+        }
+
+        if (showForm) {
+          const canSubmit = form.customer_id && form.original_amount && parseFloat(form.original_amount) > 0;
+          if (canSubmit) {
+            e.preventDefault();
+            submitForm();
+          }
+        } else if (showBaleForm) {
+          const canSubmit = baleForm.staff_id && baleForm.amount && parseFloat(baleForm.amount) > 0;
+          if (canSubmit) {
+            e.preventDefault();
+            submitBaleForm();
+          }
+        } else if (rcvDetailTarget && rcvDetailTarget.status !== "PAID") {
+          const amt = parseFloat(payForm.amount);
+          const canSubmit = amt && amt > 0 && amt <= (rcvDetailTarget.balance_amount + 0.01);
+          if (canSubmit) {
+            e.preventDefault();
+            submitPayment();
+          }
+        } else if (baleDetailTarget && baleDetailTarget.status !== "PAID") {
+          if (isAddingVale) {
+            const amt = parseFloat(baleAddForm.amount);
+            const canSubmit = amt && amt > 0;
+            if (canSubmit) {
+              e.preventDefault();
+              submitBaleAdd();
+            }
+          } else {
+            const amt = parseFloat(balePayForm.amount);
+            const canSubmit = amt && amt > 0 && amt <= (baleDetailTarget.balance_amount + 0.01);
+            if (canSubmit) {
+              e.preventDefault();
+              submitBalePayment();
+            }
+          }
+        }
+      } else if (e.key === 'Escape') {
+        if (pendingRcv) {
+          e.preventDefault();
+          setPendingRcv(null);
+        } else if (pendingPay) {
+          e.preventDefault();
+          setPendingPay(null);
+        } else if (pendingBale) {
+          e.preventDefault();
+          setPendingBale(null);
+        } else if (pendingBalePay) {
+          e.preventDefault();
+          setPendingBalePay(null);
+        } else if (pendingBaleAdd) {
+          e.preventDefault();
+          setPendingBaleAdd(null);
+        } else if (voidTarget) {
+          e.preventDefault();
+          setVoidTarget(null);
+        } else if (rcvDetailTarget) {
+          e.preventDefault();
+          closeRcvDetail();
+        } else if (baleDetailTarget) {
+          e.preventDefault();
+          closeBaleDetail();
+        } else if (showForm) {
+          e.preventDefault();
+          setShowForm(false);
+        } else if (showBaleForm) {
+          e.preventDefault();
+          setShowBaleForm(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    pendingRcv, pendingPay, pendingBale, pendingBalePay, pendingBaleAdd, voidTarget,
+    rcvDetailTarget, baleDetailTarget, showForm, showBaleForm, form, baleForm, payForm, balePayForm, baleAddForm, isAddingVale, voidReason,
+    confirmSubmitForm, confirmSubmitPayment, confirmSubmitBale, confirmSubmitBalePayment, confirmSubmitBaleAdd, handleVoid, closeRcvDetail, closeBaleDetail, submitForm, submitBaleForm, submitPayment, submitBalePayment, submitBaleAdd
+  ]);
+
 
   const rcvColumns = React.useMemo(() => [
     { key: 'customer_name', label: 'Customer', render: row => (
@@ -682,7 +801,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       </>}
 
       {/* ── ADD RECEIVABLE SIDEBAR ── */}
-      {showForm && (
+      {showForm && ReactDOM.createPortal(
         <div className="rcv-overlay" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="rcv-sidebar">
             <div className="rcv-sidebar-head">
@@ -743,6 +862,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     className="rcv-form-input"
                     placeholder="0.00"
                     value={form.original_amount}
+                    onKeyDown={allowOnlyDecimals}
                     onChange={e => setF("original_amount", e.target.value)}
                   />
                 </div>
@@ -753,6 +873,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     className="rcv-form-input"
                     placeholder="0.00"
                     value={form.down_payment}
+                    onKeyDown={allowOnlyDecimals}
                     onChange={e => setF("down_payment", e.target.value)}
                   />
                 </div>
@@ -806,16 +927,17 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="rcv-sidebar-actions">
               <button className="rcv-btn-cancel" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="rcv-btn-primary" onClick={submitForm} disabled={saving}>
+              <button className="rcv-btn-primary" onClick={submitForm} disabled={saving || !form.customer_id || !form.original_amount || parseFloat(form.original_amount) <= 0}>
                 {saving ? "Saving…" : "Save Receivable"}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── RECEIVABLE DETAIL MODAL (details + pay + history) ── */}
-      {rcvDetailTarget && (
+      {rcvDetailTarget && ReactDOM.createPortal(
         <div className="rcv-modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeRcvDetail(); }}>
           <div className="rcv-hist-modal" style={{maxWidth:520,width:"94vw"}}>
             <div className="rcv-modal-head">
@@ -867,6 +989,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     <input type="number" min="0.01" step="0.01" className="rcv-form-input" placeholder="₱ 0.00"
                       max={rcvDetailTarget?.balance_amount}
                       value={payForm.amount}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => {
                         const val = parseFloat(e.target.value);
                         const bal = rcvDetailTarget?.balance_amount || 0;
@@ -890,7 +1013,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     ))}
                   </div>
                 </div>
-                <button className="rcv-btn-primary" style={{marginTop:"0.65rem",width:"100%"}} onClick={submitPayment} disabled={paying}>
+                <button className="rcv-btn-primary" style={{marginTop:"0.65rem",width:"100%"}} onClick={submitPayment} disabled={paying || !payForm.amount || parseFloat(payForm.amount) <= 0 || parseFloat(payForm.amount) > (rcvDetailTarget?.balance_amount + 0.01)}>
                   {paying ? "Saving…" : "✓ Confirm Payment"}
                 </button>
               </div>
@@ -933,11 +1056,12 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="rcv-btn-cancel" onClick={closeRcvDetail} style={{ flex: rcvDetailTarget.status === 'VOIDED' ? 1 : 0, minWidth: 80 }}>Close</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── NEW BALE SIDEBAR ── */}
-      {showBaleForm && (
+      {showBaleForm && ReactDOM.createPortal(
         <div className="rcv-overlay" onClick={e => { if (e.target === e.currentTarget) setShowBaleForm(false); }}>
           <div className="rcv-sidebar">
             <div className="rcv-sidebar-head">
@@ -961,6 +1085,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                   type="number" min="0" step="0.01"
                   className="rcv-form-input" placeholder="0.00"
                   value={baleForm.amount}
+                  onKeyDown={allowOnlyDecimals}
                   onChange={e => setBF("amount", e.target.value)}
                 />
               </div>
@@ -995,16 +1120,17 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="rcv-sidebar-actions">
               <button className="rcv-btn-cancel" onClick={() => setShowBaleForm(false)}>Cancel</button>
-              <button className="rcv-btn-primary" style={{background:"var(--th-amber)",color:"#1a0f00"}} onClick={submitBaleForm} disabled={baleSaving}>
+              <button className="rcv-btn-primary" style={{background:"var(--th-amber)",color:"#1a0f00"}} onClick={submitBaleForm} disabled={baleSaving || !baleForm.staff_id || !baleForm.amount || parseFloat(baleForm.amount) <= 0}>
                 {baleSaving ? "Saving…" : "Record Bale"}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── BALE DETAIL MODAL (details + pay + history) ── */}
-      {baleDetailTarget && (
+      {baleDetailTarget && ReactDOM.createPortal(
         <div className="rcv-modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeBaleDetail(); }}>
           <div className="rcv-hist-modal" style={{maxWidth:520,width:"94vw"}}>
             <div className="rcv-modal-head">
@@ -1053,6 +1179,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     </label>
                     <input type="number" min="0.01" step="0.01" max={baleDetailTarget?.balance_amount} className="rcv-form-input" placeholder="₱ 0.00"
                       value={balePayForm.amount}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => { const v = parseFloat(e.target.value); setBalePayForm(p => ({...p, amount: (!isNaN(v) && v > baleDetailTarget.balance_amount) ? String(baleDetailTarget.balance_amount) : e.target.value})); }}
                       autoFocus />
                   </div>
@@ -1064,7 +1191,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     <label className="rcv-form-label">Notes</label>
                     <input type="text" className="rcv-form-input" placeholder="Optional" value={balePayForm.notes} onChange={e => setBalePayForm(p => ({...p, notes: e.target.value}))} />
                   </div>
-                  <button className="rcv-btn-primary" style={{background:"var(--th-amber)",color:"#1a0f00",whiteSpace:"nowrap",alignSelf:"flex-end"}} onClick={submitBalePayment} disabled={balePaying}>
+                  <button className="rcv-btn-primary" style={{background:"var(--th-amber)",color:"#1a0f00",whiteSpace:"nowrap",alignSelf:"flex-end"}} onClick={submitBalePayment} disabled={balePaying || !balePayForm.amount || parseFloat(balePayForm.amount) <= 0 || parseFloat(balePayForm.amount) > (baleDetailTarget?.balance_amount + 0.01)}>
                     {balePaying ? "Saving…" : "✓ Confirm"}
                   </button>
                 </div>
@@ -1084,6 +1211,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     <label className="rcv-form-label">Amount to Add</label>
                     <input type="number" min="0.01" step="0.01" className="rcv-form-input" placeholder="₱ 0.00"
                       value={baleAddForm.amount}
+                      onKeyDown={allowOnlyDecimals}
                       onChange={e => setBaleAddForm(p => ({...p, amount: e.target.value}))}
                       autoFocus />
                   </div>
@@ -1091,7 +1219,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
                     <label className="rcv-form-label">Reason / Notes</label>
                     <input type="text" className="rcv-form-input" placeholder="e.g. Additional advance" value={baleAddForm.notes} onChange={e => setBaleAddForm(p => ({...p, notes: e.target.value}))} />
                   </div>
-                  <button className="rcv-btn-primary" style={{background:"var(--th-orange)",color:"#fff",whiteSpace:"nowrap",alignSelf:"flex-end"}} onClick={submitBaleAdd} disabled={baleAdding}>
+                  <button className="rcv-btn-primary" style={{background:"var(--th-orange)",color:"#fff",whiteSpace:"nowrap",alignSelf:"flex-end"}} onClick={submitBaleAdd} disabled={baleAdding || !baleAddForm.amount || parseFloat(baleAddForm.amount) <= 0}>
                     {baleAdding ? "Adding…" : "+ Add Vale"}
                   </button>
                 </div>
@@ -1122,11 +1250,12 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="rcv-btn-cancel" onClick={closeBaleDetail} style={{flex:1}}>Close</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Save Receivable */}
-      {pendingRcv && (
+      {pendingRcv && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Save Receivable</div>
@@ -1143,11 +1272,12 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitForm} disabled={saving}>Save</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Record Payment */}
-      {pendingPay && (
+      {pendingPay && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Record Payment</div>
@@ -1162,11 +1292,12 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitPayment} disabled={paying}>Confirm</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Save Bale */}
-      {pendingBale && (
+      {pendingBale && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Save Bale</div>
@@ -1181,11 +1312,12 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitBale} disabled={baleSaving}>Save</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Record Bale Payment */}
-      {pendingBalePay && (
+      {pendingBalePay && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Bale Payment</div>
@@ -1199,11 +1331,12 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="confirm-btn-ok" onClick={confirmSubmitBalePayment} disabled={balePaying}>Confirm</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm: Add More Bale */}
-      {pendingBaleAdd && (
+      {pendingBaleAdd && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Confirm Add Vale</div>
@@ -1217,13 +1350,14 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               <button className="confirm-btn-ok" style={{background:"var(--th-orange)"}} onClick={confirmSubmitBaleAdd} disabled={baleAdding}>Yes, Add Vale</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 
       {/* Toast */}
       {/* Void confirmation */}
-      {voidTarget && (
+      {voidTarget && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
             <div className="confirm-title">Void this Receivable?</div>
@@ -1243,7 +1377,8 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {toast && <div className={`rcv-toast ${toast.type}`}>{toast.msg}</div>}

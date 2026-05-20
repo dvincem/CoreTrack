@@ -116,44 +116,37 @@ textarea {
 }
 
 /* ── KPI ROW / GRID CONTAINERS ────────────────────────── */
-/* 
-   ANTIGRAVITY v2.5 UPGRADE: 
-   Replaced fixed 4-col/3-col grids with fluid auto-fit patterns.
-   This ensures cards never crash/overlap regardless of sidebar state.
-*/
 .th-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
-  gap: clamp(0.45rem, 0.35rem + 0.4vw, 0.75rem);
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
 }
 
 .th-kpi-grid3 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
-  gap: clamp(0.45rem, 0.35rem + 0.4vw, 0.75rem);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
 }
 
-/* ── ANTIGRAVITY LIFT (Global Interactive Elevation) ── */
-.th-antigravity {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
-              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
-              border-color 0.2s ease;
+@media (max-width: 768px) {
+  .th-kpi-grid3 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
 }
 
-.th-antigravity:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  border-color: var(--th-border-strong);
+@media (max-width: 768px) {
+  .th-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
 }
 
-.th-antigravity:active {
-  transform: translateY(0);
-}
-
-/* ── GLASS PERSISTENCE ── */
-.th-glass {
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+@media (max-width: 480px) {
+  .th-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 }
 
 /* â”€â”€ Global responsive breakpoints â”€â”€ */

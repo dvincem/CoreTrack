@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, compactCurrency, apiFetch } from '../lib/config'
+import { API_URL, currency, compactCurrency, apiFetch, allowOnlyDecimals } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import { DataTable } from '../components/DataTable'
 import Modal from '../components/Modal'
@@ -581,7 +581,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
                 <div>
                   <label className="cl-label">Amount (₱) *</label>
                   <input type="number" step="0.01" min="0" className="cl-input" placeholder="0.00"
-                    value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                    value={form.amount} onKeyDown={allowOnlyDecimals} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
                 </div>
                 <div>
                   <label className="cl-label">Time</label>

@@ -1,4 +1,5 @@
 import React from 'react'
+import { allowOnlyDecimals } from '../lib/config'
 
 /**
  * ItemHistoryModal — reusable item history modal
@@ -275,7 +276,10 @@ export default function ItemHistoryModal({
                     <input
                       type="number" step="0.01" value={tempVal}
                       onChange={e => setTempVal(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSaveEdit()}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSaveEdit();
+                        allowOnlyDecimals(e);
+                      }}
                       autoFocus
                       style={{ width: '80px', background: 'var(--th-bg-input,#1a2132)', border: '1px solid var(--th-sky,#0ea5e9)', color: '#fff', fontSize: '0.85rem', borderRadius: 4, padding: '2px 4px' }}
                     />
@@ -300,7 +304,10 @@ export default function ItemHistoryModal({
                     <input
                       type="number" step="0.01" value={tempVal}
                       onChange={e => setTempVal(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSaveEdit()}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSaveEdit();
+                        allowOnlyDecimals(e);
+                      }}
                       autoFocus
                       style={{ width: '80px', background: 'var(--th-bg-input,#1a2132)', border: '1px solid var(--th-orange,#f97316)', color: '#fff', fontSize: '0.85rem', borderRadius: 4, padding: '2px 4px' }}
                     />

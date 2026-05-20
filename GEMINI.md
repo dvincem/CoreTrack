@@ -68,7 +68,6 @@ This file provides project-specific context and instructions for the Gemini CLI 
 
 ### Intelligence & Reliability
 - **Profits & Margins:** `routes/financials.js`, `src/pages/ProfitsPage.jsx`. Deep analysis of revenue, COGS, expenses, and net position.
-- **Antigravity v2.5:** Global fluid responsive system using `clamp()` and `auto-fit` grids. Ensures zero-overlap layouts on any screen width with "Midnight Glass" glassmorphism.
 - **Performance Engine:** Server-side pagination and optimized queries (JOINs instead of correlated subqueries) for large datasets.
 - **Auto-Backup Engine:** `routes/backup.js`, `server.js`. 30-minute automated Excel-based snapshots of all database tables.
 - **Advanced Reporting:** `src/pages/Reportspage.jsx`. Interactive daily activity reports with **Cash Pool breakdown** and improved transaction accuracy.
