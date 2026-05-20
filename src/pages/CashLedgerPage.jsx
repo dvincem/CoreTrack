@@ -112,7 +112,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
   const [voidReason, setVoidReason] = React.useState('')
   const [toast, setToast] = React.useState(null)
 
-  // Handle Enter key in modals
+  // Handle Enter/Escape keys in modals
   React.useEffect(() => {
     function handleKeyDown(e) {
       if (e.key === 'Enter') {
@@ -122,6 +122,15 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
         } else if (voidTarget && confirmVoidBtnRef.current) {
           e.preventDefault();
           confirmVoid();
+        }
+      } else if (e.key === 'Escape') {
+        if (pendingEntry) {
+          e.preventDefault();
+          setPendingEntry(null);
+        } else if (voidTarget) {
+          e.preventDefault();
+          setVoidTarget(null);
+          setVoidReason('');
         }
       }
     }
@@ -229,7 +238,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
         })
       }
       const d = await r.json()
-      if (!r.ok) { setSaving(false); return setFormError(d.error || 'Failed to save') }
+      if (!r.ok) return setFormError(d.error || 'Failed to save')
       localStorage.removeItem(`th-cl-draft-${shopId}`);
       localStorage.removeItem(`th-cl-open-${shopId}`);
       setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
@@ -237,7 +246,9 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
       setShowEntryForm(false)
       fetchFlow()
       showToast(isEdit ? 'Entry updated' : 'Entry recorded')
-    } catch (ex) { setFormError(ex.message) }
+    } catch (ex) {
+      setFormError(ex.message)
+    }
     setSaving(false)
   }
 
@@ -396,61 +407,6 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
 
   return (
     <div className="cl-root animate-slide-in-right">
-      {/* ── Confirm Save Modal ── */}
-      {pendingEntry && ReactDOM.createPortal(
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <div className="confirm-title">{pendingEntry.isEdit ? 'Confirm Update Entry' : 'Confirm Record Entry'}</div>
-            <div className="confirm-details">
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Type</span><span className="confirm-detail-val">{ENTRY_TYPES[pendingEntry.entry_type]?.label || pendingEntry.entry_type}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{pendingEntry.description}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(pendingEntry.amount)}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{pendingEntry.entry_date}</span></div>
-              {pendingEntry.entry_time && <div className="confirm-detail-row"><span className="confirm-detail-label">Time</span><span className="confirm-detail-val">{pendingEntry.entry_time}</span></div>}
-            </div>
-            <div className="confirm-actions">
-              <button className="confirm-btn-cancel" onClick={() => setPendingEntry(null)}>Cancel</button>
-              <button
-                ref={confirmSaveBtnRef}
-                className="confirm-btn-ok"
-                onClick={confirmSaveEntry}
-                onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveEntry(); }}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      , document.body)}
-
-      {/* ── Void Modal ── */}
-      {voidTarget && ReactDOM.createPortal(
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <div className="confirm-title">Void Entry?</div>
-            <div className="confirm-details">
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{voidTarget.description}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(voidTarget.amount)}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val th-text-rose">Cannot be undone</span></div>
-            </div>
-            <div className="cl-field" style={{ marginBottom: '1rem' }}>
-              <label className="cl-label">Reason (optional)</label>
-              <input className="cl-input" placeholder="Why are you voiding this?" value={voidReason} onChange={e => setVoidReason(e.target.value)} />
-            </div>
-            <div className="confirm-actions">
-              <button className="confirm-btn-cancel" onClick={() => { setVoidTarget(null); setVoidReason('') }}>Cancel</button>
-              <button
-                ref={confirmVoidBtnRef}
-                className="confirm-btn-ok danger"
-                onClick={confirmVoid}
-                onKeyDown={(e) => { if (e.key === 'Enter') confirmVoid(); }}
-              >
-                Void
-              </button>
-            </div>
-          </div>
-        </div>
-      , document.body)}
 
       {toast && <div className="cl-toast"><span>{toast.icon}</span> {toast.msg}</div>}
 
@@ -601,7 +557,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
               <div className="cl-form-modal-title">{editingId ? '✏ Edit Entry' : '+ Manual Entry'}</div>
               <button className="cl-form-modal-close" onClick={cancelEdit}>✕</button>
             </div>
-            <form onSubmit={saveEntry} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!saving && isFormValid) saveEntry(e); } }} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <form onSubmit={saveEntry} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!saving && isFormValid) saveEntry(e); } }} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               <div>
                 <label className="cl-label">Type *</label>
                 <div className="cl-type-grid">
@@ -654,6 +610,33 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
               </div>
             </form>
           </div>
+
+          {/* ── Confirm Save Modal ── */}
+          {pendingEntry && (
+            <div className="confirm-overlay" style={{ position: 'absolute' }}>
+              <div className="confirm-box">
+                <div className="confirm-title">{pendingEntry.isEdit ? 'Confirm Update Entry' : 'Confirm Record Entry'}</div>
+                <div className="confirm-details">
+                  <div className="confirm-detail-row"><span className="confirm-detail-label">Type</span><span className="confirm-detail-val">{ENTRY_TYPES[pendingEntry.entry_type]?.label || pendingEntry.entry_type}</span></div>
+                  <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{pendingEntry.description}</span></div>
+                  <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(pendingEntry.amount)}</span></div>
+                  <div className="confirm-detail-row"><span className="confirm-detail-label">Date</span><span className="confirm-detail-val">{pendingEntry.entry_date} {pendingEntry.entry_time || ''}</span></div>
+                </div>
+                <div className="confirm-actions">
+                  <button type="button" className="confirm-btn-cancel" onClick={() => setPendingEntry(null)}>Cancel</button>
+                  <button
+                    type="button"
+                    ref={confirmSaveBtnRef}
+                    className={`confirm-btn-ok ${(pendingEntry.entry_type || '').endsWith('_IN') ? 'emerald' : 'danger'}`}
+                    onClick={confirmSaveEntry}
+                    onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveEntry(); }}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       , document.body)}
 
@@ -732,6 +715,37 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
           </div>
         </Modal>
       )}
+
+
+
+      {/* ── Void Modal ── */}
+      {voidTarget && ReactDOM.createPortal(
+        <div className="confirm-overlay">
+          <div className="confirm-box">
+            <div className="confirm-title">Void Entry?</div>
+            <div className="confirm-details">
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Description</span><span className="confirm-detail-val">{voidTarget.description}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Amount</span><span className="confirm-detail-val">{currency(voidTarget.amount)}</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val th-text-rose">Cannot be undone</span></div>
+            </div>
+            <div className="cl-field" style={{ marginBottom: '1rem' }}>
+              <label className="cl-label">Reason (optional)</label>
+              <input className="cl-input" placeholder="Why are you voiding this?" value={voidReason} onChange={e => setVoidReason(e.target.value)} />
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => { setVoidTarget(null); setVoidReason('') }}>Cancel</button>
+              <button
+                ref={confirmVoidBtnRef}
+                className="confirm-btn-ok danger"
+                onClick={confirmVoid}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmVoid(); }}
+              >
+                Void
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
     </div>
   )
 }

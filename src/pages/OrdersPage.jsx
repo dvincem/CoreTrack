@@ -3791,6 +3791,78 @@ export default function OrdersPage({ shopId, onRefresh }) {
     });
   }
 
+  function handleCopyOrder() {
+    if (!orderDetails || !orderDetails.items) return;
+
+    // Group items by Brand
+    const itemsByBrand = {};
+    // Group quantities by Design
+    const qtyByDesign = {};
+    let grandTotal = 0;
+
+    orderDetails.items.forEach(item => {
+      let brand = (item.brand || "").trim().toUpperCase();
+      if (!brand) {
+        // fallback: try to parse first word of item_name or fallback to "MISC"
+        const nameParts = (item.item_name || "").trim().split(/\s+/);
+        brand = nameParts[0] ? nameParts[0].toUpperCase() : "MISC";
+      }
+      if (!itemsByBrand[brand]) {
+        itemsByBrand[brand] = [];
+      }
+      itemsByBrand[brand].push(item);
+
+      // Track design totals
+      let design = (item.design || "").trim();
+      if (!design) {
+        // Fallback to item name if design is blank
+        design = (item.item_name || "").trim();
+      }
+      if (design) {
+        qtyByDesign[design] = (qtyByDesign[design] || 0) + (item.quantity || 0);
+      }
+      
+      // Calculate grand total
+      grandTotal += (item.quantity || 0);
+    });
+
+    const brandBlocks = Object.entries(itemsByBrand).map(([brand, items]) => {
+      const itemLines = items.map(item => {
+        const size = (item.size || "").trim();
+        const design = (item.design || "").trim();
+        
+        // Construct "Size Design"
+        let sizeDesign = [size, design].filter(Boolean).join(" ");
+        if (!sizeDesign) {
+          // Fallback to item_name if size and design are not set (excluding the brand prefix if possible)
+          let name = (item.item_name || "").trim();
+          if (brand !== "MISC" && name.toUpperCase().startsWith(brand)) {
+            name = name.substring(brand.length).trim();
+          }
+          sizeDesign = name;
+        }
+        
+        const qty = item.quantity;
+        return `${sizeDesign} - ${qty} Pcs`;
+      }).join("\n");
+      return `${brand}\n${itemLines}`;
+    }).join("\n\n");
+
+    const totalLines = Object.entries(qtyByDesign).map(([design, qty]) => {
+      return `${design} = ${qty} Pcs`;
+    }).join("\n");
+
+    const copyText = `${brandBlocks}\n\nTotal = ${grandTotal} Pcs\n${totalLines}`;
+
+    navigator.clipboard.writeText(copyText)
+      .then(() => {
+        setToast({ title: "Order Copied", sub: "Text ready to paste" });
+      })
+      .catch(err => {
+        console.error("Failed to copy order details:", err);
+      });
+  }
+
   // ── Edit mode helpers ────────────────────────────────────────────────────
   function openEditMode() {
     if (!orderDetails) return;
@@ -4677,13 +4749,34 @@ export default function OrdersPage({ shopId, onRefresh }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 {!editMode && (
-                  <button
-                    className="ord-btn ord-btn-sky"
-                    style={{ padding: "0.28rem 0.8rem", fontSize: "0.82rem" }}
-                    onClick={openEditMode}
-                  >
-                    ✎ Edit
-                  </button>
+                  <>
+                    <button
+                      className="ord-btn ord-btn-slate"
+                      style={{ padding: "0.28rem 0.8rem", fontSize: "0.82rem" }}
+                      onClick={handleCopyOrder}
+                      title="Copy order details"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                      Copy
+                    </button>
+                    <button
+                      className="ord-btn ord-btn-sky"
+                      style={{ padding: "0.28rem 0.8rem", fontSize: "0.82rem" }}
+                      onClick={openEditMode}
+                    >
+                      ✎ Edit
+                    </button>
+                  </>
                 )}
                 <button
                   className="ord-details-close"

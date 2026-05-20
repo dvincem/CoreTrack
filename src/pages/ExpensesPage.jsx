@@ -1,5 +1,6 @@
 import '../pages_css/ExpensesPage.css';
 import React from 'react'
+import ReactDOM from 'react-dom'
 import { API_URL, currency, compactCurrency, apiFetch } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
@@ -168,7 +169,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
     setSuggestions(results)
   }, [search, expenses])
 
-  // Handle Enter key in modals
+  // Handle Enter/Escape keys in modals
   React.useEffect(() => {
     function handleKeyDown(e) {
       if (e.key === 'Enter') {
@@ -178,6 +179,15 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
         } else if (voidTarget && confirmVoidBtnRef.current) {
           e.preventDefault();
           confirmVoid();
+        }
+      } else if (e.key === 'Escape') {
+        if (pendingExpense) {
+          e.preventDefault();
+          setPendingExpense(null);
+        } else if (voidTarget) {
+          e.preventDefault();
+          setVoidTarget(null);
+          setVoidReason('');
         }
       }
     }
@@ -530,7 +540,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
               <div className="exp-form-modal-title">{editingId ? '✏ Edit Expense' : '+ New Expense'}</div>
               <button className="exp-form-modal-close" onClick={hideForm}>✕</button>
             </div>
-            <form onSubmit={saveExpense} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!saving && formIsValid) saveExpense(e); } }} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            <form onSubmit={saveExpense} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!saving && formIsValid) saveExpense(e); } }} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               <div className="exp-form-grid">
                 <div>
                   <label className="exp-label">Description *</label>

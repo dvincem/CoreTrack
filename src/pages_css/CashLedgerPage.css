@@ -114,6 +114,13 @@ input.fh-date {
   transform: translateY(0) scale(0.98);
 }
 
+.cl-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .cl-btn-emerald {
   background: linear-gradient(135deg, var(--th-emerald), #10b981);
   color: #fff;

@@ -197,7 +197,7 @@ export default function KpiCard({ label, value, icon, accent = 'sky', sub, loadi
   }, [])
 
   return (
-    <div className={`th-kpi accent-${accent}${compact ? ' compact' : ''}`} {...props}>
+    <div className={`th-kpi th-antigravity accent-${accent}${compact ? ' compact' : ''}`} {...props}>
       {icon && <div className="th-kpi-icon">{icon}</div>}
       <div className="th-kpi-label">{label}</div>
       {loading ? <div className="th-skeleton" /> : <div className="th-kpi-value">{value}</div>}
