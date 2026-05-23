@@ -1,4 +1,5 @@
 import React from 'react'
+import ReactDOM from 'react-dom'
 import { API_URL } from './lib/config'
 import { ThemeToggle } from './components/ThemeProvider'
 import LoginPage from './pages/LoginPage'
@@ -342,23 +343,21 @@ const APP_SHELL_STYLE = `
   .th-settings-btn-label { transition: opacity 0.15s, width 0.22s; white-space: nowrap; overflow: hidden; }
   .th-sidebar.collapsed .th-settings-btn-label { opacity: 0; width: 0; }
 
-  /* Settings popover */
+  /* Settings popover — rendered via portal so it is never clipped by the sidebar */
   .th-settings-popover {
-    position: absolute; bottom: calc(100% + 8px); left: 0.65rem; right: 0.65rem;
+    position: fixed;
     background: var(--th-bg-card);
     border: 1px solid var(--th-border-strong);
     border-radius: 12px;
     box-shadow: 0 16px 40px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04);
-    padding: 0.45rem; z-index: 200;
+    padding: 0.45rem; z-index: 9990;
     display: flex; flex-direction: column; gap: 2px;
+    width: 230px;
     animation: sidebarPopoverIn 0.16s cubic-bezier(0.34,1.56,0.64,1);
   }
   @keyframes sidebarPopoverIn {
     from { opacity: 0; transform: translateY(6px) scale(0.97); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .th-sidebar.collapsed .th-settings-popover {
-    position: fixed; bottom: 0.6rem; left: 58px; right: auto; width: 215px;
   }
   .th-settings-popover-item {
     display: flex; align-items: center; gap: 0.55rem;
@@ -914,10 +913,20 @@ function CoreTrack() {
   const [pendingFirstLogin, setPendingFirstLogin] = React.useState(null); // loginData when must_change_pin
   const [showLanding, setShowLanding] = React.useState(() => !localStorage.getItem("th-token") && !sessionStorage.getItem("th-landing-seen"));
   const [showSettings, setShowSettings] = React.useState(false);
-  const settingsRef = React.useRef(null);
+  const [settingsPopoverPos, setSettingsPopoverPos] = React.useState({ bottom: 0, left: 0 });
+  const settingsRef = React.useRef(null);      // wraps the whole bottom bar
+  const settingsBtnRef = React.useRef(null);   // the actual button, for positioning
   React.useEffect(() => {
     if (!showSettings) return;
-    const handler = e => { if (settingsRef.current && !settingsRef.current.contains(e.target)) setShowSettings(false); };
+    const handler = e => {
+      // close if click is outside both the button area and the portal popover
+      const popoverEl = document.getElementById('th-settings-portal-popover');
+      const btnEl = settingsBtnRef.current;
+      if (
+        (btnEl && !btnEl.contains(e.target)) &&
+        (popoverEl && !popoverEl.contains(e.target))
+      ) setShowSettings(false);
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showSettings]);
@@ -1350,10 +1359,17 @@ function CoreTrack() {
           })}
         </nav>
 
-        {/* Settings button + popover */}
+        {/* Settings button + popover (popover is portalled to body to escape sidebar overflow:hidden) */}
         <div className="th-sidebar-bottom" ref={settingsRef}>
-          {showSettings && (
-            <div className="th-settings-popover">
+          {showSettings && ReactDOM.createPortal(
+            <div
+              id="th-settings-portal-popover"
+              className="th-settings-popover"
+              style={{
+                bottom: `${settingsPopoverPos.bottom}px`,
+                left: `${settingsPopoverPos.left}px`,
+              }}
+            >
               {/* Dark mode */}
               <ThemeToggle collapsed={false} asMenuItem />
               <div className="th-settings-popover-divider" />
@@ -1426,10 +1442,33 @@ function CoreTrack() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                 Sign out ({authUser})
               </button>
-            </div>
+            </div>,
+            document.body
           )}
 
-          <button className="th-settings-btn" onClick={() => setShowSettings(s => !s)}>
+          <button
+            ref={settingsBtnRef}
+            className="th-settings-btn"
+            onClick={() => {
+              if (!showSettings && settingsBtnRef.current) {
+                const rect = settingsBtnRef.current.getBoundingClientRect();
+                const isMobile = window.innerWidth <= 768;
+                if (isMobile) {
+                  setSettingsPopoverPos({
+                    bottom: window.innerHeight - rect.top + 8,
+                    left: rect.left,
+                  });
+                } else {
+                  // Position totally outside the sidebar (to the right)
+                  setSettingsPopoverPos({
+                    bottom: window.innerHeight - rect.bottom,
+                    left: rect.right + 8,
+                  });
+                }
+              }
+              setShowSettings(s => !s);
+            }}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />

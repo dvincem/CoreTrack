@@ -630,6 +630,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
                     className={`confirm-btn-ok ${(pendingEntry.entry_type || '').endsWith('_IN') ? 'emerald' : 'danger'}`}
                     onClick={confirmSaveEntry}
                     onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveEntry(); }}
+                    autoFocus
                   >
                     Confirm
                   </button>
@@ -739,6 +740,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
                 className="confirm-btn-ok danger"
                 onClick={confirmVoid}
                 onKeyDown={(e) => { if (e.key === 'Enter') confirmVoid(); }}
+                autoFocus
               >
                 Void
               </button>

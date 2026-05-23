@@ -188,6 +188,7 @@ router.post("/sales/complete", async (req, res) => {
         wheel_weights_qty: item.wheel_weights_qty || null, commission_amount: 0,
         unit_cost: item.unit_cost != null ? item.unit_cost : null,
         is_custom: item.is_custom ? 1 : 0,
+        notes: item.notes || null,
       });
     }
     db.run('BEGIN TRANSACTION', (txErr) => {
@@ -201,11 +202,11 @@ router.post("/sales/complete", async (req, res) => {
         (err) => {
           if (err) return rollback(err.message);
           const itemStmt = db.prepare(`
-            INSERT INTO sale_items (sale_item_id, sale_id, item_or_service_id, item_name, sale_type, quantity, unit_price, line_total, sku, brand, design, tire_size, category, valve_type, valve_quantity, wheel_balancing, balancing_quantity, wheel_weights_qty, commission_amount, unit_cost, dot_number, is_custom, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO sale_items (sale_item_id, sale_id, item_or_service_id, item_name, sale_type, quantity, unit_price, line_total, sku, brand, design, tire_size, category, valve_type, valve_quantity, wheel_balancing, balancing_quantity, wheel_weights_qty, commission_amount, unit_cost, dot_number, notes, is_custom, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
           `);
           for (const item of saleItems) {
-            itemStmt.run([item.sale_item_id, item.sale_id, item.item_or_service_id, item.item_name, item.sale_type, item.quantity, item.unit_price, item.line_total, item.sku, item.brand, item.design, item.tire_size, item.category, item.valve_type, item.valve_quantity, item.wheel_balancing, item.balancing_quantity, item.wheel_weights_qty, item.commission_amount, item.unit_cost, item.dot_number || null, item.is_custom]);
+            itemStmt.run([item.sale_item_id, item.sale_id, item.item_or_service_id, item.item_name, item.sale_type, item.quantity, item.unit_price, item.line_total, item.sku, item.brand, item.design, item.tire_size, item.category, item.valve_type, item.valve_quantity, item.wheel_balancing, item.balancing_quantity, item.wheel_weights_qty, item.commission_amount, item.unit_cost, item.dot_number || null, item.notes, item.is_custom]);
           }
           itemStmt.finalize((err) => {
             if (err) return rollback(err.message);
@@ -373,7 +374,7 @@ router.get("/sales/:sale_id/details", (req, res) => {
   db.all(
     `SELECT sale_item_id, item_or_service_id, item_name, sale_type, quantity, unit_price, line_total,
       sku, brand, design, tire_size, category, valve_type, valve_quantity,
-      wheel_balancing, balancing_quantity, wheel_weights_qty, commission_amount, created_at
+      wheel_balancing, balancing_quantity, wheel_weights_qty, commission_amount, notes, created_at
     FROM sale_items WHERE sale_id = ?
     ORDER BY created_at`,
     [sale_id],

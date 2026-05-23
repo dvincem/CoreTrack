@@ -688,7 +688,7 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
                   if (e.key === "Enter") {
                     const trimmed = addCatModal.value.trim().toUpperCase();
                     if (trimmed) {
-                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                       const type = TIRE_SET.has(trimmed) ? "tire" : "other";
                       let ua = { tire: [], other: [] };
                       try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
@@ -712,7 +712,7 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
                 onClick={() => {
                   const trimmed = addCatModal.value.trim().toUpperCase();
                   if (trimmed) {
-                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                     const type = TIRE_SET.has(trimmed) ? "tire" : "other";
                     let ua = { tire: [], other: [] };
                     try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
@@ -1294,6 +1294,26 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       render: (item) => <span className="inv-td-sku">{item.sku}</span>,
     },
     {
+      key: 'category',
+      label: 'Category',
+      render: (item) => (
+        <span
+          style={{
+            background: "var(--th-orange-bg)",
+            color: "var(--th-orange)",
+            padding: "0.15rem 0.45rem",
+            borderRadius: 4,
+            fontSize: "0.72rem",
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontWeight: 700,
+            textTransform: "uppercase",
+          }}
+        >
+          {item.category || '—'}
+        </span>
+      ),
+    },
+    {
       key: 'brand', label: 'Brand',
       render: (item) => {
         const qty = item.current_quantity || 0;
@@ -1618,7 +1638,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
               : undefined}
             loading={itemsLoading}
             skeletonRows={8}
-            skeletonWidths={['w80', 'w40', 'w40', 'w30', 'w20', 'w60', 'w60', 'w50', 'w20']}
+            skeletonWidths={['w80', 'w40', 'w40', 'w40', 'w30', 'w20', 'w60', 'w60', 'w50', 'w20']}
             emptyTitle="No Items Found"
             emptyMessage={searchQuery ? 'No items match your search.' : 'No items found.'}
             minWidth={850}

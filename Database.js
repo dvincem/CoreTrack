@@ -405,11 +405,13 @@ function initializeDatabase() {
         commission_amount REAL DEFAULT 0,
         unit_cost REAL,
         dot_number TEXT,
+        notes TEXT,
         is_custom BOOLEAN DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sale_id) REFERENCES sale_header(sale_id)
       )`);
       db.run(`ALTER TABLE sale_items ADD COLUMN dot_number TEXT`, () => { });
+      db.run(`ALTER TABLE sale_items ADD COLUMN notes TEXT`, () => { });
 
       db.run(`CREATE TABLE IF NOT EXISTS sales_ledger (
         sales_ledger_id TEXT PRIMARY KEY,
@@ -827,6 +829,8 @@ function initializeDatabase() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (bale_id) REFERENCES bale_book(bale_id)
           )`, () => { });
+          db.run(`ALTER TABLE bale_payments ADD COLUMN is_void INTEGER DEFAULT 0`, () => { });
+          db.run(`ALTER TABLE bale_payments ADD COLUMN void_reason TEXT`, () => { });
 
           db.run(`CREATE INDEX IF NOT EXISTS idx_bale_shop ON bale_book(shop_id, status)`, () => { });
 

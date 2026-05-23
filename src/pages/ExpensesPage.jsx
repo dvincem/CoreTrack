@@ -420,6 +420,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
                 className="confirm-btn-ok"
                 onClick={confirmSaveExpense}
                 onKeyDown={(e) => { if (e.key === 'Enter') confirmSaveExpense(); }}
+                autoFocus
               >
                 Confirm
               </button>
@@ -451,6 +452,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
                 className="confirm-btn-ok danger"
                 onClick={confirmVoid}
                 onKeyDown={(e) => { if (e.key === 'Enter') confirmVoid(); }}
+                autoFocus
               >
                 Void
               </button>

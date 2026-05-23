@@ -279,18 +279,27 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
     if (!voidTarget) return;
     setSaving(true);
     try {
-      const res = await apiFetch(`${API_URL}/receivables/${voidTarget.receivable_id}/void`, {
+      const isBale = !!voidTarget.bale_id;
+      const url = isBale 
+        ? `${API_URL}/bale/${voidTarget.bale_id}/void`
+        : `${API_URL}/receivables/${voidTarget.receivable_id}/void`;
+      const res = await apiFetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ void_reason: voidReason })
       });
       const data = await res.json();
       if (data.error) { showToast(data.error, "error"); setSaving(false); return; }
-      showToast("Receivable voided!");
+      showToast(isBale ? "Bale voided!" : "Receivable voided!");
       setVoidTarget(null);
       setVoidReason("");
-      setRcvDetailTarget(null);
-      refetch();
+      if (isBale) {
+        setBaleDetailTarget(null);
+        loadBales();
+      } else {
+        setRcvDetailTarget(null);
+        refetch();
+      }
     } catch (e) { showToast(e.message, "error"); }
     setSaving(false);
   };
@@ -401,7 +410,10 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       .catch(() => setBaleHistLoading(false));
   };
 
-  const closeBaleDetail = () => setBaleDetailTarget(null);
+  const closeBaleDetail = () => {
+    setBaleDetailTarget(null);
+    setIsAddingVale(false);
+  };
 
   const submitBalePayment = () => {
     setBalePayError("");
@@ -524,7 +536,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             e.preventDefault();
             submitPayment();
           }
-        } else if (baleDetailTarget && baleDetailTarget.status !== "PAID") {
+        } else if (baleDetailTarget && baleDetailTarget.status !== "PAID" && baleDetailTarget.status !== "VOIDED") {
           if (isAddingVale) {
             const amt = parseFloat(baleAddForm.amount);
             const canSubmit = amt && amt > 0;
@@ -648,6 +660,8 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
     { key: 'status', label: 'Status', render: row => <span className={`bale-badge-${row.status}`}>{row.status}</span> },
     { key: 'notes', label: 'Notes', render: row => <span style={{fontSize:"0.78rem",color:"var(--th-text-muted)"}}>{row.notes||"—"}</span> },
   ], []);
+
+  const isVoidTargetBale = voidTarget && !!voidTarget.bale_id;
 
   return (
     <div className="rcv-root">
@@ -1163,7 +1177,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             )}
 
             {/* Record payment form — only if ACTIVE */}
-            {baleDetailTarget.status !== "PAID" && !isAddingVale && (
+            {baleDetailTarget.status !== "PAID" && baleDetailTarget.status !== "VOIDED" && !isAddingVale && (
               <div style={{padding:"0.85rem 1.1rem",borderBottom:"1px solid var(--th-border)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.6rem"}}>
                   <div style={{fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--th-amber)"}}>Record Payment (Cash)</div>
@@ -1199,7 +1213,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             )}
 
             {/* Add More Vale form */}
-            {isAddingVale && (
+            {isAddingVale && baleDetailTarget.status !== "VOIDED" && (
               <div style={{padding:"0.85rem 1.1rem",borderBottom:"1px solid var(--th-border)",background:"var(--th-bg-alt)"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.6rem"}}>
                   <div style={{fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--th-orange)"}}>Add More Vale</div>
@@ -1246,8 +1260,22 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             </div>
 
-            <div className="rcv-modal-foot">
-              <button className="rcv-btn-cancel" onClick={closeBaleDetail} style={{flex:1}}>Close</button>
+            <div className="rcv-modal-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {baleDetailTarget.status !== 'VOIDED' && (
+                <button 
+                  onClick={() => setVoidTarget(baleDetailTarget)}
+                  style={{ 
+                    background: 'none', border: 'none', color: 'var(--th-text-faint)', 
+                    fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5, 
+                    textDecoration: 'underline', transition: 'opacity 0.2s' 
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                  onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                >
+                  Void this bale
+                </button>
+              )}
+              <button className="rcv-btn-cancel" onClick={closeBaleDetail} style={{ flex: baleDetailTarget.status === 'VOIDED' ? 1 : 0, minWidth: 80 }}>Close</button>
             </div>
           </div>
         </div>,
@@ -1269,7 +1297,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingRcv(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitForm} disabled={saving}>Save</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitForm} disabled={saving} autoFocus>Save</button>
             </div>
           </div>
         </div>,
@@ -1289,7 +1317,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingPay(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitPayment} disabled={paying}>Confirm</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitPayment} disabled={paying} autoFocus>Confirm</button>
             </div>
           </div>
         </div>,
@@ -1309,7 +1337,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingBale(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitBale} disabled={baleSaving}>Save</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitBale} disabled={baleSaving} autoFocus>Save</button>
             </div>
           </div>
         </div>,
@@ -1328,7 +1356,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingBalePay(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitBalePayment} disabled={balePaying}>Confirm</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitBalePayment} disabled={balePaying} autoFocus>Confirm</button>
             </div>
           </div>
         </div>,
@@ -1347,7 +1375,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingBaleAdd(null)}>Cancel</button>
-              <button className="confirm-btn-ok" style={{background:"var(--th-orange)"}} onClick={confirmSubmitBaleAdd} disabled={baleAdding}>Yes, Add Vale</button>
+              <button className="confirm-btn-ok" style={{background:"var(--th-orange)"}} onClick={confirmSubmitBaleAdd} disabled={baleAdding} autoFocus>Yes, Add Vale</button>
             </div>
           </div>
         </div>,
@@ -1360,11 +1388,28 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       {voidTarget && ReactDOM.createPortal(
         <div className="confirm-overlay">
           <div className="confirm-box">
-            <div className="confirm-title">Void this Receivable?</div>
+            <div className="confirm-title">{isVoidTargetBale ? "Void this Bale?" : "Void this Receivable?"}</div>
             <div className="confirm-details">
-              <div className="confirm-detail-row"><span className="confirm-detail-label">ID</span><span className="confirm-detail-val">{voidTarget.receivable_id}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Balance</span><span className="confirm-detail-val">{rcvCurrency(voidTarget.balance_amount)}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{color:'var(--th-rose)'}}>Marks status as VOIDED and voids all payments</span></div>
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">ID</span>
+                <span className="confirm-detail-val">{isVoidTargetBale ? voidTarget.bale_id : voidTarget.receivable_id}</span>
+              </div>
+              {isVoidTargetBale && voidTarget.staff_name && (
+                <div className="confirm-detail-row">
+                  <span className="confirm-detail-label">Staff</span>
+                  <span className="confirm-detail-val">{voidTarget.staff_name}</span>
+                </div>
+              )}
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Balance</span>
+                <span className="confirm-detail-val">{rcvCurrency(voidTarget.balance_amount)}</span>
+              </div>
+              <div className="confirm-detail-row">
+                <span className="confirm-detail-label">Action</span>
+                <span className="confirm-detail-val" style={{color:'var(--th-rose)'}}>
+                  Marks status as VOIDED and voids all payments
+                </span>
+              </div>
             </div>
             <div className="rcv-form-group" style={{marginTop:'1rem', marginBottom:'1rem'}}>
               <label className="rcv-form-label">Reason for voiding</label>
@@ -1372,8 +1417,8 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>
-              <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving}>
-                {saving ? 'Voiding...' : 'Yes, Void Receivable'}
+              <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving} autoFocus>
+                {saving ? 'Voiding...' : (isVoidTargetBale ? 'Yes, Void Bale' : 'Yes, Void Receivable')}
               </button>
             </div>
           </div>

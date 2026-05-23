@@ -298,6 +298,11 @@ function SalesPage({ shopId, isShopClosed }) {
               {[d.brand, d.design, d.tire_size, d.category].filter(Boolean).join(' · ')}
             </div>
           )}
+          {d.notes && (
+            <div style={{fontSize:'0.72rem',color:'var(--th-orange)',fontStyle:'italic',marginTop:'0.15rem'}}>
+              📝 {d.notes}
+            </div>
+          )}
         </div>
       )
     },

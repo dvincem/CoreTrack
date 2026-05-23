@@ -1505,7 +1505,7 @@ function CreateOrderModal({
                   if (e.key === "Enter") {
                     const trimmed = addCatModal.value.trim().toUpperCase();
                     if (trimmed) {
-                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                       const type = TIRE_SET.has(trimmed) ? "tire" : "other";
                       let ua = { tire: [], other: [] };
                       try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
@@ -1529,7 +1529,7 @@ function CreateOrderModal({
                 onClick={() => {
                   const trimmed = addCatModal.value.trim().toUpperCase();
                   if (trimmed) {
-                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                     const type = TIRE_SET.has(trimmed) ? "tire" : "other";
                     let ua = { tire: [], other: [] };
                     try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
@@ -3173,7 +3173,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                   if (e.key === "Enter") {
                     const trimmed = addCatModalQr.value.trim().toUpperCase();
                     if (trimmed) {
-                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                      const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                       const type = TIRE_SET.has(trimmed) ? "tire" : "other";
                       let ua = { tire: [], other: [] };
                       try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}
@@ -3197,7 +3197,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                 onClick={() => {
                   const trimmed = addCatModalQr.value.trim().toUpperCase();
                   if (trimmed) {
-                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING"]);
+                    const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                     const type = TIRE_SET.has(trimmed) ? "tire" : "other";
                     let ua = { tire: [], other: [] };
                     try { ua = JSON.parse(localStorage.getItem("th-user-cats") || '{"tire":[],"other":[]}'); } catch {}

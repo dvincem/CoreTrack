@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { apiFetch } from '../lib/config';
 import { searchFeatures } from '../lib/featureIndex';
 
@@ -79,16 +79,14 @@ const STYLES = `
 
 /* ── Dropdown ── */
 .gs-dropdown {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 8px;
-  right: 8px;
+  position: fixed;
+  width: 360px;
   background: var(--th-bg-card);
   border: 1px solid var(--th-border-strong, rgba(255,255,255,0.14));
   border-radius: 10px;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.42), 0 2px 6px rgba(0,0,0,0.2);
-  z-index: 500;
-  max-height: 400px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.52), 0 2px 8px rgba(0,0,0,0.24);
+  z-index: 900;
+  max-height: 420px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -133,11 +131,11 @@ const STYLES = `
 .gs-result-detail {
   font-size: 0.7rem;
   color: var(--th-text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
   display: block;
-  margin-top: 1px;
+  margin-top: 2px;
+  line-height: 1.35;
 }
 .gs-badge {
   display: inline-block;
@@ -311,6 +309,18 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
   const overlayInputRef = useRef(null);
   const abortRef        = useRef(null);
   const debounceRef     = useRef(null);
+
+  // Fixed-position anchor for the dropdown (escapes sidebar overflow:hidden)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    if (!dropdownOpen || !wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left + 8,
+    });
+  }, [dropdownOpen, query]);
 
   // Flat list of all result rows for keyboard navigation
   const allRows = useMemo(() => {
@@ -664,9 +674,12 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
         )}
       </div>
 
-      {/* Dropdown — only shown when open and has something to display */}
+      {/* Dropdown — fixed-positioned to overflow sidebar's clip boundary */}
       {dropdownOpen && (hasResults || loading || (hasMinQuery && !loading && !hasResults)) && (
-        <div className="gs-dropdown">
+        <div
+          className="gs-dropdown"
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+        >
           {renderResultList()}
         </div>
       )}

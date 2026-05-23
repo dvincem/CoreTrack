@@ -376,7 +376,7 @@ router.get("/labor-summary/:shop_id", (req, res) => {
           COUNT(ll.log_id) as service_count,
           COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.total_amount ELSE 0 END),0) as service_total,
           COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.commission_amount ELSE 0 END),0) as commission_total,
-          (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ?) as bale_deducted
+          (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ? AND COALESCE(bp.is_void, 0) = 0) as bale_deducted
         FROM staff_master sm
         LEFT JOIN labor_log ll ON sm.staff_id = ll.staff_id AND ll.shop_id = ? AND ll.business_date BETWEEN ? AND ?
         WHERE sm.is_active = 1
@@ -396,7 +396,7 @@ router.get("/labor-summary/:shop_id", (req, res) => {
           COUNT(ll.log_id) as service_count,
           COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.total_amount ELSE 0 END),0) as service_total,
           COALESCE(SUM(CASE WHEN ll.is_void=0 THEN ll.commission_amount ELSE 0 END),0) as commission_total,
-          (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) = ?) as bale_deducted
+          (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) = ? AND COALESCE(bp.is_void, 0) = 0) as bale_deducted
         FROM staff_master sm
         LEFT JOIN labor_log ll ON sm.staff_id = ll.staff_id AND ll.shop_id = ? AND ll.business_date = ?
         WHERE sm.is_active = 1
@@ -525,7 +525,7 @@ router.get("/services-summary/:shop_id", (req, res) => {
     `SELECT ll.log_id, ll.staff_id, ll.service_id, ll.service_name, ll.sale_id,
             ll.quantity, ll.unit_price, ll.total_amount, ll.commission_amount,
             ll.business_date, ll.log_datetime, sm.full_name, sm.staff_code,
-            (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ?) as bale_deducted
+            (SELECT COALESCE(SUM(bp.amount), 0) FROM bale_payments bp JOIN bale_book bb ON bp.bale_id = bb.bale_id WHERE bb.staff_id = sm.staff_id AND DATE(bp.payment_date) BETWEEN ? AND ? AND COALESCE(bp.is_void, 0) = 0) as bale_deducted
      FROM labor_log ll
      LEFT JOIN staff_master sm ON ll.staff_id = sm.staff_id
      WHERE ll.shop_id = ? AND DATE(ll.business_date) BETWEEN ? AND ? AND ll.is_void = 0

@@ -802,6 +802,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                   cashPool.collectionsTotal > 0 && { label: 'Receivable Collections', value: cashPool.collectionsTotal, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.baleRepaymentsTotal > 0 && { label: 'Bale Repayments', value: cashPool.baleRepaymentsTotal, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.digitalFromSales > 0 && { label: 'Non-Cash Sales (GCash/Card)', value: cashPool.digitalFromSales, sign: '−', color: 'var(--th-rose)' },
+                  cashPool.creditFromSales > 0 && { label: 'Credit Sales (Utang)', value: cashPool.creditFromSales, sign: '−', color: 'var(--th-rose)' },
                   cashPool.manualGcashOut > 0 && { label: 'GCash Out', value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
                   cashPool.purchasesDeducted > 0 && { label: 'Purchases', value: cashPool.purchasesDeducted, sign: '−', color: 'var(--th-rose)' },
                   cashPool.commissionsDeducted > 0 && { label: 'Commissions', value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
@@ -1211,6 +1212,323 @@ function SectionInventory({ shopId, startDate, endDate, setStartDate, setEndDate
 }
 
 /* ─────────────────────────────────────────────
+   CASH RUNWAY PANEL
+───────────────────────────────────────────── */
+function CashRunwayPanel({ shopId, isOpen }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [weekOffset, setWeekOffset] = useState(0)
+
+  useEffect(() => {
+    if (!isOpen) return
+    let active = true
+    setLoading(true); setError(null)
+    apiFetch(`${API_URL}/cash-runway/${shopId}?offset=${weekOffset}`)
+      .then(r => r.json())
+      .then(res => {
+        if (!active) return
+        if (res.error) {
+          setError(res.error)
+        } else {
+          setData(res)
+        }
+        setLoading(false)
+      })
+      .catch(err => {
+        if (active) {
+          setError(err.message || 'Failed to load runway')
+          setLoading(false)
+        }
+      })
+    return () => { active = false }
+  }, [shopId, isOpen, weekOffset])
+
+  if (loading) return (
+    <div style={{
+      padding: '1.25rem 1.5rem',
+      background: 'var(--th-bg-card)',
+      borderRadius: 14,
+      border: '1.5px dashed var(--th-border)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      color: 'var(--th-text-muted)',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      marginBottom: '1rem',
+      backdropFilter: 'blur(8px)',
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+    }}>
+      <div className="th-spinner th-spinner-sm" style={{ borderTopColor: 'var(--th-emerald)' }} />
+      Analyzing upcoming cash runway & obligations…
+    </div>
+  )
+
+  if (error) return (
+    <div style={{
+      padding: '1rem 1.25rem',
+      background: 'var(--th-rose-bg)',
+      color: 'var(--th-rose)',
+      borderRadius: 12,
+      border: '1px solid var(--th-rose)',
+      fontSize: '0.82rem',
+      marginBottom: '1rem',
+      fontWeight: 600
+    }}>
+      ⚠ Failed to digest runway projection: {error}
+    </div>
+  )
+
+  if (!data) return null
+
+  const { this_week, next_week, sales_revenue, collections, total_money_in, total_money_out, surplus, is_covered, payables } = data
+
+  const coveragePct = total_money_out > 0
+    ? Math.min(100, Math.round((total_money_in / total_money_out) * 100))
+    : 100
+
+  const fmtDate = d => {
+    if (!d) return ''
+    const parts = d.split('-')
+    if (parts.length < 3) return d
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    return `${months[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10)}`
+  }
+
+  return (
+    <div style={{
+      borderRadius: 14,
+      border: `1.5px solid ${is_covered ? 'var(--th-emerald)' : 'var(--th-rose)'}`,
+      background: is_covered
+        ? 'color-mix(in srgb, var(--th-emerald) 4%, var(--th-bg-card))'
+        : 'color-mix(in srgb, var(--th-rose) 5%, var(--th-bg-card))',
+      backdropFilter: 'blur(12px)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+      overflow: 'hidden',
+      marginBottom: '1.25rem',
+      animation: 'fadeIn 0.3s ease-out'
+    }}>
+      {/* Header bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.5rem',
+        padding: '0.85rem 1.25rem',
+        borderBottom: '1px solid var(--th-border)',
+        background: is_covered
+          ? 'color-mix(in srgb, var(--th-emerald) 7%, var(--th-bg-card))'
+          : 'color-mix(in srgb, var(--th-rose) 8%, var(--th-bg-card))',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <div style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: is_covered ? 'var(--th-emerald)' : 'var(--th-rose)',
+            boxShadow: `0 0 10px ${is_covered ? 'var(--th-emerald)' : 'var(--th-rose)'}`
+          }} />
+          <span style={{
+            fontFamily: 'Barlow Condensed, sans-serif',
+            fontWeight: 800,
+            fontSize: '1.05rem',
+            letterSpacing: '0.04em',
+            color: 'var(--th-text-heading)',
+            textTransform: 'uppercase'
+          }}>
+            Weekly Runway Coverage
+          </span>
+          <span style={{
+            fontSize: '0.65rem',
+            fontWeight: 900,
+            padding: '2px 8px',
+            borderRadius: 20,
+            background: is_covered ? 'var(--th-emerald-bg)' : 'var(--th-rose-bg)',
+            color: is_covered ? 'var(--th-emerald)' : 'var(--th-rose)',
+            border: `1px solid ${is_covered ? 'color-mix(in srgb, var(--th-emerald) 50%, transparent)' : 'color-mix(in srgb, var(--th-rose) 50%, transparent)'}`,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em'
+          }}>
+            {is_covered ? 'Healthy' : 'Deficit Warning'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <button
+            onClick={() => setWeekOffset(o => o - 1)}
+            style={{
+              background: 'var(--th-bg-card)', border: '1px solid var(--th-border)', 
+              color: 'var(--th-text-muted)', cursor: 'pointer', 
+              padding: '2px 6px', fontSize: '0.8rem', borderRadius: 4, 
+              display: 'flex', alignItems: 'center', transition: 'all 0.15s'
+            }}
+            title="Previous Week"
+            onMouseOver={(e) => e.currentTarget.style.color = 'var(--th-text-heading)'}
+            onMouseOut={(e) => e.currentTarget.style.color = 'var(--th-text-muted)'}
+          >
+            ◀
+          </button>
+          
+          <div style={{ fontSize: '0.72rem', color: 'var(--th-text-faint)', fontWeight: 700, textAlign: 'center' }}>
+            {fmtDate(this_week.start)} - {fmtDate(this_week.end)} vs {fmtDate(next_week.start)} - {fmtDate(next_week.end)}
+          </div>
+
+          <button
+            onClick={() => setWeekOffset(o => o + 1)}
+            disabled={weekOffset >= 0}
+            style={{
+              background: weekOffset >= 0 ? 'transparent' : 'var(--th-bg-card)', 
+              border: `1px solid ${weekOffset >= 0 ? 'transparent' : 'var(--th-border)'}`, 
+              color: weekOffset >= 0 ? 'var(--th-border)' : 'var(--th-text-muted)',
+              cursor: weekOffset >= 0 ? 'not-allowed' : 'pointer', 
+              padding: '2px 6px', fontSize: '0.8rem', borderRadius: 4, 
+              display: 'flex', alignItems: 'center', transition: 'all 0.15s'
+            }}
+            title="Next Week"
+            onMouseOver={(e) => { if(weekOffset < 0) e.currentTarget.style.color = 'var(--th-text-heading)' }}
+            onMouseOut={(e) => { if(weekOffset < 0) e.currentTarget.style.color = 'var(--th-text-muted)' }}
+          >
+            ▶
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Body */}
+      <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+        
+        {/* Coverage Progress Section */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.45rem' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--th-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Coverage Ratio
+            </span>
+            <span style={{
+              fontFamily: 'Barlow Condensed, sans-serif',
+              fontSize: '1.2rem',
+              fontWeight: 900,
+              color: is_covered ? 'var(--th-emerald)' : 'var(--th-rose)'
+            }}>
+              {coveragePct}%
+            </span>
+          </div>
+          <div style={{ height: 12, borderRadius: 99, background: 'var(--th-bg-page)', border: '1px solid var(--th-border)', overflow: 'hidden', padding: 1 }}>
+            <div style={{
+              height: '100%',
+              borderRadius: 99,
+              width: `${coveragePct}%`,
+              background: is_covered
+                ? 'linear-gradient(90deg, var(--th-emerald) 0%, var(--th-sky) 100%)'
+                : 'linear-gradient(90deg, var(--th-amber) 0%, var(--th-rose) 100%)',
+              transition: 'width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            }} />
+          </div>
+        </div>
+
+        {/* Dynamic Side-by-Side Comparison */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr', gap: '1.25rem', alignItems: 'stretch' }}>
+          
+          {/* Left Column: Money In */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--th-emerald)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span>↑ This Week (Money In)</span>
+            </div>
+            
+            <div style={{ background: 'var(--th-bg-page)', borderRadius: 12, padding: '1rem', border: '1px solid var(--th-border)', flex: 1 }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--th-text-faint)', fontWeight: 600 }}>Total Collected & Earned</div>
+              <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '2rem', fontWeight: 900, color: 'var(--th-emerald)', marginTop: '0.2rem', lineHeight: 1 }}>
+                {fmtK(total_money_in)}
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid var(--th-border)', paddingTop: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--th-text-muted)' }}>Sales Revenue</span>
+                  <span style={{ fontWeight: 700, color: 'var(--th-text-heading)' }}>{fmtK(sales_revenue)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--th-text-muted)' }}>Receivables Collected</span>
+                  <span style={{ fontWeight: 700, color: 'var(--th-text-heading)' }}>{fmtK(collections)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ background: 'var(--th-border)' }} />
+
+          {/* Right Column: Next Week Bills */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--th-rose)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span>↓ Next Week (Bills Due)</span>
+            </div>
+            
+            <div style={{ background: 'var(--th-bg-page)', borderRadius: 12, padding: '1rem', border: '1px solid var(--th-border)', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--th-text-faint)', fontWeight: 600 }}>Total Obligations Due</div>
+              <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '2rem', fontWeight: 900, color: total_money_out > 0 ? 'var(--th-rose)' : 'var(--th-text-muted)', marginTop: '0.2rem', lineHeight: 1 }}>
+                {fmtK(total_money_out)}
+              </div>
+
+              <div style={{ flex: 1, marginTop: '1rem', borderTop: '1px solid var(--th-border)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '120px', overflowY: 'auto' }}>
+                {payables.length === 0 ? (
+                  <div style={{ color: 'var(--th-text-faint)', fontSize: '0.75rem', fontStyle: 'italic', padding: '0.5rem 0' }}>
+                    No pending payables due next week.
+                  </div>
+                ) : (
+                  payables.map((p, idx) => {
+                    const name = p.payable_type === 'SUPPLIER' ? (p.supplier_name || 'Supplier') : (p.payee_name || 'General')
+                    return (
+                      <div key={p.payable_id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', paddingBottom: '0.3rem', borderBottom: idx < payables.length - 1 ? '1px dashed var(--th-border)' : 'none' }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--th-text-heading)' }}>{name}</span>
+                          <div style={{ fontSize: '0.62rem', color: 'var(--th-text-faint)' }}>{p.description || '—'}</div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{ fontWeight: 800, color: 'var(--th-rose)', textDecoration: p.status === 'PAID' ? 'line-through' : 'none', opacity: p.status === 'PAID' ? 0.7 : 1 }}>
+                            {fmtK(p.original_amount)}
+                          </span>
+                          <div style={{ fontSize: '0.62rem', color: p.status === 'PAID' ? 'var(--th-emerald)' : 'var(--th-amber)', fontWeight: 600 }}>
+                            {p.status === 'PAID' ? 'PAID' : `Due: ${fmtDate(p.due_date)}`}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Summary Banner */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.75rem 1.25rem',
+          borderRadius: 10,
+          background: is_covered
+            ? 'color-mix(in srgb, var(--th-emerald) 8%, var(--th-bg-card))'
+            : 'color-mix(in srgb, var(--th-rose) 8%, var(--th-bg-card))',
+          border: `1px solid ${is_covered ? 'var(--th-emerald)' : 'var(--th-rose)'}`
+        }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: is_covered ? 'var(--th-emerald)' : 'var(--th-rose)' }}>
+            {is_covered ? '✓ Net Surplus remaining after bills:' : '⚠ Total shortage in coverage:'}
+          </span>
+          <span style={{
+            fontFamily: 'Barlow Condensed, sans-serif',
+            fontSize: '1.35rem',
+            fontWeight: 900,
+            color: is_covered ? 'var(--th-emerald)' : 'var(--th-rose)'
+          }}>
+            {is_covered ? '+' : '-'}{fmtK(Math.abs(surplus))}
+          </span>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    SECTION: BUSINESS HEALTH
 ───────────────────────────────────────────── */
 function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
@@ -1219,6 +1537,7 @@ function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
   const [error, setError] = useState(null)
   const [showInBreakdown, setShowInBreakdown] = useState(false)
   const [showOutBreakdown, setShowOutBreakdown] = useState(false)
+  const [showRunway, setShowRunway] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -1262,6 +1581,51 @@ function SectionBusinessHealth({ shopId, startDate, endDate, isOpen }) {
 
   return (
     <>
+      {/* ── Cash Runway Toggle ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
+        <button
+          id="cash-runway-toggle-btn"
+          onClick={() => setShowRunway(v => !v)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            padding: '0.45rem 0.9rem',
+            borderRadius: 8,
+            cursor: 'pointer',
+            border: showRunway ? '1.5px solid var(--th-emerald)' : '1.5px solid var(--th-border-strong)',
+            background: showRunway ? 'var(--th-emerald-bg)' : 'var(--th-bg-card)',
+            color: showRunway ? 'var(--th-emerald)' : 'var(--th-text-muted)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            transition: 'all 0.15s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Weekly Cash Coverage
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transition: 'transform 0.2s', transform: showRunway ? 'rotate(180deg)' : 'none', opacity: 0.65 }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        {!showRunway && (
+          <span style={{ fontSize: '0.72rem', color: 'var(--th-text-faint)', fontWeight: 500 }}>
+            Analyze this week's money in vs next week's bills
+          </span>
+        )}
+      </div>
+
+      {showRunway && (
+        <CashRunwayPanel shopId={shopId} isOpen={isOpen} />
+      )}
+
       {/* Hero health card */}
       <div className={`rpt-health-card ${isGreen ? 'green' : 'red'}`}>
         <div style={{ flex: 1, minWidth: 220 }}>

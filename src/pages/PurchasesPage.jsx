@@ -9,7 +9,7 @@ import KpiCard from '../components/KpiCard'
 import FilterHeader from '../components/FilterHeader'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'MOTORCYCLE', 'TUBE', 'RECAPPING']
+const DEFAULT_TIRE_CATS = ['PCR', 'SUV', 'TBR', 'LT', 'LTB', 'MOTORCYCLE', 'TUBE', 'RECAP', 'RECAPPING', 'USED TIRE', 'TIRE']
 const DEFAULT_INV_OTHER_CATS = ['VALVE', 'WHEEL WEIGHT', 'WHEEL BALANCING', 'MAG WHEEL', 'ACCESSORIES', 'OTHER']
 const DEFAULT_SUPPLY_CATS = ['Consumable', 'Maintenance', 'Repair Material', 'Other Supply']
 
@@ -180,7 +180,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
       apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => { })
       apiFetch(`${API_URL}/item-categories/any`).then(r => r.json()).then(d => {
         if (!Array.isArray(d)) return
-        const TIRE_SET = new Set(['PCR','SUV','TBR','LT','MOTORCYCLE','TUBE','RECAP','FLAP','RECAPPING'])
+        const TIRE_SET = new Set(['PCR','SUV','TBR','LT','LTB','MOTORCYCLE','TUBE','RECAP','FLAP','RECAPPING','USED TIRE','TIRE'])
         const dbTire = d.filter(c => TIRE_SET.has(c.toUpperCase()))
         const dbOther = d.filter(c => !TIRE_SET.has(c.toUpperCase()))
         setTireCats(prev => [...new Set([...prev, ...dbTire])])

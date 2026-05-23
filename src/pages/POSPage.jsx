@@ -327,6 +327,29 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
         </div>
       )}
 
+      {/* Notes Field */}
+      <div style={{ marginTop: '0.4rem', marginBottom: '0.4rem' }}>
+        <input
+          type="text"
+          placeholder="Add optional notes (e.g. 2 holes, service info)..."
+          value={item.notes || ''}
+          onChange={(e) => update(item.cart_id, { notes: e.target.value })}
+          style={{
+            width: '100%',
+            background: 'var(--th-bg-input)',
+            border: '1px solid var(--th-border-strong)',
+            borderRadius: '6px',
+            padding: '0.3rem 0.5rem',
+            fontSize: '0.75rem',
+            color: 'var(--th-text-primary)',
+            outline: 'none',
+            transition: 'border-color 0.15s',
+          }}
+          onFocus={(e) => e.target.style.borderColor = 'var(--th-orange)'}
+          onBlur={(e) => e.target.style.borderColor = 'var(--th-border-strong)'}
+        />
+      </div>
+
       {/* Consumable controls — only for tire categories that support valve/balancing */}
       {item.type === "PRODUCT" && ['PCR', 'SUV', 'MOTORCYCLE', 'TIRE', 'RECAP', 'LT', 'TBR'].includes((item.category || '').toUpperCase()) && (
         <CartItemConsumables
@@ -369,6 +392,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   };
   const [cart, setCart] = React.useState([]);
   const [showClearCartModal, setShowClearCartModal] = React.useState(false);
+  const [pendingDeleteDraft, setPendingDeleteDraft] = React.useState(null);
 
   React.useEffect(() => {
     if (currentStaffId) {
@@ -486,9 +510,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     }
   };
 
-  const deleteDraft = async (e, draft_id) => {
-    e.stopPropagation();
-    if (!window.confirm("Delete this draft?")) return;
+  const deleteDraft = async (draft_id) => {
     try {
       const r = await apiFetch(`${API_URL}/pos-drafts/${shopId}/${draft_id}`, { method: "DELETE" });
       if (r.ok) {
@@ -940,6 +962,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           tire_size: c.size || null,
           category: c.category || null,
           dot_number: c.dot_number || null,
+          notes: c.notes || null,
         });
         if (c.valve_type && c.valve_item_id && c.valve_quantity > 0) {
           allItems.push({
@@ -1620,7 +1643,16 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                               {new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {JSON.parse(d.cart_data).length} items
                             </div>
                           </div>
-                          <button className="pos-draft-delete" onClick={(e) => deleteDraft(e, d.draft_id)} title="Delete Draft">✕</button>
+                          <button
+                            className="pos-draft-delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPendingDeleteDraft(d);
+                            }}
+                            title="Delete Draft"
+                          >
+                            ✕
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -2366,7 +2398,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       {/* ── Clear Cart Modal ── */}
       {showClearCartModal && (
         <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setShowClearCartModal(false)} style={{ zIndex: 9999 }}>
-          <div className="confirm-box" style={{ maxWidth: 250 }}>
+          <div className="confirm-box" style={{ maxWidth: 320 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="confirm-title" style={{ marginBottom: 0, color: 'var(--th-rose)' }}>
                 Clear Cart
@@ -2378,11 +2410,10 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                 Are you sure you want to clear all items from the cart? This action cannot be undone.
               </p>
             </div>
-            <div className="confirm-actions" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setShowClearCartModal(false)}>Cancel</button>
               <button
-                className="pos-complete-btn"
-                style={{ width: 'auto', background: 'var(--th-rose)', padding: '0.5rem 1rem' }}
+                className="confirm-btn-ok danger"
                 onClick={() => { clearCart(); setShowClearCartModal(false); }}
               >
                 ✕ Confirm Clear
@@ -2390,6 +2421,38 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Delete Draft Modal ── */}
+      {pendingDeleteDraft && ReactDOM.createPortal(
+        <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && setPendingDeleteDraft(null)} style={{ zIndex: 9999 }}>
+          <div className="confirm-box" style={{ maxWidth: 320 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="confirm-title" style={{ marginBottom: 0, color: 'var(--th-rose)' }}>
+                Delete Draft
+              </div>
+              <button className="pos-modal-close" onClick={() => setPendingDeleteDraft(null)} style={{ background: 'none', border: 'none', color: 'var(--th-text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div className="confirm-details" style={{ borderLeft: '3px solid var(--th-rose)', paddingLeft: '1rem', marginBottom: '1.5rem' }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--th-text-body)' }}>
+                Are you sure you want to delete the draft <strong>{pendingDeleteDraft.draft_name}</strong>? This action cannot be undone.
+              </p>
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setPendingDeleteDraft(null)}>Cancel</button>
+              <button
+                className="confirm-btn-ok danger"
+                onClick={() => {
+                  deleteDraft(pendingDeleteDraft.draft_id);
+                  setPendingDeleteDraft(null);
+                }}
+              >
+                ✕ Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );

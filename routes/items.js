@@ -49,10 +49,10 @@ router.get("/items/:shop_id", async (req, res) => {
     // Extend base CTE with multi-design key lookup (no correlated subqueries at query time)
     baseSql += `,
   multi_design_keys AS (
-    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size
+    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size, COALESCE(category,'') AS category
     FROM raw_items
     WHERE brand IS NOT NULL AND design IS NOT NULL
-    GROUP BY COALESCE(brand,''), COALESCE(size,'')
+    GROUP BY COALESCE(brand,''), COALESCE(size,''), COALESCE(category,'')
     HAVING COUNT(DISTINCT design) > 1
   )`;
 
@@ -86,12 +86,12 @@ router.get("/items/:shop_id", async (req, res) => {
           CASE
             WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
               SELECT 1 FROM multi_design_keys mk
-              WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+              WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'') AND mk.category = COALESCE(category,'')
             )
-            THEN COALESCE(brand,'') || '||' || COALESCE(size,'')
+            THEN COALESCE(category,'') || '||' || COALESCE(brand,'') || '||' || COALESCE(size,'')
             ELSE
               CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-              THEN COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+              THEN COALESCE(category,'') || '||' || COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
               ELSE item_id
               END
           END as group_key
@@ -833,10 +833,10 @@ router.get("/pos-items/:shop_id", async (req, res) => {
      WHERE ${filters}
   ),
   multi_design_keys AS (
-    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size
+    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size, COALESCE(category,'') AS category
     FROM stock
     WHERE brand IS NOT NULL AND design IS NOT NULL
-    GROUP BY COALESCE(brand,''), COALESCE(size,'')
+    GROUP BY COALESCE(brand,''), COALESCE(size,''), COALESCE(category,'')
     HAVING COUNT(DISTINCT design) > 1
   ),
   grouped AS (
@@ -844,12 +844,12 @@ router.get("/pos-items/:shop_id", async (req, res) => {
       CASE
         WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
           SELECT 1 FROM multi_design_keys mk
-          WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+          WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'') AND mk.category = COALESCE(category,'')
         )
-        THEN brand || '||' || COALESCE(size,'')
+        THEN COALESCE(category,'') || '||' || brand || '||' || COALESCE(size,'')
         ELSE
           CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-               THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+               THEN COALESCE(category,'') || '||' || brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
                ELSE item_id
           END
       END AS group_key,
@@ -893,12 +893,12 @@ router.get("/pos-items/:shop_id", async (req, res) => {
               CASE
                 WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
                   SELECT 1 FROM multi_design_keys mk
-                  WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+                  WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'') AND mk.category = COALESCE(category,'')
                 )
-                THEN brand || '||' || COALESCE(size,'')
+                THEN COALESCE(category,'') || '||' || brand || '||' || COALESCE(size,'')
                 ELSE
                   CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-                       THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+                       THEN COALESCE(category,'') || '||' || brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
                        ELSE item_id
                   END
               END AS group_key
@@ -906,12 +906,12 @@ router.get("/pos-items/:shop_id", async (req, res) => {
         WHERE CASE
                 WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
                   SELECT 1 FROM multi_design_keys mk
-                  WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'')
+                  WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'') AND mk.category = COALESCE(category,'')
                 )
-                THEN brand || '||' || COALESCE(size,'')
+                THEN COALESCE(category,'') || '||' || brand || '||' || COALESCE(size,'')
                 ELSE
                   CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-                       THEN brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+                       THEN COALESCE(category,'') || '||' || brand || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
                        ELSE item_id
                   END
               END IN (${placeholders})

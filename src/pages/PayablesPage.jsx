@@ -1575,7 +1575,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="pay-btn-cancel" onClick={() => setWeekBulkPending(null)}>Cancel</button>
-              <button className="pay-btn-primary" onClick={confirmWeekBulkPay}>Confirm Payment</button>
+              <button className="pay-btn-primary" onClick={confirmWeekBulkPay} autoFocus>Confirm Payment</button>
             </div>
           </div>
         </div>,
@@ -1598,7 +1598,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingPayable(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitForm} disabled={saving}>Save</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitForm} disabled={saving} autoFocus>Save</button>
             </div>
           </div>
         </div>,
@@ -1618,7 +1618,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingEditPayable(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitEdit} disabled={editSaving}>Update</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitEdit} disabled={editSaving} autoFocus>Update</button>
             </div>
           </div>
         </div>,
@@ -1638,7 +1638,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingPayment(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmSubmitPayment} disabled={paying}>Confirm</button>
+              <button className="confirm-btn-ok" onClick={confirmSubmitPayment} disabled={paying} autoFocus>Confirm</button>
             </div>
           </div>
         </div>,
@@ -1657,7 +1657,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setPendingMarkPaid(null)}>Cancel</button>
-              <button className="confirm-btn-ok" onClick={confirmMarkPaidFull} disabled={paying}>Confirm</button>
+              <button className="confirm-btn-ok" onClick={confirmMarkPaidFull} disabled={paying} autoFocus>Confirm</button>
             </div>
           </div>
         </div>,
@@ -1679,7 +1679,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>
-              <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving}>
+              <button className="confirm-btn-ok danger" onClick={handleVoid} disabled={saving} autoFocus>
                 {saving ? 'Voiding...' : 'Yes, Void Payable'}
               </button>
             </div>
@@ -1700,7 +1700,7 @@ function PayablesPage({ shopId }) {
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setDeleteTarget(null)}>Cancel</button>
-              <button className="confirm-btn-ok danger" onClick={handleDeletePayable} disabled={saving}>
+              <button className="confirm-btn-ok danger" onClick={handleDeletePayable} disabled={saving} autoFocus>
                 {saving ? 'Deleting...' : 'Yes, Delete Permanently'}
               </button>
             </div>

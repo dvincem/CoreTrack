@@ -9,7 +9,8 @@
     "dev:api": "nodemon server.js",
     "dev:ui": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "restart": "npm run build && sudo pm2 restart coretrack"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

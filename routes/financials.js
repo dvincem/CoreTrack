@@ -313,10 +313,36 @@ router.post("/bale/:bale_id/payment", (req, res) => {
 router.get("/bale/:bale_id/payments", (req, res) => {
   const { bale_id } = req.params;
   db.all(
-    `SELECT * FROM bale_payments WHERE bale_id = ? ORDER BY payment_date DESC, created_at DESC`,
+    `SELECT * FROM bale_payments WHERE bale_id = ? AND is_void = 0 ORDER BY payment_date DESC, created_at DESC`,
     [bale_id],
     (err, rows) => res.json(err ? { error: err.message } : (rows || []))
   );
+});
+
+router.put("/bale/:bale_id/void", (req, res) => {
+  const { bale_id } = req.params;
+  const { void_reason } = req.body;
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    db.run(
+      `UPDATE bale_book SET status = 'VOIDED', notes = COALESCE(notes || '\n', '') || ? WHERE bale_id = ?`,
+      [`VOIDED: ${void_reason || 'No reason'}`, bale_id],
+      function(err) {
+        if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
+        db.run(
+          `UPDATE bale_payments SET is_void = 1, void_reason = ? WHERE bale_id = ?`,
+          [void_reason || null, bale_id],
+          (err2) => {
+            if (err2) { db.run("ROLLBACK"); return res.status(500).json({ error: err2.message }); }
+            db.run("COMMIT", (errC) => {
+              if (errC) return res.status(500).json({ error: errC.message });
+              res.json({ message: "Bale voided successfully" });
+            });
+          }
+        );
+      }
+    );
+  });
 });
 
 router.post("/bale/:bale_id/add", (req, res) => {
@@ -872,6 +898,116 @@ router.get("/financial-health/:shop_id", (req, res) => {
       prev_pct,
     });
   }).catch(err => res.status(500).json({ error: err.message }));
+});
+
+/* ── CASH RUNWAY: This week's Money In vs Next week's Bills ───── */
+router.get("/cash-runway/:shop_id", async (req, res) => {
+  try {
+    const { shop_id } = req.params;
+    const { getEffectiveYYYYMMDD } = require("../lib/businessDate");
+    const baseDateStr = req.query.date || await getEffectiveYYYYMMDD(shop_id);
+    const offsetWeeks = parseInt(req.query.offset || '0', 10);
+    
+    // Parse YYYY-MM-DD
+    const parts = baseDateStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    
+    const baseDate = new Date(year, month, day);
+    if (offsetWeeks !== 0) {
+      baseDate.setDate(baseDate.getDate() + (offsetWeeks * 7));
+    }
+    
+    const dow = baseDate.getDay(); // 0 = Sunday
+    
+    // Calculate start/end of this week (Sunday to Saturday)
+    const thisWeekStart = new Date(baseDate);
+    thisWeekStart.setDate(baseDate.getDate() - dow);
+    
+    const thisWeekEnd = new Date(thisWeekStart);
+    thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+    
+    // Calculate start/end of next week (Sunday to Saturday)
+    const nextWeekStart = new Date(thisWeekStart);
+    nextWeekStart.setDate(thisWeekStart.getDate() + 7);
+    
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+    
+    const fmt = d => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const r = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${r}`;
+    };
+    
+    const twStart = fmt(thisWeekStart);
+    const twEnd = fmt(thisWeekEnd);
+    const nwStart = fmt(nextWeekStart);
+    const nwEnd = fmt(nextWeekEnd);
+    
+    // queries
+    const qSales = `
+      SELECT COALESCE(SUM(total_amount), 0) AS sales_revenue
+      FROM sale_header
+      WHERE shop_id = ? AND is_void = 0 AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?`;
+      
+    const qCollections = `
+      SELECT COALESCE(SUM(rp.amount), 0) AS collections
+      FROM receivable_payments rp
+      WHERE rp.shop_id = ? AND DATE(rp.payment_date) BETWEEN ? AND ?
+        AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)`;
+        
+    const qPayablesItems = `
+      SELECT ap.payable_id, ap.description, ap.original_amount, ap.due_date,
+             ap.payable_type, ap.payee_name, sm.supplier_name, ap.status
+      FROM accounts_payable ap
+      LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
+      WHERE ap.shop_id = ? AND ap.status != 'VOIDED'
+        AND DATE(ap.due_date) BETWEEN ? AND ?
+      ORDER BY ap.due_date ASC`;
+      
+    const qPayablesTotal = `
+      SELECT COALESCE(SUM(original_amount), 0) AS payables_total
+      FROM accounts_payable
+      WHERE shop_id = ? AND status != 'VOIDED'
+        AND DATE(due_date) BETWEEN ? AND ?`;
+
+    const run = (q, p, multi = false) => new Promise((resolve, reject) => {
+      const method = multi ? db.all.bind(db) : db.get.bind(db);
+      method(q, p, (err, row) => err ? reject(err) : resolve(row));
+    });
+
+    const [rSales, rCollections, rPayablesTotal, rPayablesItems] = await Promise.all([
+      run(qSales, [shop_id, twStart, twEnd]),
+      run(qCollections, [shop_id, twStart, twEnd]),
+      run(qPayablesTotal, [shop_id, nwStart, nwEnd]),
+      run(qPayablesItems, [shop_id, nwStart, nwEnd], true),
+    ]);
+
+    const sales_revenue = rSales.sales_revenue || 0;
+    const collections = rCollections.collections || 0;
+    const total_money_in = sales_revenue + collections;
+    
+    const total_money_out = rPayablesTotal.payables_total || 0;
+    const surplus = total_money_in - total_money_out;
+    const is_covered = surplus >= 0;
+
+    res.json({
+      this_week: { start: twStart, end: twEnd },
+      next_week: { start: nwStart, end: nwEnd },
+      sales_revenue,
+      collections,
+      total_money_in,
+      total_money_out,
+      surplus,
+      is_covered,
+      payables: rPayablesItems || []
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /* ══════════════════════════════════════════
