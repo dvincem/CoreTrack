@@ -35,6 +35,7 @@ This file provides project-specific context and instructions for the Gemini CLI 
 
 ## Development Workflow
 - **Start Development:** Use `npm run dev` to start both the backend (via nodemon) and frontend (via Vite) concurrently.
+- **Git Authentication:** GitHub password authentication is deprecated. Use a **Personal Access Tokens (PAT)** for all Git operations. To avoid repeated prompts, configure a credential helper (e.g., `git config --global credential.helper cache`).
 - **Database Changes:** 
   - Manual schema changes should be reflected in `Database.js`'s `initializeDatabase` function if they are part of the base setup.
   - For data migrations or seeds, check `generate_seed.js` or `scripts/`.
