@@ -27,15 +27,26 @@ export default function Modal({
   noPadding = false,
   footer,
 }) {
-  // Prevent body scroll when modal is open
+  // Prevent body scroll and handle Escape key when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          e.stopPropagation()
+          onClose()
+        }
+      }
+      window.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.body.style.overflow = ''
+        window.removeEventListener('keydown', handleKeyDown)
+      }
     } else {
       document.body.style.overflow = ''
     }
-    return () => { document.body.style.overflow = '' }
-  }, [isOpen])
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 

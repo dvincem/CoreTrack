@@ -97,6 +97,9 @@ function SuppliersPage({ shopId }) {
     localStorage.setItem(`th-su-brand-draft-${shopId}`, JSON.stringify(brandInputs));
     localStorage.setItem(`th-su-brand-open-${shopId}`, String(showBrandForm));
   }, [addForm, showAdd, brandInputs, showBrandForm, shopId, isDraftLoaded]);
+
+
+
   React.useEffect(() => { setSuppPage(1) }, [search, filter])
 
   async function fetchSuppliers() {
@@ -344,6 +347,68 @@ function SuppliersPage({ shopId }) {
   ]
 
   function openAdd() { setShowAdd(true); setAddForm(BLANK_FORM); setAddError('') }
+
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (showAdd) {
+          e.preventDefault();
+          cancelAdd();
+        } else if (editTarget) {
+          e.preventDefault();
+          setEditTarget(null);
+        } else if (removeTarget) {
+          e.preventDefault();
+          setRemoveTarget(null);
+        } else if (deleteBrand) {
+          e.preventDefault();
+          setDeleteBrand(null);
+        } else if (detail) {
+          e.preventDefault();
+          if (showBrandForm) {
+            cancelBrandAdd();
+          } else {
+            setDetail(null);
+          }
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+
+        if (showAdd) {
+          if (!addSaving && addForm.supplier_name.trim()) {
+            e.preventDefault();
+            handleAdd();
+          }
+        } else if (editTarget) {
+          if (!editSaving && editForm.supplier_name.trim()) {
+            e.preventDefault();
+            handleEdit();
+          }
+        } else if (removeTarget) {
+          if (!removeSaving) {
+            e.preventDefault();
+            handleRemove();
+          }
+        } else if (deleteBrand) {
+          e.preventDefault();
+          confirmDeleteBrand();
+        } else if (detail && showBrandForm) {
+          if (!brandSaving) {
+            e.preventDefault();
+            handleAddBrands();
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showAdd, addForm, addSaving,
+    editTarget, editForm, editSaving,
+    removeTarget, removeSaving,
+    deleteBrand, detail, showBrandForm, brandSaving, brandInputs,
+    handleAdd, handleEdit, handleRemove, confirmDeleteBrand, handleAddBrands
+  ]);
 
   return (
     <>

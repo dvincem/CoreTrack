@@ -18,13 +18,25 @@ router.get('/expense-categories/:shop_id', (req, res) => {
 router.post('/expense-categories', (req, res) => {
   const { shop_id, name, color } = req.body;
   if (!shop_id || !name?.trim()) return res.status(400).json({ error: 'shop_id and name are required' });
-  const category_id = `CAT-${uuidv4()}`;
-  db.run(
-    `INSERT INTO expense_categories (category_id, shop_id, name, color) VALUES (?, ?, ?, ?)`,
-    [category_id, shop_id, name.trim(), color || '#f97316'],
-    function (err) {
+  const cleanName = name.trim();
+  db.get(
+    `SELECT category_id FROM expense_categories 
+     WHERE shop_id = ? AND TRIM(LOWER(name)) = TRIM(LOWER(?)) AND is_active = 1`,
+    [shop_id, cleanName],
+    (err, existing) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ category_id, shop_id, name: name.trim(), color: color || '#f97316' });
+      if (existing) {
+        return res.status(400).json({ error: "An expense category with this name already exists." });
+      }
+      const category_id = `CAT-${uuidv4()}`;
+      db.run(
+        `INSERT INTO expense_categories (category_id, shop_id, name, color) VALUES (?, ?, ?, ?)`,
+        [category_id, shop_id, cleanName, color || '#f97316'],
+        function (err2) {
+          if (err2) return res.status(500).json({ error: err2.message });
+          res.status(201).json({ category_id, shop_id, name: cleanName, color: color || '#f97316' });
+        }
+      );
     }
   );
 });
@@ -32,13 +44,37 @@ router.post('/expense-categories', (req, res) => {
 router.put('/expense-categories/:category_id', (req, res) => {
   const { category_id } = req.params;
   const { name, color } = req.body;
-  db.run(
-    `UPDATE expense_categories SET name = ?, color = ? WHERE category_id = ?`,
-    [name, color, category_id],
-    function (err) {
+  if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+  const cleanName = name.trim();
+
+  db.get(
+    `SELECT shop_id FROM expense_categories WHERE category_id = ?`,
+    [category_id],
+    (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: 'Category not found' });
-      res.json({ category_id, name, color });
+      if (!row) return res.status(404).json({ error: 'Category not found' });
+
+      const shop_id = row.shop_id;
+      db.get(
+        `SELECT category_id FROM expense_categories
+         WHERE shop_id = ? AND TRIM(LOWER(name)) = TRIM(LOWER(?)) AND category_id != ? AND is_active = 1`,
+        [shop_id, cleanName, category_id],
+        (dupErr, existing) => {
+          if (dupErr) return res.status(500).json({ error: dupErr.message });
+          if (existing) {
+            return res.status(400).json({ error: "Another category with this name already exists." });
+          }
+
+          db.run(
+            `UPDATE expense_categories SET name = ?, color = ? WHERE category_id = ?`,
+            [cleanName, color, category_id],
+            function (err2) {
+              if (err2) return res.status(500).json({ error: err2.message });
+              res.json({ category_id, name: cleanName, color });
+            }
+          );
+        }
+      );
     }
   );
 });

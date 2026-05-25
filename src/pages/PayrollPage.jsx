@@ -108,6 +108,7 @@ function PayrollPage({ shopId, setPageContext }) {
 
   React.useEffect(() => { fetchAll() }, [date, shopId])
 
+
   async function fetchAll() {
     setLoading(true)
     try {
@@ -420,6 +421,61 @@ function PayrollPage({ shopId, setPageContext }) {
       render: (l) => l.is_void ? <span className="pr-void-badge">Voided</span> : <span style={{ color: 'var(--th-emerald)', fontSize: '0.7rem', fontWeight: 700 }}>ACTIVE</span>
     }
   ], [])
+
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (pendingLog) {
+          e.preventDefault();
+          setPendingLog(null);
+        } else if (commPending) {
+          e.preventDefault();
+          setCommPending(null);
+        } else if (commModal) {
+          e.preventDefault();
+          setCommModal(false);
+        } else if (editLog) {
+          e.preventDefault();
+          if (!editSaving) setEditLog(null);
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+
+        if (pendingLog) {
+          e.preventDefault();
+          confirmAddLog();
+        } else if (commPending) {
+          e.preventDefault();
+          confirmCommission();
+        } else if (commModal) {
+          if (commStaff && commAmount) {
+            e.preventDefault();
+            handleCommSubmit(e);
+          }
+        } else if (editLog) {
+          if (!editSaving) {
+            if (editMode === 'edit') {
+              const amt = parseFloat(editAmount);
+              if (!isNaN(amt) && amt >= 0) {
+                e.preventDefault();
+                handleEditCommission();
+              }
+            } else if (editMode === 'void') {
+              if (editVoidReason.trim()) {
+                e.preventDefault();
+                handleVoidLog();
+              }
+            }
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    pendingLog, commPending, commModal, editLog, editSaving, editMode, editAmount, editVoidReason, commStaff, commAmount,
+    confirmAddLog, confirmCommission, handleCommSubmit, handleEditCommission, handleVoidLog
+  ]);
 
   return (
     <div className="pr-root">

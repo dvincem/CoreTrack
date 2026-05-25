@@ -652,7 +652,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     if (!brand || !size) return "";
     const b = brand.trim().substring(0, 5).toUpperCase();
     const d = design ? design.trim().substring(0, 4).toUpperCase() : "RCAP";
-    const sz = size.trim().replace(/[\/\-]/g, "");
+    const sz = size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/[\/\-]/g, "");
     return `RECAP-${b}-${d}-${sz}`;
   }
 

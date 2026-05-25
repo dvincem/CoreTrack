@@ -1169,8 +1169,19 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           return;
         }
 
-        // 2. If any other modal is open (Misc, DOT, Design), don't trigger global sale completion
-        if (showMiscModal || dotModal || designModal || showClearCartModal) return;
+        // 2. If any other modal is open (Misc, DOT, Design, delete draft, clear cart), don't trigger global sale completion
+        if (showMiscModal || dotModal || designModal || showClearCartModal || pendingDeleteDraft) {
+          if (showClearCartModal) {
+            e.preventDefault();
+            clearCart();
+            setShowClearCartModal(false);
+          } else if (pendingDeleteDraft) {
+            e.preventDefault();
+            deleteDraft(pendingDeleteDraft.draft_id);
+            setPendingDeleteDraft(null);
+          }
+          return;
+        }
 
         // 3. If Modal is NOT open, check if the main button would be enabled.
         const canComplete = !loading &&
@@ -1192,6 +1203,9 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
         } else if (showClearCartModal) {
           e.preventDefault();
           setShowClearCartModal(false);
+        } else if (pendingDeleteDraft) {
+          e.preventDefault();
+          setPendingDeleteDraft(null);
         } else if (dotModal) {
           e.preventDefault();
           setDotModal(null);
@@ -1207,7 +1221,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showConfirmModal, loading, selectedHandlerId, needsTireman, selectedTiremen, cart, paymentSplits, hasInvoice, invoiceNumber, saleNotes, showMiscModal, dotModal, designModal, showClearCartModal]);
+  }, [showConfirmModal, loading, selectedHandlerId, needsTireman, selectedTiremen, cart, paymentSplits, hasInvoice, invoiceNumber, saleNotes, showMiscModal, dotModal, designModal, showClearCartModal, pendingDeleteDraft, deleteDraft]);
 
   return (
     <>

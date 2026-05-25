@@ -228,6 +228,8 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
     localStorage.setItem(`th-sm-add-open-${shopId}`, String(showAdd));
   }, [addForm, showAdd, shopId, isDraftLoaded]);
 
+
+
   useEffect(() => {
     fetchAttendance();
     fetchAttendanceStats();
@@ -391,6 +393,62 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
       }
     });
   }, [total, presentCount, attRate, onLeave, mgmtCount, serviceCount, attendanceDate, setPageContext]);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (showAdd) {
+          e.preventDefault();
+          cancelAdd();
+        } else if (editTarget) {
+          e.preventDefault();
+          setEditTarget(null);
+        } else if (removeTarget) {
+          e.preventDefault();
+          setRemoveTarget(null);
+        } else if (detailTarget) {
+          e.preventDefault();
+          setDetailTarget(null);
+        } else if (pendingBulkMark) {
+          e.preventDefault();
+          setPendingBulkMark(null);
+        } else if (pendingMarkAll) {
+          e.preventDefault();
+          setPendingMarkAll(null);
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+
+        if (showAdd) {
+          if (!addSaving && addForm.full_name.trim() && addForm.role) {
+            e.preventDefault();
+            handleAdd();
+          }
+        } else if (editTarget) {
+          if (!editSaving && editForm.full_name.trim() && editForm.role) {
+            e.preventDefault();
+            handleEdit();
+          }
+        } else if (pendingBulkMark) {
+          e.preventDefault();
+          confirmBulkMark();
+        } else if (pendingMarkAll) {
+          e.preventDefault();
+          setPendingBulkMark({
+            status: 'PRESENT',
+            ids: filteredStaff.map(s => s.staff_id),
+            count: filteredStaff.length
+          });
+          setPendingMarkAll(null);
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showAdd, addForm, addSaving, editTarget, editForm, editSaving, removeTarget, detailTarget, pendingBulkMark, pendingMarkAll, filteredStaff,
+    handleAdd, handleEdit, confirmBulkMark, cancelAdd
+  ]);
 
   return (
     <div className="sm-root animate-slide-in-right">

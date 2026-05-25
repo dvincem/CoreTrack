@@ -791,7 +791,7 @@ function BulkImportTab({ shopId }) {
     const prefix = isTire ? 'TIRE' : 'ITEM'
     const b = (brand || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
     const d = (design || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
-    const s = (size || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    const s = (size || '').toString().trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/[^a-zA-Z0-9]/g, '')
     let sku = prefix + '-' + [b, d, s].filter(Boolean).join('-')
     if (dot && dot.toString().trim()) {
       sku += '-DOT' + dot.toString().trim().toUpperCase()
@@ -848,29 +848,29 @@ function BulkImportTab({ shopId }) {
     const payloadItems = rows.map((row, i) => {
       const isTire = ['PCR','SUV','TBR','LT','MOTORCYCLE','TUBE','RECAP','TIRE'].includes((row.category || '').toUpperCase())
       const cat       = (row.category || '').toUpperCase()
-      const brand     = (row.brand    || '').toString().trim()
-      const design    = (row.design   || '').toString().trim()
-      const size      = (row.size     || '').toString().trim()
+      const upperBrand = (row.brand    || '').toString().trim().toUpperCase()
+      const upperDesign = (row.design   || '').toString().trim().toUpperCase()
+      const normalizedSize = (row.size || '').toString().trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-')
       const dot       = (row.dot_number || '').toString().trim()
       
       // Force DOT into SKU for tires if it's missing to prevent unique constraint failures
-      let sku = row.sku || generateSKU(cat, brand, design, size, dot) || `ITEM-${Date.now()}-${i}`
+      let sku = row.sku || generateSKU(cat, upperBrand, upperDesign, normalizedSize, dot) || `ITEM-${Date.now()}-${i}`
       if (isTire && dot && !sku.includes(dot)) {
         sku = sku.split('-DOT')[0] + '-DOT' + dot.toUpperCase()
       }
 
-      const item_name = row.item_name || [brand, design, size].filter(Boolean).join(' ') || sku
-      const rim_size  = isTire ? (row.rim_size != null ? parseFloat(row.rim_size) : extractRimSize(size)) : null
+      const item_name = row.item_name || [upperBrand, upperDesign, normalizedSize].filter(Boolean).join(' ') || sku
+      const rim_size  = isTire ? (row.rim_size != null ? parseFloat(row.rim_size) : extractRimSize(normalizedSize)) : null
 
       return {
         sku,
         item_name,
-        category:      (row.category || '').toUpperCase(),
-        brand:         brand || null,
-        design:        design || null,
-        size:          size || null,
+        category:      cat || 'MISC',
+        brand:         upperBrand || null,
+        design:        upperDesign || null,
+        size:          normalizedSize || null,
         rim_size:      rim_size || null,
-        dot_number:    (row.dot_number || '').toString().trim() || null,
+        dot_number:    dot || null,
         unit_cost:     parseFloat(row.unit_cost) || 0,
         selling_price: parseFloat(row.selling_price) || 0,
         reorder_point: parseInt(row.reorder_point) || 5,

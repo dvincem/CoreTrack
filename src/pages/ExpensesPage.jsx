@@ -181,7 +181,10 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
           confirmVoid();
         }
       } else if (e.key === 'Escape') {
-        if (pendingExpense) {
+        if (showExpForm) {
+          e.preventDefault();
+          hideForm();
+        } else if (pendingExpense) {
           e.preventDefault();
           setPendingExpense(null);
         } else if (voidTarget) {
@@ -194,7 +197,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pendingExpense, voidTarget]);
+  }, [pendingExpense, voidTarget, showExpForm, hideForm]);
 
   async function fetchSummary() {
     try {

@@ -982,8 +982,8 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       // Fetch Incoming Orders
       try {
         const incomingUrl = isGrouped 
-          ? `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(item.item_id)}`
-          : `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(realIds[0])}`;
+          ? `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(item.item_id)}&t=${Date.now()}`
+          : `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(realIds[0])}&t=${Date.now()}`;
         const incRes = await apiFetch(incomingUrl);
         const incData = await incRes.json();
         setIncomingOrders(Array.isArray(incData) ? incData : []);
@@ -1038,22 +1038,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     }
   }
 
-  async function handleItemClick(item) {
-    const variants = parseVariantInfo(item.variant_info);
-    const isGrouped = (item.variant_count || 0) > 1 && variants.length > 1;
-    setHistoryVariants(isGrouped ? variants : []);
-    setActiveHistVariantId(null);
-    setActiveHistDesign(null);
-    setSelectedItemForHistory(item);
-    if (isGrouped) {
-      await fetchItemHistory(variants.map(v => v.item_id));
-    } else {
-      // For single-DOT tire items, item.item_id is a synthetic group key;
-      // use the real item_id from variant_info when available.
-      const realId = variants.length === 1 ? variants[0].item_id : item.item_id;
-      await fetchItemHistory(realId);
-    }
-  }
+
 
   function addItemToOrder(item) {
     const existing = orderItems.find((o) => o.item_id === item.item_id);

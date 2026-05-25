@@ -124,7 +124,10 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
           confirmVoid();
         }
       } else if (e.key === 'Escape') {
-        if (pendingEntry) {
+        if (showEntryForm) {
+          e.preventDefault();
+          cancelEdit();
+        } else if (pendingEntry) {
           e.preventDefault();
           setPendingEntry(null);
         } else if (voidTarget) {
@@ -137,7 +140,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pendingEntry, voidTarget]);
+  }, [pendingEntry, voidTarget, showEntryForm, cancelEdit]);
 
   /* ── Selected entry for detail modal ── */
   const [selectedEntry, setSelectedEntry] = React.useState(null)

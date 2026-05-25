@@ -139,14 +139,36 @@ router.put("/customers/:customer_id", (req, res) => {
   const { customer_id } = req.params;
   const { customer_name, company, contact_number, tin_number, address } = req.body;
   if (!customer_name) return res.status(400).json({ error: "customer_name is required" });
-  db.run(
-    `UPDATE customer_master SET customer_name = ?, company = ?, contact_number = ?, tin_number = ?, address = ?, updated_at = CURRENT_TIMESTAMP WHERE customer_id = ?`,
-    [customer_name, company || null, contact_number || null, tin_number || null, address || null, customer_id],
-    function (err) {
+
+  db.get(
+    `SELECT shop_id FROM customer_master WHERE customer_id = ?`,
+    [customer_id],
+    (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: "Customer not found" });
-      res.json({ message: "Customer updated successfully" });
-    },
+      if (!row) return res.status(404).json({ error: "Customer not found" });
+
+      const shop_id = row.shop_id;
+      db.get(
+        `SELECT customer_id FROM customer_master
+         WHERE shop_id = ? AND TRIM(LOWER(customer_name)) = TRIM(LOWER(?)) AND customer_id != ?`,
+        [shop_id, customer_name, customer_id],
+        (dupErr, existing) => {
+          if (dupErr) return res.status(500).json({ error: dupErr.message });
+          if (existing) {
+            return res.status(400).json({ error: "A customer with this name already exists in this shop." });
+          }
+
+          db.run(
+            `UPDATE customer_master SET customer_name = ?, company = ?, contact_number = ?, tin_number = ?, address = ?, updated_at = CURRENT_TIMESTAMP WHERE customer_id = ?`,
+            [customer_name, company || null, contact_number || null, tin_number || null, address || null, customer_id],
+            function (err2) {
+              if (err2) return res.status(500).json({ error: err2.message });
+              res.json({ message: "Customer updated successfully" });
+            }
+          );
+        }
+      );
+    }
   );
 });
 
@@ -168,20 +190,21 @@ router.get("/vehicle-plates/:customer_id", (req, res) => {
 
 router.post("/vehicle-plates", (req, res) => {
   const { customer_id, plate_number } = req.body;
-  if (!customer_id || !plate_number) {
+  if (!customer_id || !plate_number || !plate_number.trim()) {
     return res.status(400).json({ error: "customer_id and plate_number are required" });
   }
   try {
     const plate_id = `PLATE-${uuidv4()}`;
+    const cleanPlate = plate_number.trim().toUpperCase();
     db.run(
       `INSERT INTO vehicle_plates (plate_id, customer_id, plate_number, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
-      [plate_id, customer_id, plate_number.toUpperCase()],
+      [plate_id, customer_id, cleanPlate],
       function (err) {
         if (err) {
           if (err.message.includes("UNIQUE")) return res.status(400).json({ error: "This plate already exists for this customer" });
           return res.status(500).json({ error: err.message });
         }
-        res.status(201).json({ plate_id, customer_id, plate_number: plate_number.toUpperCase(), message: "Vehicle plate added successfully" });
+        res.status(201).json({ plate_id, customer_id, plate_number: cleanPlate, message: "Vehicle plate added successfully" });
       },
     );
   } catch (e) {

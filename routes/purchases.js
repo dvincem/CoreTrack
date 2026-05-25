@@ -152,9 +152,12 @@ router.post("/purchases/:shop_id", async (req, res) => {
         const qty = parseFloat(item.quantity) || 1;
         const cost = parseFloat(item.unit_cost) || 0;
         const line = qty * cost;
-        const cat = item.category || "OTHER";
+        const cat = item.category ? item.category.trim().toUpperCase() : "OTHER";
         const sellPrice = parseFloat(item.selling_price) || cost * 1.3;
-        const itemName = item.item_name || (item.brand + " " + item.design);
+        const normalizedSize = item.size ? item.size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : null;
+        const upperBrand = item.brand ? item.brand.trim().toUpperCase() : null;
+        const upperDesign = item.design ? item.design.trim().toUpperCase() : null;
+        const itemName = item.item_name || [upperBrand, upperDesign, normalizedSize].filter(Boolean).join(" ");
 
         let item_master_id = item.item_master_id || null;
 
@@ -200,15 +203,13 @@ router.post("/purchases/:shop_id", async (req, res) => {
               // Create new record
               const new_id = `ITM-${uuidv4().split("-")[0].toUpperCase()}`;
               const sku = item.sku || `SKU-${uuidv4().split("-")[0].toUpperCase()}`;
-              const upperBrand = item.brand ? item.brand.toUpperCase() : null;
-              const upperDesign = item.design ? item.design.toUpperCase() : null;
               // For new items, ensure sellPrice is rounded if it was the default
               const finalNewPrice = item.selling_price ? parseFloat(item.selling_price) : Math.round((cost * 1.3) / 100) * 100;
               try {
                 await dbRun(
                   `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, dot_number, is_active, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-                  [new_id, sku, itemName, cat, upperBrand, upperDesign, item.size || null, item.rim_size || null, cost, finalNewPrice, item.dot_number || null, now]
+                  [new_id, sku, itemName, cat, upperBrand, upperDesign, normalizedSize, item.rim_size || null, cost, finalNewPrice, item.dot_number || null, now]
                 );
                 item_master_id = new_id;
               } catch (err) {
@@ -386,12 +387,13 @@ router.put("/purchase-items/:purchase_item_id", (req, res) => {
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
 
+      const upperCat = category ? category.trim().toUpperCase() : "OTHER";
       // 1. Update purchase_items
       db.run(
         `UPDATE purchase_items
          SET item_name = ?, category = ?, quantity = ?, unit_cost = ?, selling_price = ?, line_total = ?
          WHERE purchase_item_id = ?`,
-        [item_name, category, newQty, newCost, newSelling, newLineTotal, purchase_item_id],
+        [item_name, upperCat, newQty, newCost, newSelling, newLineTotal, purchase_item_id],
         (err2) => {
           if (err2) { db.run("ROLLBACK"); return res.status(500).json({ error: err2.message }); }
 
@@ -408,14 +410,19 @@ router.put("/purchase-items/:purchase_item_id", (req, res) => {
             if (oldItem.item_master_id) {
               const qtyDelta = newQty - oldItem.quantity;
               
+              const normalizedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : null;
+              const upperCat = category ? category.trim().toUpperCase() : "OTHER";
               // Update item_master
-              const upperBrand = brand ? brand.toUpperCase() : null;
-              const upperDesign = design ? design.toUpperCase() : null;
+              const upperBrand = brand ? brand.toUpperCase().trim() : null;
+              const upperDesign = design ? design.toUpperCase().trim() : null;
+              const finalItemName = (upperBrand || upperDesign || normalizedSize)
+                ? [upperBrand, upperDesign, normalizedSize].filter(Boolean).join(" ")
+                : (item_name || "").trim();
               db.run(
                 `UPDATE item_master
                  SET item_name = ?, category = ?, brand = ?, design = ?, size = ?, unit_cost = ?, selling_price = ?, dot_number = ?
                  WHERE item_id = ?`,
-                [item_name, category, upperBrand, upperDesign, size || null, newCost, newSelling, dot_number || null, oldItem.item_master_id]
+                [finalItemName, upperCat, upperBrand, upperDesign, normalizedSize, newCost, newSelling, dot_number || null, oldItem.item_master_id]
               );
 
               // Add adjustment to ledger if qty changed

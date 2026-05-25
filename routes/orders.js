@@ -875,6 +875,7 @@ router.post("/orders/quick-receive", async (req, res) => {
 router.get("/incoming-orders/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
   const { item_id, brand, design, size } = req.query;
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
   try {
     let query = `
@@ -895,11 +896,18 @@ router.get("/incoming-orders/:shop_id", async (req, res) => {
       if (design) { query += ` AND im.design = ?`; params.push(design); }
       if (size) { query += ` AND im.size = ?`; params.push(size); }
     } else if (item_id && item_id.includes('||')) {
-      // Group key: Brand||Design||Size or Brand||Size
       const parts = item_id.split('||');
-      if (parts.length === 3) {
-        query += ` AND im.brand = ? AND im.design = ? AND im.size = ?`;
-        params.push(parts[0], parts[1], parts[2]);
+      if (parts.length === 4) {
+        query += ` AND im.category = ? AND im.brand = ? AND im.design = ? AND im.size = ?`;
+        params.push(parts[0], parts[1], parts[2], parts[3]);
+      } else if (parts.length === 3) {
+        // Could be Category||Brand||Size (new) or Brand||Design||Size (old)
+        query += ` AND (
+          (im.category = ? AND im.brand = ? AND im.size = ?)
+          OR
+          (im.brand = ? AND im.design = ? AND im.size = ?)
+        )`;
+        params.push(parts[0], parts[1], parts[2], parts[0], parts[1], parts[2]);
       } else if (parts.length === 2) {
         query += ` AND im.brand = ? AND im.size = ?`;
         params.push(parts[0], parts[1]);

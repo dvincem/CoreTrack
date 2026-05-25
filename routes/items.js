@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require("uuid");
 
 router.get("/items/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
-  const { category, q, page, perPage, groupByDot } = req.query;
+  const { category, brand, q, page, perPage, groupByDot } = req.query;
 
   const isGrouped = groupByDot === 'true';
   const paginated = page !== undefined || perPage !== undefined || q !== undefined;
@@ -18,6 +18,11 @@ router.get("/items/:shop_id", async (req, res) => {
   if (category) {
     filters.push("im.category = ?");
     params.push(category);
+  }
+
+  if (brand) {
+    filters.push("im.brand = ?");
+    params.push(brand);
   }
 
   if (q && q.trim()) {
@@ -169,15 +174,17 @@ router.post("/items", (req, res) => {
   const dot = (dot_number || "").toString().trim() || null;
   const upperBrand = brand ? brand.toUpperCase() : null;
   const upperDesign = design ? design.toUpperCase() : null;
+  const upperCat = category ? category.trim().toUpperCase() : "MISC";
+  const normalizedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : null;
   db.run(
     `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-    [item_id, sku, item_name, category, upperBrand, upperDesign, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
+    [item_id, sku, item_name, upperCat, upperBrand, upperDesign, normalizedSize, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot],
     function (err) {
       if (err) return res.status(400).json({ error: err.message });
       logPriceHistory(item_id, 'SELLING_PRICE', null, price, null, 'Item created');
       logPriceHistory(item_id, 'UNIT_COST', null, cost, null, 'Item created');
-      res.json({ item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost: cost, selling_price: price, dot_number: dot, is_active: 1, created_at: new Date().toISOString() });
+      res.json({ item_id, sku, item_name, category: upperCat, brand: upperBrand, design: upperDesign, size: normalizedSize, rim_size, unit_cost: cost, selling_price: price, dot_number: dot, is_active: 1, created_at: new Date().toISOString() });
     },
   );
 });
@@ -223,6 +230,9 @@ router.post("/items-bulk", async (req, res) => {
       const upperBrand = brand ? brand.toUpperCase() : null;
       const upperDesign = design ? design.toUpperCase() : null;
 
+      const upperCat = category ? category.trim().toUpperCase() : "MISC";
+      const normalizedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : null;
+
       try {
         let finalId;
         const existing = await getAsync(`SELECT item_id FROM item_master WHERE sku = ?`, [sku]);
@@ -235,7 +245,7 @@ router.post("/items-bulk", async (req, res) => {
             await runAsync(
               `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, supplier_id, reorder_point, dot_number, is_active)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-              [finalId, sku, item_name, category, upperBrand, upperDesign, size || null, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot]
+              [finalId, sku, item_name, upperCat, upperBrand, upperDesign, normalizedSize, rim_size || null, cost, price, supplier_id || null, parseInt(reorder_point) || 5, dot]
             );
             logPriceHistory(finalId, 'SELLING_PRICE', null, price, null, 'Item created (Bulk)');
             logPriceHistory(finalId, 'UNIT_COST', null, cost, null, 'Item created (Bulk)');
@@ -350,8 +360,8 @@ router.put("/items/:item_id/details", (req, res) => {
 
   const upperBrand = brand ? brand.toUpperCase().trim() : null;
   const upperDesign = design ? design.toUpperCase().trim() : null;
-  const trimmedSize = size ? size.trim() : null;
-  const trimmedCat = category ? category.trim() : "MISC";
+  const trimmedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : null;
+  const trimmedCat = category ? category.trim().toUpperCase() : "MISC";
   const trimmedDot = dot_number ? dot_number.toString().trim() : null;
 
   // item_name excludes design when design is blank (non-tire items)
@@ -758,10 +768,11 @@ router.put("/items/:item_id/restore", (req, res) => {
 // ── Inventory KPI aggregation (single round-trip) ────────────────────────────
 router.get("/items-kpi/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
-  const { category } = req.query;
+  const { category, brand } = req.query;
   const params = [shop_id];
   let categoryClause = '';
-  if (category) { categoryClause = ' AND im.category = ?'; params.push(category); }
+  if (category) { categoryClause += ' AND im.category = ?'; params.push(category); }
+  if (brand) { categoryClause += ' AND im.brand = ?'; params.push(brand); }
   try {
     const row = await dbGet(
       `SELECT

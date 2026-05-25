@@ -770,8 +770,8 @@ function Productspage({ shopId }) {
       // Fetch Incoming Orders
       try {
         const incomingUrl = isGrouped 
-          ? `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(item.item_id)}`
-          : `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(realIds[0])}`;
+          ? `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(item.item_id)}&t=${Date.now()}`
+          : `${API_URL}/incoming-orders/${shopId}?item_id=${encodeURIComponent(realIds[0])}&t=${Date.now()}`;
         const incRes = await apiFetch(incomingUrl);
         const incData = await incRes.json();
         setIncomingOrders(Array.isArray(incData) ? incData : []);

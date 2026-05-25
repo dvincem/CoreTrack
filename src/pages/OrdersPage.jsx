@@ -284,6 +284,41 @@ function CreateOrderModal({
   const [isAddingNewCat, setIsAddingNewCat] = React.useState(false);
   const [newCatInput, setNewCatInput] = React.useState("");
 
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (addCatModal.open) {
+          e.preventDefault();
+          e.stopPropagation();
+          setAddCatModal({ open: false, value: "" });
+        } else {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+        if (addCatModal.open) return;
+        const isNewItemInput = document.activeElement && 
+          document.activeElement.closest('.inv-modal-body') && 
+          leftTab === 'new';
+        if (isNewItemInput) {
+          e.preventDefault();
+          e.stopPropagation();
+          addNewItemToOrder();
+        } else {
+          if (orderItems.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSubmit();
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [addCatModal.open, leftTab, orderItems, onClose, onSubmit]);
+
 
   const [dbSizes, setDbSizes] = React.useState([]);
   const [showSizeSug, setShowSizeSug] = React.useState(false);
@@ -1722,6 +1757,41 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
   const [addCatModalQr, setAddCatModalQr] = React.useState({ open: false, value: "" });
   const [isAddingNewCat, setIsAddingNewCat] = React.useState(false);
   const [newCatInput, setNewCatInput] = React.useState("");
+
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (addCatModalQr.open) {
+          e.preventDefault();
+          e.stopPropagation();
+          setAddCatModalQr({ open: false, value: "" });
+        } else {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+        if (addCatModalQr.open) return;
+        const isNewItemInput = document.activeElement && 
+          document.activeElement.closest('.inv-modal-body') && 
+          qrTab === 'new';
+        if (isNewItemInput) {
+          e.preventDefault();
+          e.stopPropagation();
+          addNewItemToLines();
+        } else {
+          if (lines.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSubmit();
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [addCatModalQr.open, qrTab, lines, onClose, handleSubmit]);
   const [allCategoriesQr, setAllCategoriesQr] = React.useState([
     "PCR", "SUV", "TBR", "LT", "MOTORCYCLE", "TUBE", "RECAP", "FLAP", "RECAPPING",
     "VALVE", "WHEEL WEIGHT", "WHEEL BALANCING", "ACCESSORIES", "OTHER",
@@ -3353,6 +3423,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
     localStorage.setItem(`th-ord-create-notes-${shopId}`, createOrderNotes);
   }, [createOrderItems, createOrderNotes, shopId, isDraftLoaded]);
 
+
   React.useEffect(() => {
     fetchItems();
     fetchSuppliers();
@@ -3360,7 +3431,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
   async function fetchItems() {
     try {
-      const r = await apiFetch(`${API_URL}/items/${shopId}`);
+      const r = await apiFetch(`${API_URL}/items/${shopId}?groupByDot=true`);
       setItems((await r.json()) || []);
     } catch (err) {
       console.error("fetchItems failed:", err);
@@ -3378,11 +3449,12 @@ export default function OrdersPage({ shopId, onRefresh }) {
   }
 
   function addItemToCreateOrder(item) {
-    const existing = createOrderItems.find((o) => o.item_id === item.item_id);
+    const realItemId = item.real_item_id || item.item_id;
+    const existing = createOrderItems.find((o) => o.item_id === realItemId);
     if (existing) {
       setCreateOrderItems(
         createOrderItems.map((o) =>
-          o.item_id === item.item_id
+          o.item_id === realItemId
             ? {
               ...o,
               quantity: o.quantity + 1,
@@ -3404,6 +3476,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
         ...createOrderItems,
         {
           ...item,
+          item_id: realItemId,
           order_item_id: `TEMP-${Date.now()}`,
           quantity: item.quantity || 1,
           unit_cost: item.unit_cost,
@@ -3956,20 +4029,21 @@ export default function OrdersPage({ shopId, onRefresh }) {
     setEditAddSearch(q);
     if (!q || q.length < 2) { setEditAddResults([]); return; }
     try {
-      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}&perPage=20`);
+      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}&perPage=20&groupByDot=true`);
       const d = await r.json();
       setEditAddResults(Array.isArray(d) ? d : (d.data || []));
     } catch { setEditAddResults([]); }
   }
 
   function editAddItemSelect(item) {
+    const realItemId = item.real_item_id || item.item_id;
     setEditAddPending(prev => [...prev, {
-      item_id: item.item_id,
+      item_id: realItemId,
       supplier_id: item.supplier_id || null,
       quantity: 1,
       unit_cost: item.unit_cost || 0,
       dot_number: "",
-      item_name: [item.brand, item.design, item.size].filter(Boolean).join(" ") || item.item_name || item.item_id,
+      item_name: [item.brand, item.design, item.size].filter(Boolean).join(" ") || item.item_name || realItemId,
       is_new_item: 0,
     }]);
     setEditAddSearch("");
@@ -4128,6 +4202,57 @@ export default function OrdersPage({ shopId, onRefresh }) {
       return "RECEIVED";
     return order.status;
   };
+
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (showCancelModal) {
+          e.preventDefault();
+          setShowCancelModal(false);
+          setCancelReason("");
+          setError("");
+        } else if (showReceiveModal) {
+          e.preventDefault();
+          setShowReceiveModal(false);
+          setReceivedItems([]);
+          setNotReceivedReasons({});
+          setReceiveOverrides({});
+          setDeliveryReceipt("");
+          setReceivePaymentMode("TERMS");
+          setReceiveCheckInfo({
+            check_number: "",
+            bank: "",
+            check_date: "",
+          });
+          setError("");
+        } else if (orderDetails) {
+          e.preventDefault();
+          cancelEditMode();
+          setOrderDetails(null);
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+
+        if (showCancelModal) {
+          if (!loading && cancelReason.trim()) {
+            e.preventDefault();
+            stageCancelOrder(selectedOrderForCancel, cancelReason);
+          }
+        } else if (showReceiveModal) {
+          if (!loading && receivedItems.length > 0) {
+            e.preventDefault();
+            stageReceiveOrder();
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showCancelModal, selectedOrderForCancel, cancelReason,
+    showReceiveModal, receivedItems, orderDetails, loading,
+    stageCancelOrder, stageReceiveOrder
+  ]);
 
   return (
     <>

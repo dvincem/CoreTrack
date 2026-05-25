@@ -1,43 +1,29 @@
-const http = require('http');
+const sqlite3 = require('sqlite3').verbose();
+const jwt = require('jsonwebtoken');
 
-const data = JSON.stringify({
-  items: [
-    {
-      item_name: "Test Bug",
-      brand: "Bug",
-      design: "Test",
-      size: "999",
-      category: "TIRE",
-      quantity: 1,
-      unit_cost: 100,
-      selling_price: 200,
-      itemType: 'TIRE',
-      item_type: 'TIRE'
-    }
-  ]
-});
+const db = new sqlite3.Database('tire_shop.db');
+const JWT_SECRET = "coretrack-dev-secret-change-in-production";
 
-const options = {
-  hostname: 'localhost',
-  port: 3000,
-  path: '/api/purchases/SHOP-A69B56E8',
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Content-Length': data.length
+db.all("SELECT shop_id FROM shop_master LIMIT 5", async (err, shops) => {
+  if (err) {
+    console.error(err);
+    db.close();
+    return;
   }
-};
-
-const req = http.request(options, (res) => {
-  console.log(`Status: ${res.statusCode}`);
-  res.on('data', (d) => {
-    process.stdout.write(d);
-  });
+  
+  const shopId = shops[0].shop_id;
+  const token = jwt.sign({ username: 'admin', shop_id: shopId }, JWT_SECRET);
+  
+  try {
+    const res = await fetch(`http://localhost:3000/api/items/${shopId}?q=215/70R16`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    console.log("Items list response:");
+    console.log(JSON.stringify(data.data || data, null, 2));
+  } catch (fetchErr) {
+    console.error("Fetch error:", fetchErr);
+  }
+  
+  db.close();
 });
-
-req.on('error', (error) => {
-  console.error(error);
-});
-
-req.write(data);
-req.end();

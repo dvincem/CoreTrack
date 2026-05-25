@@ -1010,9 +1010,9 @@ function initializeDatabase() {
 
                     // 2. Sample Inventory
                     const items = [
-                      ['ITM-001', 'SKU-BR-195', 'Bridgestone Turanza 195/65R15', 'Tires', 'Bridgestone', 'Turanza', '195/65R15', 15, 3500, 4500],
-                      ['ITM-002', 'SKU-MI-205', 'Michelin Primacy 205/55R16', 'Tires', 'Michelin', 'Primacy', '205/55R16', 16, 4200, 5800],
-                      ['ITM-003', 'SKU-SVC-ALIGN', 'Wheel Alignment Service', 'Services', null, null, null, null, 0, 800]
+                      ['ITM-001', 'SKU-BR-195', 'Bridgestone Turanza 195/65R15', 'TIRE', 'Bridgestone', 'Turanza', '195/65R15', 15, 3500, 4500],
+                      ['ITM-002', 'SKU-MI-205', 'Michelin Primacy 205/55R16', 'TIRE', 'Michelin', 'Primacy', '205/55R16', 16, 4200, 5800],
+                      ['ITM-003', 'SKU-SVC-ALIGN', 'Wheel Alignment Service', 'SERVICES', null, null, null, null, 0, 800]
                     ];
 
                     const itemStmt = db.prepare(`INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price) VALUES (?,?,?,?,?,?,?,?,?,?)`);
@@ -1020,7 +1020,7 @@ function initializeDatabase() {
 
                     items.forEach(item => {
                       itemStmt.run(item);
-                      if (item[3] !== 'Services') stockStmt.run([demoShopId, item[0], 20]);
+                      if (item[3] !== 'SERVICES') stockStmt.run([demoShopId, item[0], 20]);
                     });
 
                     itemStmt.finalize();

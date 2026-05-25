@@ -324,6 +324,40 @@ function Servicespage() {
   const crudAvailable =
     serverCaps.canCreate && serverCaps.canEdit && serverCaps.canDelete;
 
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (pendingSave) {
+          e.preventDefault();
+          setPendingSave(null);
+        } else if (confirmDelete) {
+          e.preventDefault();
+          setConfirmDelete(null);
+        } else if (formOpen) {
+          e.preventDefault();
+          hideForm();
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+
+        if (pendingSave) {
+          e.preventDefault();
+          confirmSave();
+        } else if (confirmDelete) {
+          e.preventDefault();
+          handleDelete();
+        } else if (formOpen) {
+          if (!saving && form.service_name && form.base_price) {
+            e.preventDefault();
+            handleSave();
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pendingSave, confirmDelete, formOpen, saving, form, confirmSave, handleDelete, handleSave]);
+
   return (
     <>
       <style>{`

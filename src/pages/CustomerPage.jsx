@@ -91,6 +91,8 @@ function CustomerPage({ shopId }) {
     localStorage.setItem(`th-cu-add-open-${shopId}`, String(showAdd));
   }, [addForm, showAdd, shopId, isDraftLoaded]);
 
+
+
   function openDetail(c) {
     setDetailCustomer(c)
     setCustomerSales([])
@@ -236,6 +238,57 @@ function CustomerPage({ shopId }) {
   const paged = customers
 
   function openAdd() { setShowAdd(true); setAddForm(BLANK_FORM); setAddError('') }
+
+  React.useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (showAdd) {
+          e.preventDefault();
+          cancelAdd();
+        } else if (editTarget) {
+          e.preventDefault();
+          setEditTarget(null);
+        } else if (removeTarget) {
+          e.preventDefault();
+          setRemoveTarget(null);
+        } else if (detailCustomer) {
+          e.preventDefault();
+          setDetailCustomer(null);
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+        if (showAdd) {
+          if (!addSaving && addForm.customer_name.trim()) {
+            e.preventDefault();
+            handleAdd();
+          }
+        } else if (editTarget) {
+          if (!editSaving && editForm.customer_name.trim()) {
+            e.preventDefault();
+            handleEdit();
+          }
+        } else if (removeTarget) {
+          if (!removeSaving) {
+            e.preventDefault();
+            handleRemove();
+          }
+        } else if (detailCustomer && showPlateForm) {
+          if (!plateSaving && plateInput.trim()) {
+            e.preventDefault();
+            handleAddPlate();
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showAdd, addForm, addSaving,
+    editTarget, editForm, editSaving,
+    removeTarget, removeSaving,
+    detailCustomer, showPlateForm, plateInput, plateSaving,
+    handleAdd, handleEdit, handleRemove, handleAddPlate
+  ]);
 
   return (
     <>

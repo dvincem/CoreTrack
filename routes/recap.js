@@ -162,13 +162,14 @@ router.post("/recap-jobs", async (req, res) => {
   const isShopOwned = ownership_type !== "CUSTOMER_OWNED" && ownership_type !== "CUSTOMER";
   const b = brand.trim().substring(0, 5).toUpperCase();
   const d = design ? design.trim().substring(0, 4).toUpperCase() : "RCAP";
-  const sz = size.trim().replace(/[\/\-]/g, "");
-  const rimMatch = size.match(/R(\d+)/i);
-  const dashMatch = size.match(/-(\d+)$/);
+  const normalizedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : '';
+  const sz = normalizedSize.replace(/[\/\-]/g, "");
+  const rimMatch = normalizedSize.match(/R(\d+)/i);
+  const dashMatch = normalizedSize.match(/-(\d+)$/);
   const rim_size = rimMatch ? parseInt(rimMatch[1]) : dashMatch ? parseInt(dashMatch[1]) : null;
   const dot_suffix = dot_number ? `-${dot_number.trim().toUpperCase()}` : '';
   const auto_sku = `RECAP-${b}-${d}-${sz}${dot_suffix}-${Date.now()}`;
-  const item_name = [brand.trim(), design ? design.trim() : null, size.trim()].filter(Boolean).join(" ");
+  const item_name = [brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, normalizedSize].filter(Boolean).join(" ");
   const job_id = `JOB-${Date.now()}`;
   const created_at = await getEffectiveISO(shop_id);
   const item_id = `ITEM-RECAP-${Date.now()}`;
@@ -187,7 +188,7 @@ router.post("/recap-jobs", async (req, res) => {
   db.run(
     `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, is_active, dot_number, parent_item_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, size.trim(), rim_size, totalCost, finalSellingPrice, item_active, dot_number || null, source_item_id || null],
+    [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, normalizedSize, rim_size, totalCost, finalSellingPrice, item_active, dot_number || null, source_item_id || null],
     function (err) {
       if (err) return res.status(500).json({ error: "Failed to register recap tire in item master: " + err.message });
       db.run(
@@ -553,9 +554,10 @@ router.post("/recap-jobs-bulk", async (req, res) => {
       
       const b = brand.trim().substring(0, 5).toUpperCase();
       const d = design ? design.trim().substring(0, 4).toUpperCase() : "RCAP";
-      const sz = size.trim().replace(/[\/\-]/g, "");
+      const normalizedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : '';
+      const sz = normalizedSize.replace(/[\/\-]/g, "");
       const auto_sku = `RECAP-${b}-${d}-${sz}-${Date.now()}-${index}`;
-      const item_name = [brand.trim(), design ? design.trim() : null, size.trim()].filter(Boolean).join(" ");
+      const item_name = [brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, normalizedSize].filter(Boolean).join(" ");
       const parsedStatus = status || "READY_FOR_CLAIM";
       const item_active = (isShopOwned && (parsedStatus === "IN_INVENTORY" || parsedStatus === "READY_FOR_CLAIM")) ? 1 : 0;
       const intakeStr = intake_date ? (String(intake_date).length === 10 ? intake_date + 'T00:00:00' : intake_date) : created_at;
@@ -564,7 +566,7 @@ router.post("/recap-jobs-bulk", async (req, res) => {
         await runAsync(
           `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, unit_cost, selling_price, is_active, dot_number)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, size.trim(), cost, price, item_active, dot_number || null]
+          [item_id, auto_sku, item_name, "RECAP", brand.trim().toUpperCase(), design ? design.trim().toUpperCase() : null, normalizedSize, cost, price, item_active, dot_number || null]
         );
 
         const finalDescription = description ? `${description} (Bulk Imported)` : `${item_name} (Bulk Imported)`;

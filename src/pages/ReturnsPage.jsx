@@ -663,6 +663,59 @@ export default function ReturnsPage({ shopId, isShopClosed }) {
 
   const checkedCount = Object.values(custChecked).filter((c) => c.checked).length;
 
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (pendingCustReturn) {
+          e.preventDefault();
+          setPendingCustReturn(null);
+        } else if (pendingSuppReturn) {
+          e.preventDefault();
+          setPendingSuppReturn(null);
+        } else if (warrantyModal) {
+          e.preventDefault();
+          setWarrantyModal(null);
+          setWarrantyNotes("");
+        } else if (fulfillModal) {
+          e.preventDefault();
+          setFulfillModal(null);
+          setSelectedReplItem(null);
+          setReplStockQuery("");
+          setFulfillDr("");
+          setFulfillDot("");
+          setFulfillMode("from_stock");
+        } else if (replModal) {
+          e.preventDefault();
+          setReplModal(null);
+        }
+      } else if (e.key === 'Enter') {
+        if (document.activeElement?.tagName === 'TEXTAREA') return;
+
+        if (pendingCustReturn) {
+          e.preventDefault();
+          confirmCustomerReturn();
+        } else if (pendingSuppReturn) {
+          e.preventDefault();
+          confirmSupplierReturn();
+        } else if (warrantyModal) {
+          e.preventDefault();
+          submitWarrantyResult();
+        } else if (fulfillModal) {
+          e.preventDefault();
+          submitFulfillReplacement();
+        } else if (replModal) {
+          e.preventDefault();
+          submitReplacement();
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    pendingCustReturn, pendingSuppReturn, warrantyModal, fulfillModal, replModal,
+    confirmCustomerReturn, confirmSupplierReturn, submitWarrantyResult, submitFulfillReplacement, submitReplacement
+  ]);
+
   return (
     <>
       <style>{`
