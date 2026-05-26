@@ -1008,14 +1008,37 @@ router.get("/item-sizes/:shop_id", (req, res) => {
 
 // GET unique brands
 router.get("/item-brands/:shop_id", (req, res) => {
-  db.all(
-    `SELECT DISTINCT brand FROM item_master WHERE is_active = 1 AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC`,
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows.map(r => r.brand));
-    }
-  );
+  const { shop_id } = req.params;
+  if (shop_id === 'any') {
+    db.all(
+      `SELECT DISTINCT brand FROM item_master WHERE is_active = 1 AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC`,
+      [],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows.map(r => r.brand));
+      }
+    );
+  } else {
+    db.all(
+      `SELECT im.brand, SUM(cs.current_quantity) as total_qty
+       FROM item_master im
+       JOIN current_stock cs ON cs.item_id = im.item_id AND cs.shop_id = ?
+       WHERE im.is_active = 1 
+         AND im.brand IS NOT NULL 
+         AND im.brand != '' 
+         AND cs.current_quantity > 0
+         AND UPPER(im.category) NOT IN ('RECAP', 'RECAPPING', 'USED TIRE', 'VALVE', 'WHEEL WEIGHT', 'TIRE VALVE', 'TIRE VALVES', 'WHEEL WEIGHTS')
+         AND UPPER(im.brand) NOT IN ('RECAP', 'RECAPPING', 'USED TIRE', 'VALVE', 'WHEEL WEIGHT', 'TIRE VALVE', 'TIRE VALVES', 'WHEEL WEIGHTS')
+         AND UPPER(im.brand) NOT LIKE 'USED - %'
+       GROUP BY im.brand
+       ORDER BY total_qty DESC, im.brand ASC`,
+      [shop_id],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows.map(r => r.brand));
+      }
+    );
+  }
 });
 
 // GET unique designs

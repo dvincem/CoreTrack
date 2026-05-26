@@ -162,11 +162,11 @@ function CartItemConsumables({ item, valveItems, weightItems, onUpdate, balancin
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', height: '32px', background: 'var(--th-bg-input)', border: '1px solid var(--th-border-strong)', borderRadius: '6px', padding: '0.25rem 0.4rem' }}>
                 <span style={dim}>₱</span>
                 <input type="number" className="pos-sub-num"
-                value={item.balancing_labor_price ?? balancingServicePrice ?? 0}
-                min="0" step="1"
-                onKeyDown={allowOnlyDecimals}
-                onChange={e => update({ balancing_labor_price: Math.max(0, Number(e.target.value)) })}
-                style={{ flex: 1, minWidth: 0, height: '100%', background: 'transparent', border: 'none', padding: 0, textAlign: 'right' }} />
+                  value={item.balancing_labor_price ?? balancingServicePrice ?? 0}
+                  min="0" step="1"
+                  onKeyDown={allowOnlyDecimals}
+                  onChange={e => update({ balancing_labor_price: Math.max(0, Number(e.target.value)) })}
+                  style={{ flex: 1, minWidth: 0, height: '100%', background: 'transparent', border: 'none', padding: 0, textAlign: 'right' }} />
               </div>
             </div>
           </div>
@@ -2307,7 +2307,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       {/* ── Sale Confirmation Modal ── */}
       {showConfirmModal && ReactDOM.createPortal(
         <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && !loading && setShowConfirmModal(false)} style={{ zIndex: 10000 }}>
-          <div className="confirm-box" style={{ maxWidth: 650, width: '95%' }}>
+          <div className="confirm-box" style={{ maxWidth: 680, width: '95%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="confirm-title" style={{ marginBottom: 0 }}>
                 Confirm Sale Summary
@@ -2352,6 +2352,34 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       <td style={{ padding: '0.6rem 0.8rem' }}>
                         <div style={{ fontWeight: 600, color: 'var(--th-text-primary)' }}>{item.name}</div>
                         {item.size && <div style={{ fontSize: '0.75rem', color: 'var(--th-text-dim)' }}>{item.size} {item.dot_number ? `· DOT ${item.dot_number}` : ''}</div>}
+                        {/* Cart Item Addons */}
+                        {(item.valve_type || item.wheel_balancing) && (
+                          <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                            {item.valve_type && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--th-amber,#fbbf24)' }}>
+                                <span style={{ opacity: 0.65 }}>↳ Addon:</span>
+                                <span style={{ fontWeight: 600 }}>Tire Valve</span>
+                                <span style={{ opacity: 0.8 }}>({item.valve_name || `${item.valve_type} Valve`})</span>
+                                <span style={{ fontWeight: 800 }}>Qty: {item.valve_quantity || item.quantity}</span>
+                              </div>
+                            )}
+                            {item.wheel_balancing && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--th-sky,#0ea5e9)' }}>
+                                <span style={{ opacity: 0.65 }}>↳ Addon:</span>
+                                <span style={{ fontWeight: 600 }}>Wheel Balancing</span>
+                                <span style={{ fontWeight: 800 }}>Qty: {item.balancing_quantity || item.quantity}</span>
+                                {item.wheel_weights_qty > 0 && (
+                                  <>
+                                    <span style={{ opacity: 0.5 }}>·</span>
+                                    <span style={{ fontWeight: 600 }}>Weights</span>
+                                    <span style={{ opacity: 0.8 }}>({item.wheel_weights_name || "Wheel Weights"})</span>
+                                    <span style={{ fontWeight: 800 }}>Qty: {item.wheel_weights_qty}</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>{item.quantity}</td>
                       <td style={{ padding: '0.6rem 0.8rem', textAlign: 'right' }}>{currency(item.price)}</td>

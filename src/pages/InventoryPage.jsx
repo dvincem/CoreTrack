@@ -2,6 +2,7 @@ import '../pages_css/InventoryPage.css';
 import React from 'react'
 import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import SearchInput from '../components/SearchInput'
+import FilterHeader from '../components/FilterHeader'
 import KpiCard from '../components/KpiCard'
 import DataTable from '../components/DataTable'
 import ItemHistoryModal from '../components/ItemHistoryModal'
@@ -750,6 +751,8 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     return () => obs.disconnect();
   }, []);
 
+  const [brandFilter, setBrandFilter] = React.useState("ALL");
+  const [liveBrands, setLiveBrands] = React.useState(["ALL"]);
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
   const [showCreateOrderModal, setShowCreateOrderModal] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -771,8 +774,11 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
     url: `${API_URL}/items/${shopId}`,
     perPage: ITEMS_PER_PAGE,
     enabled: !!shopId,
-    extraParams: React.useMemo(() => ({ groupByDot: "true" }), []),
-    deps: [shopId, refreshKey],
+    extraParams: React.useMemo(() => ({
+      groupByDot: "true",
+      brand: brandFilter === "ALL" ? "" : brandFilter
+    }), [brandFilter]),
+    deps: [shopId, refreshKey, brandFilter],
   });
   const filteredItems = items;
   const [selectedItemForHistory, setSelectedItemForHistory] =
@@ -813,6 +819,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   React.useEffect(() => {
     fetchSuppliers();
     fetchKpi();
+    fetchLiveBrands();
   }, [shopId, refreshKey]);
 
   // --- Persistence Logic ---
@@ -896,6 +903,19 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       const d = await r.json();
       if (d && !d.error) setKpi(d);
     } catch { /* non-fatal — KPI card falls back to client aggregation */ }
+  }
+
+  async function fetchLiveBrands() {
+    if (!shopId) return;
+    try {
+      const r = await apiFetch(`${API_URL}/item-brands/${shopId}`);
+      const d = await r.json();
+      if (Array.isArray(d)) {
+        setLiveBrands(["ALL", ...d]);
+      }
+    } catch (e) {
+      console.error("Failed to fetch active brands", e);
+    }
   }
 
   React.useEffect(() => {
@@ -1561,16 +1581,29 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
             );
           })()}
 
-          {/* Search — below KPI on desktop, below KPI on mobile too */}
-          <SearchInput
-            className="inv-search-wrap"
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search by name, SKU, brand, design, size…"
-            suggestions={searchSuggestions}
-            resultCount={filteredItems.length}
-            totalCount={items.length}
-            resultLabel="items"
+          {/* Search & Active Brands Filter Bar */}
+          <FilterHeader
+            searchProps={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: "Search by name, SKU, brand, design, size…",
+              suggestions: searchSuggestions,
+              onSuggestionSelect: (s) => setSearchQuery(s.text),
+              resultCount: filteredItems.length,
+              totalCount: items.length,
+              resultLabel: "items",
+            }}
+            filters={liveBrands.map((b) => ({
+              label: b,
+              value: b,
+              active: brandFilter === b,
+            }))}
+            twoRow
+            onFilterChange={(b) => {
+              setBrandFilter(b);
+              setCurrentPage(1);
+            }}
+            accentColor="var(--th-sky)"
           />
 
           {/* Mobile Actions — Create Order & Quick Order (hidden on desktop) */}
