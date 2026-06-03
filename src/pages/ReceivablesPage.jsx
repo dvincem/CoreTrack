@@ -23,7 +23,7 @@ const rcvCurrency = typeof currency === "function"
   ? currency
   : (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const TODAY = new Date().toISOString().split("T")[0];
+const getTodayStr = () => new Date().toISOString().split("T")[0];
 
 const TYPE_OPTS = ["PRODUCT", "SERVICE", "GENERAL"];
 const PAY_METHODS = ["CASH", "GCASH", "BPI", "BDO", "CARD", "CHECK"];
@@ -68,7 +68,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
 
   // combined receivable detail modal
   const [rcvDetailTarget, setRcvDetailTarget] = React.useState(null);
-  const [payForm, setPayForm] = React.useState({ amount: "", payment_date: TODAY, payment_method: "CASH", notes: "" });
+  const [payForm, setPayForm] = React.useState(() => ({ amount: "", payment_date: getTodayStr(), payment_method: "CASH", notes: "" }));
   const [payError, setPayError] = React.useState("");
   const [paying, setPaying] = React.useState(false);
   const [histPayments, setHistPayments] = React.useState([]);
@@ -89,9 +89,9 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
   const [showBaleForm, setShowBaleForm] = React.useState(false);
   const [baleFormError, setBaleFormError] = React.useState("");
   const [baleSaving, setBaleSaving] = React.useState(false);
-  const [baleForm, setBaleForm] = React.useState({ staff_id: "", amount: "", bale_date: TODAY, due_date: "", notes: "" });
+  const [baleForm, setBaleForm] = React.useState(() => ({ staff_id: "", amount: "", bale_date: getTodayStr(), due_date: "", notes: "" }));
   const [baleDetailTarget, setBaleDetailTarget] = React.useState(null); // combined detail+pay+history modal
-  const [balePayForm, setBalePayForm] = React.useState({ amount: "", payment_date: TODAY, notes: "" });
+  const [balePayForm, setBalePayForm] = React.useState(() => ({ amount: "", payment_date: getTodayStr(), notes: "" }));
   const [balePayError, setBalePayError] = React.useState("");
   const [balePaying, setBalePaying] = React.useState(false);
   const [baleHistPayments, setBaleHistPayments] = React.useState([]);
@@ -119,10 +119,17 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
   React.useEffect(() => {
     if (!pageContext) return;
     if (pageContext.action === 'openAdd') {
+      setForm({
+        customer_id: "", receivable_type: "GENERAL", description: "",
+        original_amount: "", down_payment: "", due_date: "", notes: "", is_opening_balance: false
+      });
+      setFormError("");
       setShowForm(true);
       if (setPageContext) setPageContext({});
     } else if (pageContext.action === 'openBale') {
       setPageTab('bale');
+      setBaleForm({ staff_id: "", amount: "", bale_date: getTodayStr(), due_date: "", notes: "" });
+      setBaleFormError("");
       setShowBaleForm(true);
       if (setPageContext) setPageContext({});
     }
@@ -225,7 +232,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
   // Payment helpers
   const openRcvDetail = async (row) => {
     setRcvDetailTarget(row);
-    setPayForm({ amount: "", payment_date: TODAY, payment_method: "CASH", notes: "" });
+    setPayForm({ amount: "", payment_date: getTodayStr(), payment_method: "CASH", notes: "" });
     setPayError("");
     setHistPayments([]);
     setHistLoading(true);
@@ -269,7 +276,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       loadReceivables();
       const newPaid = (rcvDetailTarget.amount_paid || 0) + amt;
       setRcvDetailTarget(prev => ({ ...prev, amount_paid: newPaid, balance_amount: data.new_balance, status: data.status }));
-      setPayForm({ amount: "", payment_date: TODAY, payment_method: "CASH", notes: "" });
+      setPayForm({ amount: "", payment_date: getTodayStr(), payment_method: "CASH", notes: "" });
       setHistPayments(prev => [{ payment_id: data.payment_id, amount: amt, payment_date: pDate, payment_method: method, notes: pNotes || null, created_at: new Date().toISOString() }, ...prev]);
     } catch (e) { setPayError(e.message); }
     setPaying(false);
@@ -380,7 +387,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
           shop_id: shopId,
           staff_id: fd.staff_id,
           amount: fd.amount,
-          bale_date: fd.bale_date || TODAY,
+          bale_date: fd.bale_date || getTodayStr(),
           due_date: fd.due_date || null,
           notes: fd.notes,
           created_by: "POS"
@@ -390,7 +397,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       if (data.error) { setBaleFormError(data.error); setBaleSaving(false); return; }
       showToast("Bale recorded!");
       setShowBaleForm(false);
-      setBaleForm({ staff_id: "", amount: "", bale_date: TODAY, due_date: "", notes: "" });
+      setBaleForm({ staff_id: "", amount: "", bale_date: getTodayStr(), due_date: "", notes: "" });
       loadBales();
     } catch (e) { setBaleFormError(e.message); }
     setBaleSaving(false);
@@ -398,7 +405,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
 
   const openBaleDetail = (b) => {
     setBaleDetailTarget(b);
-    setBalePayForm({ amount: "", payment_date: TODAY, notes: "" });
+    setBalePayForm({ amount: "", payment_date: getTodayStr(), notes: "" });
     setBaleAddForm({ amount: "", notes: "" });
     setIsAddingVale(false);
     setBalePayError("");
@@ -444,7 +451,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       loadBales();
       const newPaid = (baleDetailTarget.amount_paid || 0) + amt;
       setBaleDetailTarget(prev => ({ ...prev, amount_paid: newPaid, balance_amount: data.new_balance, status: data.status }));
-      setBalePayForm({ amount: "", payment_date: TODAY, notes: "" });
+      setBalePayForm({ amount: "", payment_date: getTodayStr(), notes: "" });
       setBaleHistPayments(prev => [{ payment_id: data.payment_id, amount: amt, payment_date: pDate, payment_method: "CASH", notes: pNotes || null, created_at: new Date().toISOString() }, ...prev]);
     } catch (e) { setBalePayError(e.message); }
     setBalePaying(false);
@@ -612,7 +619,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
       <div className={`rcv-amt ${row.status === 'PAID' ? 'balance-paid' : 'balance-open'}`}>{rcvCurrency(row.balance_amount)}</div>
     )},
     { key: 'due_date', label: 'Due Date', render: row => {
-      const isOverdue = row.due_date && row.due_date < TODAY && row.status === "OPEN";
+      const isOverdue = row.due_date && row.due_date < getTodayStr() && row.status === "OPEN";
       return row.due_date
         ? <div className={`rcv-due-date${isOverdue ? " rcv-due-overdue" : ""}`}>{row.due_date}{isOverdue ? " ⚠" : ""}</div>
         : <span style={{ color: "var(--th-text-faint)", fontSize: "0.8rem" }}>—</span>;
@@ -637,7 +644,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
     )},
     { key: 'bale_date', label: 'Date', render: row => <span style={{fontSize:"0.82rem",color:"var(--th-text-muted)"}}>{row.bale_date}</span> },
     { key: 'due_date', label: 'Due Date', render: row => {
-      const isOverdue = row.due_date && row.due_date < TODAY && row.status === "ACTIVE";
+      const isOverdue = row.due_date && row.due_date < getTodayStr() && row.status === "ACTIVE";
       return row.due_date
         ? <span style={{fontSize:"0.82rem",color:isOverdue?"var(--th-rose)":"var(--th-text-muted)",fontWeight:isOverdue?600:400}}>{row.due_date}{isOverdue?" ⚠":""}</span>
         : <span style={{fontSize:"0.78rem",color:"var(--th-text-faint)"}}>—</span>;
@@ -982,7 +989,7 @@ function ReceivablesPage({ shopId, pageContext, setPageContext }) {
             {(rcvDetailTarget.description || rcvDetailTarget.due_date) && (
               <div style={{padding:"0.5rem 1.1rem",fontSize:"0.82rem",color:"var(--th-text-dim)",borderBottom:"1px solid var(--th-border)",display:"flex",gap:"1rem",flexWrap:"wrap"}}>
                 {rcvDetailTarget.description && <span>{rcvDetailTarget.description}</span>}
-                {rcvDetailTarget.due_date && <span style={{color: rcvDetailTarget.due_date < TODAY && rcvDetailTarget.status==="OPEN" ? "var(--th-rose)" : "var(--th-text-dim)"}}>Due: {rcvDetailTarget.due_date}</span>}
+                {rcvDetailTarget.due_date && <span style={{color: rcvDetailTarget.due_date < getTodayStr() && rcvDetailTarget.status==="OPEN" ? "var(--th-rose)" : "var(--th-text-dim)"}}>Due: {rcvDetailTarget.due_date}</span>}
               </div>
             )}
 

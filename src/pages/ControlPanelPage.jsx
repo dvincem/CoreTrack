@@ -1,32 +1,7 @@
 import '../pages_css/ControlPanelPage.css';
 import React from 'react'
-import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
+import { API_URL, apiFetch, SkeletonRows, copyToClipboard } from '../lib/config'
 import { DataTable } from '../components/DataTable'
-
-/** 
- * Robust clipboard helper with fallback for non-secure contexts (HTTP)
- */
-function copyToClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    return navigator.clipboard.writeText(text);
-  } else {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    textArea.style.top = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand('copy');
-    } catch (err) {
-      console.error('Fallback copy failed', err);
-    }
-    document.body.removeChild(textArea);
-    return Promise.resolve();
-  }
-}
 
 
 // Power helpers (mirrors server-side)
