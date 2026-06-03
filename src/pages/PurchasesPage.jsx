@@ -1,7 +1,7 @@
 import '../pages_css/PurchasesPage.css';
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, apiFetch, calculateAutoAdjustedPrice, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
+import { API_URL, currency, apiFetch, calculateAutoAdjustedPrice, allowOnlyDigits, allowOnlyDecimals, getLocalTodayYYYYMMDD } from '../lib/config'
 import SearchInput from '../components/SearchInput'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
 import DataTable from '../components/DataTable'
@@ -109,7 +109,7 @@ function buildSKU(form, itemType) {
   return (itemType === 'TIRE' ? 'TIRE' : 'ITEM') + '-' + parts.join('-')
 }
 
-const TODAY = new Date().toISOString().split('T')[0]
+const TODAY = getLocalTodayYYYYMMDD()
 
 const BLANK_INV = (itemType) => ({
   item_name: '', brand: '', design: '', size: '', rim_size: '',
@@ -160,6 +160,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
   const [dbBrands, setDbBrands] = React.useState([])
   const [dbDesigns, setDbDesigns] = React.useState([])
   const [dbSizes, setDbSizes] = React.useState([])
+  const [dbOtherItems, setDbOtherItems] = React.useState([])
   const [activeSug, setActiveSug] = React.useState(null) // { idx, field }
 
   const prefill = useSearchPrefill('purchases')
@@ -180,12 +181,25 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
       apiFetch(`${API_URL}/item-sizes/any`).then(r => r.json()).then(d => Array.isArray(d) && setDbSizes(d)).catch(() => { })
       apiFetch(`${API_URL}/item-categories/any`).then(r => r.json()).then(d => {
         if (!Array.isArray(d)) return
-        const TIRE_SET = new Set(['PCR','SUV','TBR','LT','LTB','MOTORCYCLE','TUBE','RECAP','FLAP','RECAPPING','USED TIRE','TIRE'])
+        const TIRE_SET = new Set(['PCR', 'SUV', 'TBR', 'LT', 'LTB', 'MOTORCYCLE', 'TUBE', 'RECAP', 'FLAP', 'RECAPPING', 'USED TIRE', 'TIRE'])
         const dbTire = d.filter(c => TIRE_SET.has(c.toUpperCase()))
         const dbOther = d.filter(c => !TIRE_SET.has(c.toUpperCase()))
         setTireCats(prev => [...new Set([...prev, ...dbTire])])
         setOtherCats(prev => [...new Set([...prev, ...dbOther])])
       }).catch(() => { })
+
+      if (shopId) {
+        apiFetch(`${API_URL}/items-search/${shopId}`)
+          .then(r => r.json())
+          .then(d => {
+            if (Array.isArray(d)) {
+              const TIRE_SET = new Set(['PCR', 'SUV', 'TBR', 'LT', 'LTB', 'MOTORCYCLE', 'TUBE', 'RECAP', 'FLAP', 'RECAPPING', 'USED TIRE', 'TIRE'])
+              const nonTires = d.filter(it => !TIRE_SET.has((it.category || '').toUpperCase()) && !it.sku?.startsWith('TIRE-'))
+              setDbOtherItems(nonTires)
+            }
+          })
+          .catch(() => { })
+      }
     } catch { }
   }
 
@@ -918,9 +932,50 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
                       ) : (
                         <>
                           <div className="pur-row">
-                            <div style={{ flex: 2 }}>
+                            <div style={{ flex: 2, position: 'relative' }}>
                               <label className="pur-label">Item Name *</label>
-                              <input className="pur-input" value={item.item_name} onChange={e => updateItemToAdd(idx, 'item_name', e.target.value)} />
+                              <input
+                                className="pur-input"
+                                placeholder="Search inventory..."
+                                value={item.item_name}
+                                onChange={e => updateItemToAdd(idx, 'item_name', e.target.value)}
+                                onFocus={() => setActiveSug({ idx, field: 'item_name' })}
+                                onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                              />
+                              {activeSug?.idx === idx && activeSug?.field === 'item_name' && (
+                                <div className="pur-sug-drop">
+                                  {dbOtherItems.filter(it => {
+                                    const q = (item.item_name || '').toLowerCase()
+                                    if (!q) return true
+                                    return (
+                                      it.item_name?.toLowerCase().includes(q) ||
+                                      it.sku?.toLowerCase().includes(q) ||
+                                      it.category?.toLowerCase().includes(q)
+                                    )
+                                  }).slice(0, 15).map((it, si) => (
+                                    <div
+                                      key={si}
+                                      className="pur-sug-item"
+                                      onMouseDown={() => {
+                                        updateItemToAdd(idx, 'item_name', it.item_name || '')
+                                        updateItemToAdd(idx, 'category', it.category || 'VALVE')
+                                        updateItemToAdd(idx, 'unit_cost', it.unit_cost !== null && it.unit_cost !== undefined ? it.unit_cost.toString() : '')
+                                        updateItemToAdd(idx, 'selling_price', it.selling_price !== null && it.selling_price !== undefined ? it.selling_price.toString() : '')
+                                      }}
+                                      style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0.5rem 0.75rem' }}
+                                    >
+                                      <div style={{ fontWeight: 600 }}>{it.item_name}</div>
+                                      <div style={{ fontSize: '0.72rem', color: 'var(--th-text-dim)', display: 'flex', gap: '0.5rem' }}>
+                                        <span>Cat: {it.category}</span>
+                                        <span>·</span>
+                                        <span>Cost: {currency(it.unit_cost)}</span>
+                                        <span>·</span>
+                                        <span>Price: {currency(it.selling_price)}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div style={{ flex: 1 }}>
                               <label className="pur-label">Category *</label>
@@ -993,7 +1048,7 @@ function PurchasesPage({ shopId, currentStaffId, isShopClosed }) {
               </div>
             </div>
           </div>
-        , document.body)}
+          , document.body)}
 
         {/* ── Pending Confirmation Dialog ── */}
         {pending && ReactDOM.createPortal(

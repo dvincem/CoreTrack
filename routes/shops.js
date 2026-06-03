@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
 const { dbGet, dbAll, dbRun } = require("../lib/db");
-const { getEffectiveISO, getEffectiveYYYYMMDD } = require("../lib/businessDate");
+const { getEffectiveISO, getEffectiveYYYYMMDD, toLocalYYYYMMDD, getLocalTodayYYYYMMDD } = require("../lib/businessDate");
 const { getDailySummary } = require("../lib/reporting");
 const { runBackupToFile } = require("./backup");
 const { generatePayrollInternal } = require("./staff");
@@ -51,7 +51,7 @@ router.get("/shops/:shop_id/business-date", async (req, res) => {
       business_date: dateStr,
       business_iso: isoStr,
       is_closed: !!status?.is_closed,
-      system_date: new Date().toISOString().split('T')[0]
+      system_date: getLocalTodayYYYYMMDD()
     });
   } catch (err) {
     console.error("Business Date Error:", err);
@@ -125,7 +125,7 @@ router.post("/shops/:shop_id/close-day", async (req, res) => {
       success: true, 
       message: `Shop closed for ${businessDate}. Snapshot saved and system backed up.`,
       summary,
-      next_business_date: new Date(new Date(businessDate).getTime() + 86400000).toISOString().split('T')[0]
+      next_business_date: toLocalYYYYMMDD(new Date(new Date(businessDate).getTime() + 86400000))
     });
 
   } catch (err) {

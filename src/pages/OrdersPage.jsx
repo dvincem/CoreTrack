@@ -2,7 +2,7 @@ import "../pages_css/OrdersPage.css";
 import React from "react";
 import Pagination from "../components/Pagination";
 import SearchInput from "../components/SearchInput";
-import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from "../lib/config";
+import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals, copyToClipboard } from "../lib/config";
 import usePaginatedResource from "../hooks/usePaginatedResource";
 import { useSearchPrefill } from "../hooks/useSearchPrefill";
 
@@ -906,7 +906,10 @@ function CreateOrderModal({
                         }}
                       >
                         <option value="">— Select —</option>
-                        {[...new Set([...allCategories])].map((c) => (
+                        {[...new Set([...allCategories])].filter(c => {
+                          const uc = c.toUpperCase();
+                          return uc !== "RECAP" && uc !== "RECAPPING" && uc !== "USED TIRE";
+                        }).map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                         <option value="___NEW___" style={{ color: "var(--th-orange,#f97316)", fontWeight: "bold" }}>
@@ -1539,6 +1542,10 @@ function CreateOrderModal({
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     const trimmed = addCatModal.value.trim().toUpperCase();
+                    if (trimmed === "RECAP" || trimmed === "RECAPPING" || trimmed === "USED TIRE") {
+                      alert("Ordering recap and used tires is prohibited.");
+                      return;
+                    }
                     if (trimmed) {
                       const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                       const type = TIRE_SET.has(trimmed) ? "tire" : "other";
@@ -1563,6 +1570,10 @@ function CreateOrderModal({
                 disabled={!addCatModal.value.trim()}
                 onClick={() => {
                   const trimmed = addCatModal.value.trim().toUpperCase();
+                  if (trimmed === "RECAP" || trimmed === "RECAPPING" || trimmed === "USED TIRE") {
+                    alert("Ordering recap and used tires is prohibited.");
+                    return;
+                  }
                   if (trimmed) {
                     const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                     const type = TIRE_SET.has(trimmed) ? "tire" : "other";
@@ -2753,7 +2764,10 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                       }}
                     >
                       <option value="">— Select —</option>
-                      {[...new Set([...allCategoriesQr])].map((c) => (
+                      {[...new Set([...allCategoriesQr])].filter(c => {
+                        const uc = c.toUpperCase();
+                        return uc !== "RECAP" && uc !== "RECAPPING" && uc !== "USED TIRE";
+                      }).map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                       <option value="___NEW___" style={{ color: "var(--th-orange)", fontWeight: "bold" }}>
@@ -3242,6 +3256,10 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     const trimmed = addCatModalQr.value.trim().toUpperCase();
+                    if (trimmed === "RECAP" || trimmed === "RECAPPING" || trimmed === "USED TIRE") {
+                      alert("Ordering recap and used tires is prohibited.");
+                      return;
+                    }
                     if (trimmed) {
                       const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                       const type = TIRE_SET.has(trimmed) ? "tire" : "other";
@@ -3266,6 +3284,10 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
                 disabled={!addCatModalQr.value.trim()}
                 onClick={() => {
                   const trimmed = addCatModalQr.value.trim().toUpperCase();
+                  if (trimmed === "RECAP" || trimmed === "RECAPPING" || trimmed === "USED TIRE") {
+                    alert("Ordering recap and used tires is prohibited.");
+                    return;
+                  }
                   if (trimmed) {
                     const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                     const type = TIRE_SET.has(trimmed) ? "tire" : "other";
@@ -3431,7 +3453,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
   async function fetchItems() {
     try {
-      const r = await apiFetch(`${API_URL}/items/${shopId}?groupByDot=true`);
+      const r = await apiFetch(`${API_URL}/items/${shopId}?groupByDot=true&excludeRecapUsed=true`);
       setItems((await r.json()) || []);
     } catch (err) {
       console.error("fetchItems failed:", err);
@@ -3940,7 +3962,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
 
     const copyText = `${brandBlocks}\n\nTotal = ${grandTotal} Pcs\n${totalLines}`;
 
-    navigator.clipboard.writeText(copyText)
+    copyToClipboard(copyText)
       .then(() => {
         setToast({ title: "Order Copied", sub: "Text ready to paste" });
       })

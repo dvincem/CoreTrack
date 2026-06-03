@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require("../Database");
 const { dbRun, dbGet, dbAll, dbSerialize, syncCurrentStock, logPriceHistory, findOrCreateDotVariant } = require("../lib/db");
 const { calculateAutoAdjustedPrice } = require("../lib/pricing");
+const { toLocalYYYYMMDD } = require("../lib/businessDate");
 
 router.post("/orders", async (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;
@@ -378,7 +379,7 @@ router.post("/orders/:order_id/receive", async (req, res) => {
                 if (grp.payment_terms && grp.payment_terms > 0) {
                   const d = new Date();
                   d.setDate(d.getDate() + grp.payment_terms);
-                  due_date = d.toISOString().split('T')[0];
+                  due_date = toLocalYYYYMMDD(d);
                 }
                 // Short description for the payable title
                 const description = [`Order ${order_id}`, drLabel, grp.supplier_name].filter(Boolean).join(' — ');
@@ -803,7 +804,7 @@ router.post("/orders/quick-receive", async (req, res) => {
       if (grp.payment_terms > 0) {
         const d = new Date();
         d.setDate(d.getDate() + grp.payment_terms);
-        due_date = d.toISOString().split('T')[0];
+        due_date = toLocalYYYYMMDD(d);
       }
 
       const description = [`Quick Receive ${order_id}`, drLabel, grp.supplier_name].filter(Boolean).join(' — ');

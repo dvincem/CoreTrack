@@ -1,15 +1,11 @@
 import '../pages_css/Reportspage.css';
 import React, { useState, useEffect } from 'react'
-import { API_URL, apiFetch, SkeletonRows, currency, compactCurrency, allowOnlyDecimals } from '../lib/config'
+import { API_URL, apiFetch, SkeletonRows, currency, compactCurrency, allowOnlyDecimals, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import DataTable from '../components/DataTable'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
-import { ChartThemeProvider, RevenueDonutChart, useChartTheme, ChartTooltip } from '../components/ChartWrapper'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
-import { LineChart } from '@mui/x-charts/LineChart'
-import { BarChart } from '@mui/x-charts/BarChart'
-import { PieChart } from '@mui/x-charts/PieChart'
+import { ChartThemeProvider, RevenueDonutChart } from '../components/ChartWrapper'
 
 /* ─────────────────────────────────────────────
    UTILITIES
@@ -534,6 +530,8 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [showCashBreakdown, setShowCashBreakdown] = useState(false)
+  const [showDigitalBreakdown, setShowDigitalBreakdown] = useState(false)
+  const [showCreditBreakdown, setShowCreditBreakdown] = useState(false)
   const [showSalesBreakdown, setShowSalesBreakdown] = useState(false)
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState([])
@@ -542,7 +540,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
 
   useEffect(() => {
     if (isOpen) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalTodayYYYYMMDD();
       setStartDate(today);
       setEndDate(today);
     }
@@ -619,7 +617,9 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const bpiTotal = getMethodTotal('BPI')
   const bdoTotal = getMethodTotal('BDO')
   const cardTotal = getMethodTotal('CARD')
-  const digitalTotal = gcashTotal + bpiTotal + bdoTotal + cardTotal
+  const bankTotal = getMethodTotal('BANK')
+  const checkTotal = getMethodTotal('CHECK')
+  const digitalTotal = gcashTotal + bpiTotal + bdoTotal + cardTotal + bankTotal + checkTotal
   const creditTotal = getMethodTotal('CREDIT')
 
   const typeColors = {
@@ -669,7 +669,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
           <span className="rpt-day-dot" style={{ background: isClosed ? 'var(--th-amber)' : 'var(--th-emerald)', boxShadow: isClosed ? 'none' : '0 0 6px var(--th-emerald)' }} />
           Daily Report —
           <input
-            type="date" max={new Date().toISOString().split('T')[0]} value={endDate} className="rpt-day-date-input"
+            type="date" max={getLocalTodayYYYYMMDD()} value={endDate} className="rpt-day-date-input"
             onChange={e => { setEndDate(e.target.value); setStartDate(e.target.value) }}
           />
           {isClosed && <span className="rpt-badge" style={{ background: 'var(--th-amber-bg)', color: 'var(--th-amber)', border: '1px solid var(--th-amber)' }}>Closed</span>}
@@ -821,14 +821,74 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                 </div>
               </div>
             )}
-            <div className="rpt-recon-row">
-              <span className="rpt-recon-label">Digital Total</span>
+            <div className="rpt-recon-row" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowDigitalBreakdown(v => !v)}>
+              <span className="rpt-recon-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                Digital Total
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transition: 'transform 0.2s', transform: showDigitalBreakdown ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.5 }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
               <span className="rpt-recon-value sky">{currency(digitalTotal)}</span>
             </div>
-            <div className="rpt-recon-row">
-              <span className="rpt-recon-label">Credit Sales</span>
+            {showDigitalBreakdown && (
+              <div style={{ margin: '0 0 0.25rem', padding: '0.65rem 0.75rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                {[
+                  gcashTotal > 0 && { label: 'GCash', value: gcashTotal, color: 'var(--th-sky)' },
+                  bpiTotal > 0 && { label: 'BPI', value: bpiTotal, color: 'var(--th-sky)' },
+                  bdoTotal > 0 && { label: 'BDO', value: bdoTotal, color: 'var(--th-sky)' },
+                  cardTotal > 0 && { label: 'Card', value: cardTotal, color: 'var(--th-sky)' },
+                  bankTotal > 0 && { label: 'Bank Transfer', value: bankTotal, color: 'var(--th-sky)' },
+                  checkTotal > 0 && { label: 'Check', value: checkTotal, color: 'var(--th-sky)' },
+                ].filter(Boolean).map((row, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--th-text-faint)' }}>{row.label}</span>
+                    <span style={{ fontWeight: 700, color: row.color, fontVariantNumeric: 'tabular-nums' }}>+ {currency(row.value)}</span>
+                  </div>
+                ))}
+                {[gcashTotal, bpiTotal, bdoTotal, cardTotal, bankTotal, checkTotal].reduce((a, b) => a + b, 0) === 0 && (
+                  <div style={{ color: 'var(--th-text-dim)', fontStyle: 'italic', textAlign: 'center' }}>No digital sales for today</div>
+                )}
+                <div style={{ borderTop: '1px dashed var(--th-border)', marginTop: '0.15rem', paddingTop: '0.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--th-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>=  Digital Total</span>
+                  <span style={{ fontWeight: 900, color: 'var(--th-sky)', fontVariantNumeric: 'tabular-nums' }}>{currency(digitalTotal)}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="rpt-recon-row" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowCreditBreakdown(v => !v)}>
+              <span className="rpt-recon-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                Credit Sales
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transition: 'transform 0.2s', transform: showCreditBreakdown ? 'rotate(180deg)' : 'rotate(0deg)', opacity: 0.5 }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
               <span className="rpt-recon-value amber">{currency(creditTotal)}</span>
             </div>
+            {showCreditBreakdown && (
+              <div style={{ margin: '0 0 0.25rem', padding: '0.65rem 0.75rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                {data.transactions
+                  .filter(t => t.paymentMethod === 'CREDIT' || t.paymentMethod === 'BANK_CREDIT')
+                  .map((txn, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--th-text-faint)' }}>
+                        {txn.customerName || (txn.type === 'SALE' || txn.type === 'SERVICE' ? 'Walk-in' : 'General')}
+                        <span style={{ fontSize: '0.65rem', color: 'var(--th-text-dim)', marginLeft: '0.3rem' }}>({txn.type})</span>
+                      </span>
+                      <span style={{ fontWeight: 700, color: 'var(--th-amber)', fontVariantNumeric: 'tabular-nums' }}>+ {currency(txn.amount)}</span>
+                    </div>
+                  ))
+                }
+                {data.transactions.filter(t => t.paymentMethod === 'CREDIT' || t.paymentMethod === 'BANK_CREDIT').length === 0 && (
+                  <div style={{ color: 'var(--th-text-dim)', fontStyle: 'italic', textAlign: 'center' }}>No credit sales for today</div>
+                )}
+                <div style={{ borderTop: '1px dashed var(--th-border)', marginTop: '0.15rem', paddingTop: '0.35rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--th-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>=  Credit Sales</span>
+                  <span style={{ fontWeight: 900, color: 'var(--th-amber)', fontVariantNumeric: 'tabular-nums' }}>{currency(creditTotal)}</span>
+                </div>
+              </div>
+            )}
             <div className="rpt-recon-row total">
               <span style={{ color: 'var(--th-text-muted)', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Daily Inflow</span>
               <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 900, fontSize: '1.25rem', color: 'var(--th-text-heading)' }}>{currency(cashOnHand + digitalTotal + creditTotal)}</span>
@@ -841,6 +901,8 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                 { method: 'BPI', total: bpiTotal },
                 { method: 'BDO', total: bdoTotal },
                 { method: 'CARD', total: cardTotal },
+                { method: 'BANK', total: bankTotal },
+                { method: 'CHECK', total: checkTotal },
                 { method: 'CREDIT', total: creditTotal },
               ].map(p => (
                 <div key={p.method} className="rpt-method-chip">
@@ -869,7 +931,7 @@ function SectionSales({ shopId, startDate, endDate, setStartDate, setEndDate, ac
     let active = true
     setLoading(true)
     const qs = `startDate=${startDate}&endDate=${endDate}`
-    apiFetch(`${API_URL}/sales/${shopId}?${qs}&perPage=500`)
+    apiFetch(`${API_URL}/sales/${shopId}?${qs}&perPage=100000`)
       .then(r => r.json())
       .then(salesRes => {
         if (!active) return
@@ -943,7 +1005,7 @@ function SectionPayment({ shopId, startDate, endDate, isOpen }) {
     if (!isOpen) return
     let active = true
     setLoading(true)
-    apiFetch(`${API_URL}/sales/${shopId}?startDate=${startDate}&endDate=${endDate}&perPage=500`)
+    apiFetch(`${API_URL}/sales/${shopId}?startDate=${startDate}&endDate=${endDate}&perPage=100000`)
       .then(r => r.json())
       .then(res => {
         if (!active) return
@@ -1932,9 +1994,9 @@ function SectionReturns({ shopId, startDate, endDate, isOpen }) {
    MAIN INNER COMPONENT
 ───────────────────────────────────────────── */
 function ReportspageInner({ shopId, userPower = 0 }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalTodayYYYYMMDD()
   const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
-  const defaultStart = thirtyDaysAgo.toISOString().split('T')[0]
+  const defaultStart = toLocalYYYYMMDD(thirtyDaysAgo)
 
   const [startDate, setStartDate] = useState(() => localStorage.getItem('rpt_startDate') || defaultStart)
   const [endDate, setEndDate] = useState(() => localStorage.getItem('rpt_endDate') || today)

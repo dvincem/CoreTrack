@@ -275,6 +275,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
 
   const blankCasing = () => ({ brand: "", design: "Topcap", size: "", dot_number: "", recap_cost: "", expected_selling_price: "" });
   const [newJob, setNewJob] = React.useState({ ownership_type: "CUSTOMER_OWNED", customer_id: "", supplier_id: "" });
+  const [custSearch, setCustSearch] = React.useState("");
+  const [showCustDrop, setShowCustDrop] = React.useState(false);
   const [casings, setCasings] = React.useState([blankCasing()]);
 
   // --- Persistence Logic ---
@@ -516,6 +518,7 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
       if (res.error) throw new Error(res.error);
       fetchCustomers();
       setNewJob(j => ({ ...j, customer_id: res.customer_id }));
+      setCustSearch(quickCustForm.customer_name);
       setShowQuickAddCustomer(false);
       setQuickCustForm({ customer_name: '', company: '', contact_number: '', address: '' });
     } catch (e) {
@@ -658,6 +661,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
 
   function resetForm() {
     setNewJob({ ownership_type: "CUSTOMER_OWNED", customer_id: "", supplier_id: "" });
+    setCustSearch("");
+    setShowCustDrop(false);
     setCasings([blankCasing()]);
     setShowQuickAddCustomer(false);
     setQuickCustForm({ customer_name: '', company: '', contact_number: '', address: '' });
@@ -1506,13 +1511,69 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                           </button>
                         </div>
                       ) : (
-                        <select className="rc-input" value={newJob.customer_id}
-                          onChange={(e) => setNewJob({ ...newJob, customer_id: e.target.value })}>
-                          <option value="">Select Customer</option>
-                          {customers.map((c) => (
-                            <option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>
-                          ))}
-                        </select>
+                        <div className="rc-cust-search-wrap">
+                          <input
+                            type="text"
+                            className="rc-input"
+                            style={{ width: "100%", boxSizing: "border-box" }}
+                            placeholder="Search Customer / Walk-in"
+                            value={custSearch || (customers.find(c => c.customer_id === newJob.customer_id)?.customer_name || "")}
+                            onFocus={() => setShowCustDrop(true)}
+                            onBlur={() => setTimeout(() => setShowCustDrop(false), 200)}
+                            onChange={e => {
+                              setCustSearch(e.target.value);
+                              if (!e.target.value) setNewJob(prev => ({ ...prev, customer_id: "" }));
+                            }}
+                          />
+                          {newJob.customer_id && (
+                            <button
+                              type="button"
+                              className="rc-cust-clear"
+                              onClick={() => {
+                                setNewJob(prev => ({ ...prev, customer_id: "" }));
+                                setCustSearch("");
+                              }}
+                            >
+                              ×
+                            </button>
+                          )}
+                          {showCustDrop && (
+                            <div className="rc-cust-dropdown">
+                              <div
+                                className="rc-cust-item"
+                                onClick={() => {
+                                  setNewJob(prev => ({ ...prev, customer_id: "" }));
+                                  setCustSearch("");
+                                }}
+                              >
+                                — Walk-in / General —
+                              </div>
+                              {customers
+                                .filter(c => {
+                                  const term = custSearch.toLowerCase();
+                                  const nameMatch = c.customer_name?.toLowerCase().includes(term);
+                                  const contactMatch = String(c.contact_number || c.phone || "")?.toLowerCase().includes(term);
+                                  return !custSearch || nameMatch || contactMatch;
+                                })
+                                .slice(0, 15)
+                                .map(c => (
+                                  <div
+                                    key={c.customer_id}
+                                    className={`rc-cust-item${newJob.customer_id === c.customer_id ? ' active' : ''}`}
+                                    onClick={() => {
+                                      setNewJob(prev => ({ ...prev, customer_id: c.customer_id }));
+                                      setCustSearch(c.customer_name);
+                                    }}
+                                  >
+                                    <div className="rc-cust-item-name">{c.customer_name}</div>
+                                    {(c.contact_number || c.phone) && (
+                                      <div className="rc-cust-item-phone">{c.contact_number || c.phone}</div>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { db }  = require('../Database');
 const { v4: uuidv4 } = require('uuid');
-const { getEffectiveYYYYMMDD } = require('../lib/businessDate');
+const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD } = require('../lib/businessDate');
 
 const VALID_TYPES = ['CASH_IN', 'CASH_OUT', 'GCASH_IN', 'GCASH_OUT', 'CARD_IN', 'CARD_OUT', 'BANK_IN', 'BANK_OUT'];
 
@@ -239,7 +239,7 @@ router.post('/cash-ledger', async (req, res) => {
   }
 
   // Only shift if the entry_date is "today"
-  const systemToday = new Date().toISOString().split('T')[0];
+  const systemToday = getLocalTodayYYYYMMDD();
   let final_entry_date = entry_date;
   if (entry_date === systemToday) {
     final_entry_date = await getEffectiveYYYYMMDD(shop_id);

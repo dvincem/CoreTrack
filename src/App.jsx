@@ -236,7 +236,7 @@ const APP_SHELL_STYLE = `
     text-transform: uppercase;
     letter-spacing: 0.14em;
     color: var(--th-text-faint);
-    padding: 1rem 0.4rem 0.25rem;
+    padding: .5rem 0.4rem 0.25rem;
     white-space: nowrap; overflow: hidden;
     transition: opacity 0.15s, max-height 0.22s, padding 0.22s, font-size 0.2s;
     display: flex; align-items: center; justify-content: space-between;
@@ -269,7 +269,7 @@ const APP_SHELL_STYLE = `
     gap: 0.6rem;
     width: 100%;
     text-align: left;
-    padding: 0.42rem 0.6rem;
+    padding: 0.2rem 0.6rem;
     border-radius: 8px;
     border: none;
     background: none;
@@ -812,6 +812,7 @@ const ROLES = {
   GM: "general manager",
   OPS: "operations manager",
   SALES: "sales",
+  CASHIER: "cashier",
   TIREMAN: "tireman",
   ADMIN: "admin", // hardcoded admin login
 };
@@ -825,27 +826,27 @@ const NAV_SECTIONS = [
   {
     label: "Main",
     items: [
-      { id: "dashboard", label: "Dashboard", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
-      { id: "pos", label: "Point of Sale", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
+      { id: "dashboard", label: "Dashboard", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
+      { id: "pos", label: "Point of Sale", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
     ],
   },
   {
     label: "Operations",
     items: [
-      { id: "orders", label: "Orders", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
-      { id: "inventory", label: "Inventory", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
+      { id: "orders", label: "Orders", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
+      { id: "inventory", label: "Inventory", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
       { id: "products", label: "Products", roles: MGR_UP },
-      { id: "expenses", label: "Expenses", roles: MGR_UP },
-      { id: "cashledger", label: "Cash Ledger", roles: MGR_UP },
-      { id: "purchases", label: "Purchases", roles: MGR_UP },
-      { id: "recap", label: "Recap Tires", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
+      { id: "expenses", label: "Expenses", roles: [...MGR_UP, ROLES.CASHIER] },
+      { id: "cashledger", label: "Cash Ledger", roles: [...MGR_UP, ROLES.CASHIER] },
+      { id: "purchases", label: "Purchases", roles: [...MGR_UP, ROLES.CASHIER] },
+      { id: "recap", label: "Recap Tires", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
       { id: "returns", label: "Returns", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
     ],
   },
   {
     label: "Sales & Service",
     items: [
-      { id: "sales", label: "Sales History", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
+      { id: "sales", label: "Sales History", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
       { id: "services", label: "Services", roles: MGR_UP },
       { id: "services-summary", label: "Services Summary", roles: ALL }, // everyone
     ],
@@ -853,8 +854,8 @@ const NAV_SECTIONS = [
   {
     label: "People",
     items: [
-      { id: "customers", label: "Customers", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES] },
-      { id: "suppliers", label: "Suppliers", roles: MGR_UP },
+      { id: "customers", label: "Customers", roles: [ROLES.ADMIN, ROLES.OWNER, ROLES.GM, ROLES.OPS, ROLES.SALES, ROLES.CASHIER] },
+      { id: "suppliers", label: "Suppliers", roles: [...MGR_UP, ROLES.CASHIER] },
       { id: "staff-management", label: "Staff Management", roles: MGR_UP },
       { id: "payroll", label: "Payroll", roles: MGR_UP },
     ],
@@ -863,15 +864,15 @@ const NAV_SECTIONS = [
     label: "Finance",
     items: [
       { id: "profits", label: "Profit & Margins", roles: MGR_UP },
-      { id: "receivables", label: "Receivables", roles: MGR_UP },
-      { id: "payables", label: "Payables", roles: MGR_UP },
+      { id: "receivables", label: "Receivables", roles: [...MGR_UP, ROLES.CASHIER] },
+      { id: "payables", label: "Payables", roles: [...MGR_UP, ROLES.CASHIER] },
       { id: "sales-projection", label: "Sales Projection", roles: MGR_UP },
     ],
   },
   {
     label: "Reports",
     items: [
-      { id: "reports", label: "Reports", roles: MGR_UP },
+      { id: "reports", label: "Reports", roles: [...MGR_UP, ROLES.CASHIER] },
     ],
   },
   {
@@ -881,12 +882,18 @@ const NAV_SECTIONS = [
       { id: "dryrun", label: "System Feedback", roles: MGR_UP },
     ],
   },
-
 ];
 
 /* ══════════════════════════════════════════
    MAIN APP
 ══════════════════════════════════════════ */
+const getLocalTodayYYYYMMDD = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 function CoreTrack() {
   const [page, setPage] = React.useState(() => localStorage.getItem("th-page") || "dashboard");
   const [pageContext, setPageContext] = React.useState({ view: "Dashboard" });
@@ -932,7 +939,7 @@ function CoreTrack() {
   }, [showSettings]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [isShopClosed, setIsShopClosed] = React.useState(false);
-  const [businessDate, setBusinessDate] = React.useState(new Date().toISOString().split('T')[0]);
+  const [businessDate, setBusinessDate] = React.useState(getLocalTodayYYYYMMDD());
   const [now, setNow] = React.useState(new Date());
   React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -1107,7 +1114,7 @@ function CoreTrack() {
     } else {
       setIsClosingOrOpening(true);
       try {
-        const date = businessDate || new Date().toISOString().split('T')[0];
+        const date = businessDate || getLocalTodayYYYYMMDD();
         const r = await fetch(`${API_URL}/reports/daily-activity/${shop}?date=${date}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -1191,6 +1198,7 @@ function CoreTrack() {
 
     if (isOwnerOrAdmin) return;
     if (isManager && page !== "credentials") return;
+    if (page === "profile") return;
 
     const allItems = NAV_SECTIONS.flatMap(s => s.items);
     const item = allItems.find(i => i.id === page);
@@ -1300,12 +1308,15 @@ function CoreTrack() {
           </select>
         </div>
 
-        {/* Global Search — admin/manager only */}
-        {(userPower >= 60 || userRole?.includes('manager') || userRole === 'admin' || userRole === 'owner') && (
+        {/* Global Search — available for cashier accounts too */}
+        {(userPower >= 60 || userRole?.includes('manager') || userRole === 'admin' || userRole === 'owner' || userRole === 'cashier') && (
           <GlobalSearch
             shopId={shop}
             onNavigate={(id) => { setPage(id); localStorage.setItem('th-page', id); setMobileSidebarOpen(false); }}
             collapsed={sidebarCollapsed}
+            allowedPages={allowedPages}
+            userPower={userPower}
+            userRole={userRole}
           />
         )}
 
@@ -1493,7 +1504,7 @@ function CoreTrack() {
           let isRestricted = false;
           if (ADMIN_ONLY.includes(page)) {
             isRestricted = !isOwnerOrAdmin;
-          } else if (!isOwnerOrAdmin && !isManager) {
+          } else if (!isOwnerOrAdmin && !isManager && page !== 'profile') {
             isRestricted = allowedPages !== null && !allowedPages.includes(page)
               && !(page === 'services-summary' && allowedPages.includes('services'))
               && !(['staff-management', 'staff-new'].includes(page) && allowedPages.includes('staff'));
@@ -1514,7 +1525,7 @@ function CoreTrack() {
 
           switch (page) {
             case "dashboard": return <DashboardPage key={refresh} shopId={shop} shopName={currentShopName} businessDate={businessDate} userPower={userPower} setPageContext={setPageContext} />;
-            case "pos": return <POSPage key={refresh} shopId={shop} shopName={currentShopName} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} setPage={setPage} />;
+            case "pos": return <POSPage key={refresh} shopId={shop} shopName={currentShopName} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} businessDate={businessDate} setPageContext={setPageContext} setPage={setPage} />;
             case "inventory": return <InventoryPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "orders": return <OrdersPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "recap": return <RecapPage key={refresh} shopId={shop} onRefresh={doRefresh} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;

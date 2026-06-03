@@ -292,7 +292,7 @@ const CloseIcon = ({ size = 13 }) => (
 );
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
+export default function GlobalSearch({ shopId, onNavigate, collapsed, allowedPages = null, userPower = 0, userRole = '' }) {
   ensureStyles();
 
   const [query, setQuery]               = useState('');
@@ -322,15 +322,35 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
     });
   }, [dropdownOpen, query]);
 
+  const isOwnerOrAdmin = userPower >= 80 || userRole === "admin" || userRole === "owner" || allowedPages === null;
+  const isManager = userRole?.includes("manager");
+
+  const canAccessPage = useCallback((pageId) => {
+    if (isOwnerOrAdmin || isManager) return true;
+    if (pageId === 'profile') return true;
+    if (allowedPages === null) return true;
+    if (pageId === 'staff-management' || pageId === 'staff-new') return allowedPages.includes('staff');
+    if (pageId === 'services-summary') return allowedPages.includes('services');
+    return allowedPages.includes(pageId);
+  }, [isOwnerOrAdmin, isManager, allowedPages]);
+
   // Flat list of all result rows for keyboard navigation
   const allRows = useMemo(() => {
     const rows = [];
-    featureResults.forEach((r) => rows.push({ ...r, _tier: 'feature' }));
+    featureResults.forEach((r) => {
+      if (canAccessPage(r.page)) {
+        rows.push({ ...r, _tier: 'feature' });
+      }
+    });
     Object.values(dataResults).forEach((items) =>
-      items.forEach((r) => rows.push({ ...r, _tier: 'data' }))
+      items.forEach((r) => {
+        if (canAccessPage(r.page)) {
+          rows.push({ ...r, _tier: 'data' });
+        }
+      })
     );
     return rows;
-  }, [featureResults, dataResults]);
+  }, [featureResults, dataResults, canAccessPage]);
 
   // Close dropdown when clicking outside (expanded mode only)
   useEffect(() => {
@@ -392,7 +412,8 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
 
     // Tier 1: instant feature/navigation results
     const fRes = value.length >= 2 ? searchFeatures(value) : [];
-    setFeatureResults(fRes);
+    const allowedFRes = fRes.filter(item => canAccessPage(item.page));
+    setFeatureResults(allowedFRes);
 
     if (value.length >= 2) {
       setDropdownOpen(true);
@@ -410,7 +431,7 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
       setDataResults({});
       setLoading(false);
     }
-  }, [doFetch, shopId]);
+  }, [doFetch, shopId, canAccessPage]);
 
   // Navigate to result and store prefill for destination page
   const handleSelect = useCallback((result) => {
@@ -455,7 +476,11 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
     }
   }, [dropdownOpen, overlayOpen, allRows, focusedIdx, handleSelect]);
 
-  const hasResults = featureResults.length > 0 || Object.keys(dataResults).length > 0;
+  const hasVisibleResults = useMemo(() => {
+    return featureResults.some(item => canAccessPage(item.page)) ||
+      Object.values(dataResults).some(items => items.some(item => canAccessPage(item.page)));
+  }, [featureResults, dataResults, canAccessPage]);
+
   const hasMinQuery = query.length >= 2;
 
   // ── Shared result list renderer (used in both inline + overlay) ──────────
@@ -463,12 +488,14 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
     const sections = [];
     let rowIdx = 0;
 
+    const allowedFeatures = featureResults.filter(item => canAccessPage(item.page));
+
     // Feature/navigation results
-    if (featureResults.length > 0) {
+    if (allowedFeatures.length > 0) {
       sections.push(
         <div key="_features">
           <div className="gs-section-header">Features &amp; Navigation</div>
-          {featureResults.map((item) => {
+          {allowedFeatures.map((item) => {
             const idx = rowIdx++;
             return (
               <button
@@ -507,28 +534,31 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
 
     // Data results grouped by category
     Object.entries(dataResults).forEach(([category, items]) => {
-      sections.push(
-        <div key={`cat-${category}`}>
-          <div className="gs-section-header">{category}</div>
-          {items.map((item) => {
-            const idx = rowIdx++;
-            return (
-              <button
-                key={item.id || `${category}-${idx}`}
-                className={`gs-result-btn${focusedIdx === idx ? ' gs-focused' : ''}`}
-                onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
-                onMouseEnter={() => setFocusedIdx(idx)}
-                type="button"
-              >
-                <span className="gs-result-label">{item.label}</span>
-                {item.detail && (
-                  <span className="gs-result-detail">{item.detail}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      );
+      const allowedItems = items.filter(item => canAccessPage(item.page));
+      if (allowedItems.length > 0) {
+        sections.push(
+          <div key={`cat-${category}`}>
+            <div className="gs-section-header">{category}</div>
+            {allowedItems.map((item) => {
+              const idx = rowIdx++;
+              return (
+                <button
+                  key={item.id || `${category}-${idx}`}
+                  className={`gs-result-btn${focusedIdx === idx ? ' gs-focused' : ''}`}
+                  onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
+                  onMouseEnter={() => setFocusedIdx(idx)}
+                  type="button"
+                >
+                  <span className="gs-result-label">{item.label}</span>
+                  {item.detail && (
+                    <span className="gs-result-detail">{item.detail}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
     });
 
     // Loading indicator
@@ -542,7 +572,7 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
     }
 
     // Empty state
-    if (!loading && hasMinQuery && !hasResults) {
+    if (!loading && hasMinQuery && !hasVisibleResults) {
       sections.push(
         <div key="_empty" className="gs-empty-msg">
           No results for &ldquo;{query}&rdquo;
@@ -675,7 +705,7 @@ export default function GlobalSearch({ shopId, onNavigate, collapsed }) {
       </div>
 
       {/* Dropdown — fixed-positioned to overflow sidebar's clip boundary */}
-      {dropdownOpen && (hasResults || loading || (hasMinQuery && !loading && !hasResults)) && (
+      {dropdownOpen && (hasVisibleResults || loading || (hasMinQuery && !loading && !hasVisibleResults)) && (
         <div
           className="gs-dropdown"
           style={{ top: dropdownPos.top, left: dropdownPos.left }}

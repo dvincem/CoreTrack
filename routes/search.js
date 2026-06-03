@@ -510,8 +510,8 @@ router.get('/search/global/:shop_id', async (req, res) => {
   const { shop_id } = req.params;
   const q = String(req.query.q || '').trim();
 
-  // Role gate — power 60+ (admin, owner, general/operations manager, superadmin)
-  if ((req.user.power || 0) < 60) {
+  // Role gate — any authenticated staff user is allowed to access search.
+  if (!req.user || (!req.user.credential_id && (req.user.power || 0) < 60)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -525,14 +525,33 @@ router.get('/search/global/:shop_id', async (req, res) => {
   }
 
   try {
+    // Retrieve allowed pages for standard/cashier accounts
+    let allowedPages = null;
+    if ((req.user.power || 0) < 60 && req.user.credential_id) {
+      const pageRows = await dbAll(
+        "SELECT page_id FROM user_page_access WHERE credential_id = ?",
+        [req.user.credential_id]
+      );
+      allowedPages = pageRows.map(p => p.page_id);
+    }
+
+    const canAccess = (pageId) => {
+      if (allowedPages === null) return true;
+      if (pageId === 'staff-management' || pageId === 'staff-new') return allowedPages.includes('staff');
+      if (pageId === 'services-summary') return allowedPages.includes('services');
+      return allowedPages.includes(pageId);
+    };
+
     // ── Tier 3: check for NLQ intent first ──────────────────────────────────
     const intent = detectNLQIntent(q);
     if (intent) {
       const nlqRows = await queryNLQ(intent, shop_id);
       const grouped = {};
       for (const row of nlqRows) {
-        if (!grouped[row.category]) grouped[row.category] = [];
-        grouped[row.category].push(row);
+        if (canAccess(row.page)) {
+          if (!grouped[row.category]) grouped[row.category] = [];
+          grouped[row.category].push(row);
+        }
       }
       return res.json({ results: grouped, nlq: true, intent: intent.type });
     }
@@ -553,16 +572,20 @@ router.get('/search/global/:shop_id', async (req, res) => {
       ]);
 
     const results = {};
-    if (items.length)       results['Products']    = items;
-    if (customers.length)   results['Customers']   = customers;
-    if (staff.length)       results['Staff']       = staff;
-    if (sales.length)       results['Sales']       = sales;
-    if (orders.length)      results['Orders']      = orders;
-    if (expenses.length)    results['Expenses']    = expenses;
-    if (receivables.length) results['Receivables'] = receivables;
-    if (payables.length)    results['Payables']    = payables;
-    if (recap.length)       results['Recap Jobs']  = recap;
-    if (settings.length)    results['Settings']    = settings;
+    if (items.length && canAccess('inventory'))       results['Products']    = items;
+    if (customers.length && canAccess('customers'))   results['Customers']   = customers;
+    if (staff.length && canAccess('staff-management'))results['Staff']       = staff;
+    if (sales.length && canAccess('sales'))           results['Sales']       = sales;
+    if (orders.length && canAccess('orders'))         results['Orders']      = orders;
+    if (expenses.length && canAccess('expenses'))     results['Expenses']    = expenses;
+    if (receivables.length && canAccess('receivables')) results['Receivables'] = receivables;
+    if (payables.length && canAccess('payables'))    results['Payables']    = payables;
+    if (recap.length && canAccess('recap'))       results['Recap Jobs']  = recap;
+    
+    if (settings.length) {
+      const filteredSettings = settings.filter(s => canAccess(s.page));
+      if (filteredSettings.length) results['Settings'] = filteredSettings;
+    }
 
     return res.json({ results, nlq: false });
 

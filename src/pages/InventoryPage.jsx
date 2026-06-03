@@ -387,7 +387,10 @@ function CreateOrderModal({
                         }}
                       >
                         <option value="">— Select —</option>
-                        {[...new Set([...allCategories])].map((c) => (
+                        {[...new Set([...allCategories])].filter(c => {
+                          const uc = c.toUpperCase();
+                          return uc !== "RECAP" && uc !== "RECAPPING" && uc !== "USED TIRE";
+                        }).map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                         <option value="___NEW___" style={{ color: "var(--th-orange,#f97316)", fontWeight: "bold" }}>
@@ -688,6 +691,10 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     const trimmed = addCatModal.value.trim().toUpperCase();
+                    if (trimmed === "RECAP" || trimmed === "RECAPPING" || trimmed === "USED TIRE") {
+                      alert("Ordering recap and used tires is prohibited.");
+                      return;
+                    }
                     if (trimmed) {
                       const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                       const type = TIRE_SET.has(trimmed) ? "tire" : "other";
@@ -712,6 +719,10 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
                 disabled={!addCatModal.value.trim()}
                 onClick={() => {
                   const trimmed = addCatModal.value.trim().toUpperCase();
+                  if (trimmed === "RECAP" || trimmed === "RECAPPING" || trimmed === "USED TIRE") {
+                    alert("Ordering recap and used tires is prohibited.");
+                    return;
+                  }
                   if (trimmed) {
                     const TIRE_SET = new Set(["PCR","SUV","TBR","LT","LTB","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","USED TIRE","TIRE"]);
                     const type = TIRE_SET.has(trimmed) ? "tire" : "other";
@@ -883,6 +894,7 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       const qs = new URLSearchParams({
         page: String(orderModalPage),
         perPage: String(ORDER_MODAL_ITEMS_PER_PAGE),
+        excludeRecapUsed: "true",
       });
       if (orderSearchQuery.trim()) qs.set('q', orderSearchQuery.trim());
       const r = await apiFetch(`${API_URL}/items/${shopId}?${qs.toString()}`);
@@ -1111,6 +1123,11 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   }
 
   function toggleQuickSelect(itemId) {
+    const item = items.find(i => i.item_id === itemId);
+    if (item) {
+      const cat = (item.category || "").trim().toUpperCase();
+      if (cat === "RECAP" || cat === "RECAPPING" || cat === "USED TIRE") return;
+    }
     setQuickSelected(prev => {
       const next = new Set(prev);
       if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
@@ -1119,10 +1136,24 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   }
 
   function toggleSelectAll() {
-    if (quickSelected.size === currentItems.length) {
-      setQuickSelected(new Set());
+    const selectableItems = currentItems.filter(i => {
+      const cat = (i.category || "").trim().toUpperCase();
+      return cat !== "RECAP" && cat !== "RECAPPING" && cat !== "USED TIRE";
+    });
+    const selectableIds = selectableItems.map(i => i.item_id);
+    const allSelected = selectableIds.length > 0 && selectableIds.every(id => quickSelected.has(id));
+    if (allSelected) {
+      setQuickSelected(prev => {
+        const next = new Set(prev);
+        selectableIds.forEach(id => next.delete(id));
+        return next;
+      });
     } else {
-      setQuickSelected(new Set(currentItems.map(i => i.item_id)));
+      setQuickSelected(prev => {
+        const next = new Set(prev);
+        selectableIds.forEach(id => next.add(id));
+        return next;
+      });
     }
   }
 
@@ -1276,23 +1307,34 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
       label: (
         <input
           type="checkbox"
-          checked={currentItems.length > 0 && quickSelected.size === currentItems.length}
+          checked={(() => {
+            const selectableItems = currentItems.filter(i => {
+              const cat = (i.category || "").trim().toUpperCase();
+              return cat !== "RECAP" && cat !== "RECAPPING" && cat !== "USED TIRE";
+            });
+            return selectableItems.length > 0 && selectableItems.every(i => quickSelected.has(i.item_id));
+          })()}
           onChange={toggleSelectAll}
           style={{ cursor: 'pointer', accentColor: 'var(--th-amber)' }}
         />
       ),
       width: 36,
       align: 'center',
-      render: (item) => (
-        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', justifyContent: 'center' }}>
-          <input
-            type="checkbox"
-            checked={quickSelected.has(item.item_id)}
-            onChange={() => toggleQuickSelect(item.item_id)}
-            style={{ cursor: 'pointer', accentColor: 'var(--th-amber)' }}
-          />
-        </div>
-      ),
+      render: (item) => {
+        const cat = (item.category || "").trim().toUpperCase();
+        const isProhibited = cat === "RECAP" || cat === "RECAPPING" || cat === "USED TIRE";
+        if (isProhibited) return null;
+        return (
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', justifyContent: 'center' }}>
+            <input
+              type="checkbox"
+              checked={quickSelected.has(item.item_id)}
+              onChange={() => toggleQuickSelect(item.item_id)}
+              style={{ cursor: 'pointer', accentColor: 'var(--th-amber)' }}
+            />
+          </div>
+        );
+      },
     }] : []),
     {
       key: 'sku', label: 'SKU',
@@ -1649,11 +1691,27 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
             rows={currentItems}
             rowKey="item_id"
             initialSort={{ key: 'current_quantity', direction: 'asc' }}
-            onRowClick={(item) => quickOrderMode ? toggleQuickSelect(item.item_id) : handleItemClick(item)}
+            onRowClick={(item) => {
+              const cat = (item.category || "").trim().toUpperCase();
+              const isProhibited = cat === "RECAP" || cat === "RECAPPING" || cat === "USED TIRE";
+              if (quickOrderMode) {
+                if (!isProhibited) toggleQuickSelect(item.item_id);
+              } else {
+                handleItemClick(item);
+              }
+            }}
             selectedKey={!quickOrderMode ? selectedItemForHistory?.item_id : undefined}
-            getRowStyle={(item) => quickOrderMode && quickSelected.has(item.item_id)
-              ? { background: 'rgba(251,191,36,0.07)', outline: '1px solid rgba(251,191,36,0.25)' }
-              : undefined}
+            getRowStyle={(item) => {
+              const cat = (item.category || "").trim().toUpperCase();
+              const isProhibited = cat === "RECAP" || cat === "RECAPPING" || cat === "USED TIRE";
+              if (quickOrderMode) {
+                if (isProhibited) return { cursor: "not-allowed", opacity: 0.5 };
+                if (quickSelected.has(item.item_id)) {
+                  return { background: 'rgba(251,191,36,0.07)', outline: '1px solid rgba(251,191,36,0.25)' };
+                }
+              }
+              return undefined;
+            }}
             loading={itemsLoading}
             skeletonRows={8}
             skeletonWidths={['w80', 'w40', 'w40', 'w40', 'w30', 'w20', 'w60', 'w60', 'w50', 'w20']}

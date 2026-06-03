@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../Database');
 const { v4: uuidv4 } = require('uuid');
-const { getEffectiveYYYYMMDD } = require('../lib/businessDate');
+const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD } = require('../lib/businessDate');
 
 // ── Expense Categories ────────────────────────────────────────────────────────
 
@@ -143,7 +143,7 @@ router.post('/expenses', async (req, res) => {
   }
 
   // Only shift if the expense_date is "today" (prevent accidental shift of historical entries)
-  const systemToday = new Date().toISOString().split('T')[0];
+  const systemToday = getLocalTodayYYYYMMDD();
   let final_expense_date = expense_date;
   if (expense_date === systemToday) {
     final_expense_date = await getEffectiveYYYYMMDD(shop_id);

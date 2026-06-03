@@ -7,12 +7,16 @@ const { v4: uuidv4 } = require("uuid");
 
 router.get("/items/:shop_id", async (req, res) => {
   const { shop_id } = req.params;
-  const { category, brand, q, page, perPage, groupByDot } = req.query;
+  const { category, brand, q, page, perPage, groupByDot, excludeRecapUsed } = req.query;
 
   const isGrouped = groupByDot === 'true';
   const paginated = page !== undefined || perPage !== undefined || q !== undefined;
 
   const filters = ["im.is_active = 1"];
+
+  if (excludeRecapUsed === 'true') {
+    filters.push("im.category NOT IN ('RECAP', 'RECAPPING', 'USED TIRE')");
+  }
   const params = [shop_id];
 
   if (category) {

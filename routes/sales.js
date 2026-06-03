@@ -312,7 +312,7 @@ router.get("/sales/:shop_id", (req, res) => {
   const { startDate, endDate, q, page = 1, perPage = 50 } = req.query;
 
   const parsedPage = Math.max(1, parseInt(page, 10));
-  const parsedPerPage = Math.min(1000, Math.max(1, parseInt(perPage, 10)));
+  const parsedPerPage = Math.min(100000, Math.max(1, parseInt(perPage, 10)));
   const offset = (parsedPage - 1) * parsedPerPage;
 
   let where = `WHERE sh.shop_id = ?`;

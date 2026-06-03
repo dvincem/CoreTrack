@@ -47,6 +47,25 @@ function injectKpiStyles() {
     .th-kpi.accent-amber::before { background: var(--th-amber); }
     .th-kpi.accent-rose::before { background: var(--th-rose); }
 
+    .th-kpi.accent-orange {
+      background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(249, 115, 22, 0.07));
+    }
+    .th-kpi.accent-sky {
+      background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(56, 189, 248, 0.07));
+    }
+    .th-kpi.accent-emerald {
+      background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(52, 211, 153, 0.07));
+    }
+    .th-kpi.accent-violet {
+      background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(167, 139, 250, 0.07));
+    }
+    .th-kpi.accent-amber {
+      background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(251, 191, 36, 0.07));
+    }
+    .th-kpi.accent-rose {
+      background: linear-gradient(135deg, var(--th-bg-card) 55%, rgba(251, 113, 133, 0.07));
+    }
+
     /* ── Icon ── */
     .th-kpi-icon {
       display: flex;
@@ -179,18 +198,6 @@ function injectKpiStyles() {
   document.head.appendChild(style)
 }
 
-/**
- * Universal KPI Card Component
- * Used across all pages for consistent KPI display
- * 
- * Props:
- *   - label: KPI title (e.g., "Total Sales")
- *   - value: Main value to display
- *   - icon: Optional icon/SVG element
- *   - accent: Color accent ('orange', 'sky', 'emerald', 'violet', 'amber', 'rose')
- *   - sub: Optional subtitle/secondary text
- *   - loading: Boolean to show skeleton loading state
- */
 export default function KpiCard({ label, value, icon, accent = 'sky', sub, loading, compact, ...props }) {
   React.useEffect(() => {
     injectKpiStyles()
@@ -205,3 +212,4 @@ export default function KpiCard({ label, value, icon, accent = 'sky', sub, loadi
     </div>
   )
 }
+

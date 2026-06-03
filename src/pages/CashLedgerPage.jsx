@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, compactCurrency, apiFetch, allowOnlyDecimals } from '../lib/config'
+import { API_URL, currency, compactCurrency, apiFetch, allowOnlyDecimals, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import { DataTable } from '../components/DataTable'
 import Modal from '../components/Modal'
@@ -33,19 +33,19 @@ const ENTRY_TYPES = {
   GCASH_OUT: { icon: '📤', label: 'GCash Out', short: 'GCash Out', method: 'CASH', dir: 'OUT' },
 }
 
-const BLANK = {
+const getBlank = () => ({
   entry_type: 'CASH_IN',
   amount: '',
   description: '',
-  entry_date: new Date().toISOString().split('T')[0],
+  entry_date: getLocalTodayYYYYMMDD(),
   entry_time: new Date().toTimeString().slice(0, 5),
   notes: '',
-}
+})
 
 const PAGE_SIZE = 20
 
 export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setPageContext }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalTodayYYYYMMDD()
 
   /* ── Date range state ── */
   const [startDate, setStartDate] = React.useState(today)
@@ -54,21 +54,21 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
 
   function applyPreset(key) {
     const t = new Date()
-    const todayStr = t.toISOString().split('T')[0]
+    const todayStr = getLocalTodayYYYYMMDD()
     if (key === 'today') {
       setStartDate(todayStr); setEndDate(todayStr)
     } else if (key === 'yesterday') {
       t.setDate(t.getDate() - 1)
-      const y = t.toISOString().split('T')[0]
+      const y = toLocalYYYYMMDD(t)
       setStartDate(y); setEndDate(y)
     } else if (key === '3mo') {
       const d = new Date(todayStr)
       d.setMonth(d.getMonth() - 3)
-      setStartDate(d.toISOString().split('T')[0]); setEndDate(todayStr)
+      setStartDate(toLocalYYYYMMDD(d)); setEndDate(todayStr)
     } else if (key === '6mo') {
       const d = new Date(todayStr)
       d.setMonth(d.getMonth() - 6)
-      setStartDate(d.toISOString().split('T')[0]); setEndDate(todayStr)
+      setStartDate(toLocalYYYYMMDD(d)); setEndDate(todayStr)
     } else if (key === 'yr') {
       setStartDate(`${t.getFullYear()}-01-01`); setEndDate(todayStr)
     }
@@ -88,7 +88,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
   const [page, setPage] = React.useState(1)
 
   /* ── Manual entry form ── */
-  const [form, setForm] = React.useState(BLANK)
+  const [form, setForm] = React.useState(getBlank)
   const [editingId, setEditingId] = React.useState(null)
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
@@ -153,7 +153,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
     if (!shopId) return;
     try {
       const draft = localStorage.getItem(`th-cl-draft-${shopId}`);
-      if (draft) setForm({ ...BLANK, ...JSON.parse(draft) });
+      if (draft) setForm({ ...getBlank(), ...JSON.parse(draft) });
       
       const open = localStorage.getItem(`th-cl-open-${shopId}`);
       if (open) setShowEntryForm(open === "true");
@@ -164,10 +164,22 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
   React.useEffect(() => {
     if (!pageContext) return;
     if (pageContext.action === 'openAdd') {
+      setEditingId(null);
+      const freshForm = {
+        ...getBlank(),
+        entry_date: getLocalTodayYYYYMMDD(),
+        entry_time: new Date().toTimeString().slice(0, 5)
+      };
+      setForm(freshForm);
+      setFormError('');
       setShowEntryForm(true);
+      if (shopId) {
+        localStorage.setItem(`th-cl-draft-${shopId}`, JSON.stringify(freshForm));
+        localStorage.setItem(`th-cl-open-${shopId}`, "true");
+      }
       if (setPageContext) setPageContext({});
     }
-  }, [pageContext]);
+  }, [pageContext, shopId]);
 
   React.useEffect(() => {
     if (!shopId || !isDraftLoaded) return;
@@ -244,7 +256,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
       if (!r.ok) return setFormError(d.error || 'Failed to save')
       localStorage.removeItem(`th-cl-draft-${shopId}`);
       localStorage.removeItem(`th-cl-open-${shopId}`);
-      setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
+      setForm({ ...getBlank(), entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
       setEditingId(null)
       setShowEntryForm(false)
       fetchFlow()
@@ -273,7 +285,7 @@ export default function CashLedgerPage({ shopId, isShopClosed, pageContext, setP
 
   function cancelEdit() {
     setEditingId(null)
-    setForm({ ...BLANK, entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
+    setForm({ ...getBlank(), entry_date: today, entry_time: new Date().toTimeString().slice(0, 5) })
     setFormError('')
     setShowEntryForm(false)
     localStorage.removeItem(`th-cl-draft-${shopId}`);

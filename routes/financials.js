@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../Database");
+const { toLocalYYYYMMDD, getLocalTodayYYYYMMDD } = require("../lib/businessDate");
 
 router.get("/dashboard/:shop_id", (req, res) => {
   const { shop_id } = req.params;
   // Accept ?date=YYYY-MM-DD from frontend so seeded/test data works regardless of system clock
-  const today = req.query.date || new Date().toISOString().split('T')[0];
+  const today = req.query.date || getLocalTodayYYYYMMDD();
   const yearMonth = today.slice(0, 7); // 'YYYY-MM'
   db.get(
     `SELECT
@@ -29,6 +30,19 @@ router.get("/dashboard/:shop_id", (req, res) => {
       (SELECT COALESCE(SUM(total_amount),0) FROM labor_log WHERE shop_id = ? AND business_date = ? AND is_void = 0 AND commission_amount = 0) as today_labor`,
     [shop_id, shop_id, today, shop_id, today, shop_id, yearMonth, shop_id, yearMonth, shop_id, today, shop_id, today, shop_id, shop_id, shop_id, shop_id, today, shop_id, today],
     (err, row) => res.json(err ? { error: err.message } : row || {}),
+  );
+});
+
+router.get("/dashboard-revenue-trend/:shop_id", (req, res) => {
+  const { shop_id } = req.params;
+  const { startDate, endDate } = req.query;
+  db.all(
+    `SELECT DATE(sale_datetime, 'localtime') as date, COALESCE(SUM(total_amount), 0) as revenue
+     FROM sale_header
+     WHERE shop_id = ? AND is_void = 0 AND DATE(sale_datetime, 'localtime') BETWEEN ? AND ?
+     GROUP BY DATE(sale_datetime, 'localtime')`,
+    [shop_id, startDate, endDate],
+    (err, rows) => res.json(err ? { error: err.message } : rows || [])
   );
 });
 
@@ -377,7 +391,7 @@ router.get("/payables-kpi/:shop_id", (req, res) => {
        SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND ap.due_date < date('now') THEN 1 ELSE 0 END) AS overdueCount,
        SUM(CASE WHEN ap.status != 'PAID' AND ap.balance_amount > 0 AND (ap.due_date IS NULL OR ap.due_date >= date('now')) THEN 1 ELSE 0 END) AS openCount,
        COALESCE(SUM(CASE WHEN strftime('%Y-%m', ap.due_date) = strftime('%Y-%m', 'now') AND ap.status != 'PAID' AND ap.balance_amount > 0 THEN ap.balance_amount ELSE 0 END), 0) AS monthBalance,
-       COALESCE(SUM(CASE WHEN date(ap.due_date) >= date('now', 'weekday 0', '-7 days') AND date(ap.due_date) <= date('now', 'weekday 0', '-1 days') AND ap.status != 'PAID' AND ap.balance_amount > 0 THEN ap.balance_amount ELSE 0 END), 0) AS weekBalance,
+       COALESCE(SUM(CASE WHEN date(ap.due_date) >= date('now', 'weekday 0', '-8 days') AND date(ap.due_date) <= date('now', 'weekday 0', '-2 days') AND ap.status != 'PAID' AND ap.balance_amount > 0 THEN ap.balance_amount ELSE 0 END), 0) AS weekBalance,
        COALESCE(SUM(CASE WHEN strftime('%Y-%m', ap.due_date) = strftime('%Y-%m', 'now') THEN ap.original_amount ELSE 0 END), 0) AS monthOriginal,
        COALESCE(SUM(CASE WHEN strftime('%Y-%m', ap.due_date) = strftime('%Y-%m', 'now') THEN ap.amount_paid ELSE 0 END), 0) AS monthPaid
      FROM accounts_payable ap WHERE ap.shop_id = ? AND ap.status != 'VOIDED'`,
@@ -815,8 +829,8 @@ router.get("/financial-health/:shop_id", (req, res) => {
   const msStart = new Date(start).getTime();
   const msEnd   = new Date(end).getTime();
   const len     = msEnd - msStart;
-  const prevEnd   = new Date(msStart - 86400000).toISOString().split('T')[0];
-  const prevStart = new Date(msStart - len - 86400000).toISOString().split('T')[0];
+  const prevEnd   = toLocalYYYYMMDD(new Date(msStart - 86400000));
+  const prevStart = toLocalYYYYMMDD(new Date(msStart - len - 86400000));
 
   const qPrevSales = `
     SELECT COALESCE(SUM(total_amount), 0) AS prev_sales
@@ -1023,8 +1037,8 @@ router.get('/sales-projection/:shop_id', (req, res) => {
   const horizon   = Math.max(1, parseInt(req.query.horizon   || 30));
   const lead_time = Math.max(1, parseInt(req.query.lead_time || 14));
 
-  const today     = new Date().toISOString().split('T')[0];
-  const histStart = new Date(Date.now() - history * 86400000).toISOString().split('T')[0];
+  const today     = getLocalTodayYYYYMMDD();
+  const histStart = toLocalYYYYMMDD(new Date(Date.now() - history * 86400000));
 
   // Velocity (table) window: always the sliding history window — unaffected by preset
   const velStart = histStart;
@@ -1178,7 +1192,7 @@ router.get('/sales-projection/:shop_id', (req, res) => {
 
                       const days_remaining = dailyQty > 0 ? Math.floor(stock / dailyQty) : 9999;
                       const depletion_date = dailyQty > 0
-                        ? new Date(Date.now() + days_remaining * 86400000).toISOString().split('T')[0]
+                        ? toLocalYYYYMMDD(new Date(Date.now() + days_remaining * 86400000))
                         : null;
                       const demand_in_horizon = Math.ceil(dailyQty * (lead_time + horizon));
                       const suggested_reorder = Math.max(0, demand_in_horizon - stock);

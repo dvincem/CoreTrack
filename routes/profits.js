@@ -1,9 +1,10 @@
 const express = require('express')
 const router = express.Router()
 const { db } = require('../Database')
+const { getLocalTodayYYYYMMDD } = require('../lib/businessDate')
 
 function dateRange(req) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalTodayYYYYMMDD()
   return {
     start: req.query.startDate || today,
     end:   req.query.endDate   || today,
@@ -130,7 +131,7 @@ router.get('/profits/by-category/:shop_id', (req, res) => {
 
   const catQ = `
     SELECT
-      si.category,
+      COALESCE(si.category, CASE WHEN si.sale_type = 'SERVICE' THEN 'Services' ELSE 'Unknown' END) AS category,
       DATE(sh.sale_datetime, 'localtime') AS day,
       COUNT(DISTINCT sh.sale_id)                                                AS transactions,
       COALESCE(SUM(si.quantity), 0)                                             AS total_qty,
@@ -140,10 +141,10 @@ router.get('/profits/by-category/:shop_id', (req, res) => {
     FROM sale_items si
     JOIN sale_header sh ON si.sale_id = sh.sale_id
     LEFT JOIN item_master im ON si.item_or_service_id = im.item_id
-    WHERE sh.shop_id = ? AND si.sale_type IN ('PRODUCT','RECAP')
+    WHERE sh.shop_id = ?
       AND sh.is_void = 0
       AND DATE(sh.sale_datetime, 'localtime') BETWEEN ? AND ?
-    GROUP BY si.category, DATE(sh.sale_datetime, 'localtime')`
+    GROUP BY COALESCE(si.category, CASE WHEN si.sale_type = 'SERVICE' THEN 'Services' ELSE 'Unknown' END), DATE(sh.sale_datetime, 'localtime')`
 
   db.all(commQ, [shop_id, start, end], (ce, commRows) => {
     if (ce) return res.json({ error: ce.message })

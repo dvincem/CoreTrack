@@ -1,6 +1,6 @@
 import '../pages_css/ProfitsPage.css';
 import React from 'react'
-import { API_URL, apiFetch } from '../lib/config'
+import { API_URL, apiFetch, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import { DataTable } from '../components/DataTable'
@@ -29,7 +29,7 @@ const CAT_COLORS = {
 
 function presets() {
   const today = new Date()
-  const fmtD = d => d.toISOString().split('T')[0]
+  const fmtD = d => toLocalYYYYMMDD(d)
   const ago = n => { const d = new Date(today); d.setDate(d.getDate() - n); return fmtD(d) }
   const startOf = (unit) => {
     const d = new Date(today)
@@ -48,7 +48,7 @@ function presets() {
 }
 
 function ProfitsPage({ shopId, setPageContext }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalTodayYYYYMMDD()
   const monthStart = today.slice(0, 8) + '01'
 
   const [startDate,    setStartDate]    = React.useState(monthStart)

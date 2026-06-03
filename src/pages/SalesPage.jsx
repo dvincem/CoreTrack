@@ -1,6 +1,6 @@
 import '../pages_css/SalesPage.css';
 import React from 'react'
-import { API_URL, apiFetch } from '../lib/config'
+import { API_URL, apiFetch, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } from '../lib/config'
 import DataTable from '../components/DataTable'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
@@ -19,8 +19,8 @@ const fmtCompact = (n) => {
 };
 
 function SalesPage({ shopId, isShopClosed }) {
-  const today = new Date().toISOString().split('T')[0]
-  const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0]
+  const today = getLocalTodayYYYYMMDD()
+  const weekAgo = toLocalYYYYMMDD(new Date(Date.now() - 7*24*60*60*1000))
 
   const SL_PAGE_SIZE = 20
   const [staffMap, setStaffMap] = React.useState({})
@@ -345,11 +345,11 @@ function SalesPage({ shopId, isShopClosed }) {
     if (preset === 'today') {
       start = today
     } else if (preset === 'week') {
-      start = new Date(now.setDate(now.getDate() - now.getDay())).toISOString().split('T')[0]
+      start = toLocalYYYYMMDD(new Date(now.setDate(now.getDate() - now.getDay())))
     } else if (preset === 'month') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+      start = toLocalYYYYMMDD(new Date(now.getFullYear(), now.getMonth(), 1))
     } else if (preset === 'year') {
-      start = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
+      start = toLocalYYYYMMDD(new Date(now.getFullYear(), 0, 1))
     }
     setStartDate(start)
     setEndDate(end)

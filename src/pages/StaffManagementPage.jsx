@@ -1,7 +1,7 @@
 import '../pages_css/StaffManagementPage.css';
 import React, { useState, useEffect, useMemo } from 'react'
 
-import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
+import { API_URL, apiFetch, SkeletonRows, getLocalTodayYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import FilterHeader from '../components/FilterHeader'
 import Pagination from '../components/Pagination'
@@ -155,7 +155,7 @@ function StaffDetailModal({ staff, shopId, onClose, onEdit, onRemove, onStatusTo
 
 /* ════════════ MAIN COMPONENT ════════════ */
 export default function StaffManagementPage({ shopId, setPageContext, userRole, userPower }) {
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
+  const [attendanceDate, setAttendanceDate] = useState(getLocalTodayYYYYMMDD());
   const [attendance, setAttendance] = useState([]);
   const [statsRange] = useState("month");
   const [staffStats, setStaffStats] = useState({});
@@ -499,7 +499,7 @@ export default function StaffManagementPage({ shopId, setPageContext, userRole, 
             type="date"
             className="fh-date"
             value={attendanceDate}
-            max={new Date().toISOString().split("T")[0]}
+            max={getLocalTodayYYYYMMDD()}
             onChange={e => setAttendanceDate(e.target.value)}
           />
         }

@@ -148,8 +148,13 @@ const FilterHeader = React.memo(({
   const styles = React.useMemo(() => makeStyles(accentColor), [accentColor]);
 
   const handleFilter = React.useCallback(
-    (value) => { if (onFilterChange) onFilterChange(value); },
-    [onFilterChange],
+    (value) => {
+      if (searchProps && typeof searchProps.onChange === 'function') {
+        searchProps.onChange('');
+      }
+      if (onFilterChange) onFilterChange(value);
+    },
+    [onFilterChange, searchProps],
   );
 
   const layoutClass = stacked ? ' fh-stacked' : twoRow ? ' fh-two-row' : '';

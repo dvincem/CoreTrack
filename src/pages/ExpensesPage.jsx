@@ -1,7 +1,7 @@
 import '../pages_css/ExpensesPage.css';
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, compactCurrency, apiFetch, allowOnlyDecimals } from '../lib/config'
+import { API_URL, currency, compactCurrency, apiFetch, allowOnlyDecimals, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import { DataTable } from '../components/DataTable'
@@ -15,16 +15,16 @@ import { useSearchPrefill } from '../hooks/useSearchPrefill'
 const PAYMENT_METHODS = ['CASH', 'GCASH', 'BANK TRANSFER', 'CHECK', 'CARD', 'OTHER']
 const CAT_COLORS = ['#fb7185', '#f97316', '#fbbf24', '#34d399', '#38bdf8', '#a78bfa', '#e879f9', '#64748b']
 
-const BLANK_FORM = {
+const getBlankForm = () => ({
   category_id: '',
   description: '',
   amount: '',
-  expense_date: new Date().toISOString().split('T')[0],
+  expense_date: getLocalTodayYYYYMMDD(),
   expense_time: new Date().toTimeString().slice(0, 5),
   payment_method: 'CASH',
   reference_no: '',
   notes: '',
-}
+})
 
 export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPageContext }) {
   const [summary, setSummary] = React.useState({ total: 0, by_method: [], by_category: [], daily: [] })
@@ -34,7 +34,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
   const [suggestions, setSuggestions] = React.useState([])
 
   // Filters
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalTodayYYYYMMDD()
   const [startDate, setStartDate] = React.useState(today)
   const [endDate, setEndDate] = React.useState(today)
   const [filterCat, setFilterCat] = React.useState('')
@@ -52,20 +52,20 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
     })
 
   function applyRange(key) {
-    const t = new Date().toISOString().split('T')[0]
+    const t = getLocalTodayYYYYMMDD()
     const d = new Date(t)
     let from = t
-    if (key === '7d') { d.setDate(d.getDate() - 6); from = d.toISOString().split('T')[0] }
-    else if (key === '30d') { d.setDate(d.getDate() - 29); from = d.toISOString().split('T')[0] }
-    else if (key === '3mo') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
-    else if (key === '6mo') { d.setMonth(d.getMonth() - 6); from = d.toISOString().split('T')[0] }
+    if (key === '7d') { d.setDate(d.getDate() - 6); from = toLocalYYYYMMDD(d) }
+    else if (key === '30d') { d.setDate(d.getDate() - 29); from = toLocalYYYYMMDD(d) }
+    else if (key === '3mo') { d.setMonth(d.getMonth() - 3); from = toLocalYYYYMMDD(d) }
+    else if (key === '6mo') { d.setMonth(d.getMonth() - 6); from = toLocalYYYYMMDD(d) }
     else if (key === 'yr') { from = `${d.getFullYear()}-01-01` }
     setStartDate(from); setEndDate(t); setActiveRange(key)
   }
 
   // Form
   const [showExpForm, setShowExpForm] = React.useState(false)
-  const [form, setForm] = React.useState(BLANK_FORM)
+  const [form, setForm] = React.useState(getBlankForm)
   const [editingId, setEditingId] = React.useState(null)
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
@@ -120,10 +120,23 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
   React.useEffect(() => {
     if (!pageContext) return;
     if (pageContext.action === 'openAdd') {
+      setEditingId(null);
+      const freshForm = {
+        ...getBlankForm(),
+        expense_date: getLocalTodayYYYYMMDD(),
+        expense_time: new Date().toTimeString().slice(0, 5)
+      };
+      setForm(freshForm);
+      setFormError('');
       setShowExpForm(true);
+      if (shopId) {
+        localStorage.setItem(`th-exp-draft-${shopId}`, JSON.stringify(freshForm));
+        localStorage.setItem(`th-exp-open-${shopId}`, "true");
+        localStorage.setItem(`th-exp-editing-${shopId}`, "null");
+      }
       if (setPageContext) setPageContext({});
     }
-  }, [pageContext]);
+  }, [pageContext, shopId]);
 
   React.useEffect(() => {
     if (!shopId || !isDraftLoaded) return;
@@ -250,7 +263,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
       localStorage.removeItem(`th-exp-draft-${shopId}`);
       localStorage.removeItem(`th-exp-open-${shopId}`);
       localStorage.removeItem(`th-exp-editing-${shopId}`);
-      setForm(BLANK_FORM)
+      setForm(getBlankForm())
       setEditingId(null)
       setShowExpForm(false)
       fetchExpenses()
@@ -279,7 +292,7 @@ export default function ExpensesPage({ shopId, isShopClosed, pageContext, setPag
   function hideForm() { setShowExpForm(false) }
 
   function cancelEdit() {
-    setForm(BLANK_FORM);
+    setForm(getBlankForm());
     setEditingId(null);
     setFormError('');
     setShowExpForm(false);

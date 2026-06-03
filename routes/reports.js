@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { dbAll, dbGet } = require("../lib/db");
 const { getDailySummary } = require("../lib/reporting");
+const { toLocalYYYYMMDD } = require("../lib/businessDate");
 
 // Endpoint: GET /api/reports/daily-activity/:shop_id
 router.get("/daily-activity/:shop_id", async (req, res) => {
@@ -12,11 +13,18 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
     let targetDate = date;
     if (!targetDate) {
       const now = new Date();
-      if (now.getHours() < 4) {
+      const manilaHour = parseInt(new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        hour: 'numeric',
+        hour12: false
+      }).format(now), 10);
+      
+      if (manilaHour < 4) {
         now.setDate(now.getDate() - 1);
       }
-      targetDate = now.toISOString().split("T")[0];
+      targetDate = toLocalYYYYMMDD(now);
     }
+
 
     const summary = await getDailySummary(shop_id, targetDate);
 
@@ -207,7 +215,9 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         { method: 'BPI', total: summary.paymentBreakdown.BPI },
         { method: 'BDO', total: summary.paymentBreakdown.BDO },
         { method: 'CARD', total: summary.paymentBreakdown.CARD },
-        { method: 'CREDIT', total: summary.paymentBreakdown.CREDIT }
+        { method: 'CREDIT', total: summary.paymentBreakdown.CREDIT },
+        { method: 'BANK', total: summary.paymentBreakdown.BANK },
+        { method: 'CHECK', total: summary.paymentBreakdown.CHECK }
       ],
       cashPool: summary.cashPool,
       transactions,

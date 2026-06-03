@@ -304,10 +304,11 @@ router.post("/recap-jobs/:job_id/claim", async (req, res) => {
     const fitting_fee = (installed && tireman_commission_total > 0) ? parseFloat(tireman_commission_total) : 0;
     const total_amount = tire_price + fitting_fee;
     const recap_cost = parseFloat(job.recap_cost) || 0;
+    const business_date = await getEffectiveYYYYMMDD(job.shop_id);
     const doCreateSale = (resolved_staff_id) => {
       db.run(
-        `INSERT INTO sale_header (sale_id, shop_id, sale_datetime, staff_id, total_amount, created_by, tireman_ids, tireman_commission_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sale_id, job.shop_id, sale_datetime, resolved_staff_id, total_amount, "RECAP",
+        `INSERT INTO sale_header (sale_id, shop_id, sale_datetime, business_date, staff_id, total_amount, created_by, customer_id, tireman_ids, tireman_commission_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sale_id, job.shop_id, sale_datetime, business_date, resolved_staff_id, total_amount, "RECAP", job.customer_id || null,
           installed && tireman_ids?.length ? JSON.stringify(tireman_ids) : null,
           fitting_fee > 0 ? fitting_fee : null],
         function (err) {

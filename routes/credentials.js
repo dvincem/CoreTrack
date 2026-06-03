@@ -31,6 +31,7 @@ const ROLE_DEFAULT_PAGES = {
   'general manager':   ['dashboard','pos','orders','inventory','products','purchases','recap','returns','sales','services','services-summary','customers','suppliers','staff','attendance','payroll','profits','expenses','cashledger','receivables','payables','financial-health','sales-projection','reports'],
   'operations manager':['dashboard','pos','orders','inventory','products','purchases','recap','returns','sales','services','services-summary','customers','suppliers','staff','attendance','payroll','profits','expenses','cashledger','receivables','payables','financial-health','sales-projection','reports'],
   'sales':             ['dashboard','pos','orders','inventory','recap','returns','sales','services-summary','customers'],
+  'cashier':           ['dashboard','pos','orders','inventory','expenses','cashledger','purchases','recap','sales','services-summary','customers','suppliers','receivables','payables','reports'],
   'tireman':           ['services-summary'],
   'technician':        ['services-summary'],
   'mechanic':          ['services-summary'],

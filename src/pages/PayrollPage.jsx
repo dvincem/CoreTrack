@@ -1,6 +1,6 @@
 import '../pages_css/PayrollPage.css';
 import React from 'react'
-import { API_URL, currency, apiFetch, SkeletonRows, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
+import { API_URL, currency, apiFetch, SkeletonRows, allowOnlyDigits, allowOnlyDecimals, getLocalTodayYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import SearchInput from '../components/SearchInput'
 import { useSearchPrefill } from '../hooks/useSearchPrefill'
@@ -10,7 +10,7 @@ import FilterHeader from '../components/FilterHeader'
 const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 function PayrollPage({ shopId, setPageContext }) {
-  const [date, setDate] = React.useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = React.useState(getLocalTodayYYYYMMDD())
   const [search, setSearch] = React.useState('')
   const [staffFilter, setStaffFilter] = React.useState('all')
   const [logs, setLogs] = React.useState([])

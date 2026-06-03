@@ -908,11 +908,20 @@ function PayablesPage({ shopId }) {
                     const d = new Date(year, month, 1 - firstDay + cellIdx);
                     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                   });
+                  const prevSatDate = (() => {
+                    const d = new Date(year, month, 1 - firstDay + rowIdx * 7 - 1);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  })();
+                  const currFriDate = (() => {
+                    const d = new Date(year, month, 1 - firstDay + rowIdx * 7 + 5);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  })();
+
                   // Sum balance of all OPEN/OVERDUE payables due this week (spans any month)
                   const weekTotal = calPayables.reduce((sum, p) => {
                     if (!p.due_date) return sum;
                     const ds = p.due_date.slice(0, 10);
-                    if (ds >= rowDates[0] && ds <= rowDates[6] && getPaymentStatus(p) !== "PAID") {
+                    if (ds >= prevSatDate && ds <= currFriDate && getPaymentStatus(p) !== "PAID") {
                       return sum + (p.balance_amount || 0);
                     }
                     return sum;
@@ -923,11 +932,11 @@ function PayablesPage({ shopId }) {
                     const items = calPayables.filter(p => {
                       if (!p.due_date) return false;
                       const ds = p.due_date.slice(0, 10);
-                      return ds >= rowDates[0] && ds <= rowDates[6] && getPaymentStatus(p) !== "PAID";
+                      return ds >= prevSatDate && ds <= currFriDate && getPaymentStatus(p) !== "PAID";
                     });
                     setSelectedWeek({
-                      start: rowDates[0],
-                      end: rowDates[6],
+                      start: prevSatDate,
+                      end: currFriDate,
                       amount: weekTotal,
                       items
                     });
@@ -1377,12 +1386,12 @@ function PayablesPage({ shopId }) {
             <div className="pay-modal-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 {detailTarget.status !== 'VOIDED' && (
-                  <button 
+                  <button
                     onClick={() => setVoidTarget(detailTarget)}
-                    style={{ 
-                      background: 'none', border: 'none', color: 'var(--th-text-faint)', 
-                      fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5, 
-                      textDecoration: 'underline', transition: 'opacity 0.2s' 
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--th-text-faint)',
+                      fontSize: '0.72rem', cursor: 'pointer', opacity: 0.5,
+                      textDecoration: 'underline', transition: 'opacity 0.2s'
                     }}
                     onMouseEnter={e => e.currentTarget.style.opacity = 1}
                     onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
@@ -1470,7 +1479,7 @@ function PayablesPage({ shopId }) {
                         {items.map(p => {
                           const isSelected = selectedWeekPayableIds.has(p.payable_id);
                           const name = p.payable_type === 'GENERAL' ? (p.payee_name || 'General') : (p.supplier_name || 'Supplier');
-                          
+
                           const toggleItem = (e) => {
                             e.stopPropagation();
                             setSelectedWeekPayableIds(prev => {
@@ -1505,7 +1514,7 @@ function PayablesPage({ shopId }) {
                                   <div style={{ fontWeight: 900, fontSize: '1rem', color: 'var(--th-rose)' }}>{payCurrency(p.balance_amount)}</div>
                                   <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Balance</div>
                                 </div>
-                                <button 
+                                <button
                                   className="pay-cal-view-btn"
                                   style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--th-border)', borderRadius: '6px', color: '#fff', padding: '0.3rem 0.5rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}
                                   onClick={(e) => { e.stopPropagation(); setSelectedWeek(null); openDetail(p); }}
@@ -1671,11 +1680,11 @@ function PayablesPage({ shopId }) {
             <div className="confirm-details">
               <div className="confirm-detail-row"><span className="confirm-detail-label">ID</span><span className="confirm-detail-val">{voidTarget.payable_id}</span></div>
               <div className="confirm-detail-row"><span className="confirm-detail-label">Balance</span><span className="confirm-detail-val">{payCurrency(voidTarget.balance_amount)}</span></div>
-              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{color:'var(--th-rose)'}}>Marks status as VOIDED and voids all payments</span></div>
+              <div className="confirm-detail-row"><span className="confirm-detail-label">Action</span><span className="confirm-detail-val" style={{ color: 'var(--th-rose)' }}>Marks status as VOIDED and voids all payments</span></div>
             </div>
-            <div className="sl-field" style={{marginTop:'1rem', marginBottom:'1rem'}}>
+            <div className="sl-field" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
               <div className="sl-label">Reason for voiding</div>
-              <input className="sl-input" value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Data entry error" style={{width:'100%', padding:'0.5rem', background:'var(--th-bg-input)', border:'1px solid var(--th-border)', borderRadius:6, color:'var(--th-text-primary)'}} />
+              <input className="sl-input" value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Data entry error" style={{ width: '100%', padding: '0.5rem', background: 'var(--th-bg-input)', border: '1px solid var(--th-border)', borderRadius: 6, color: 'var(--th-text-primary)' }} />
             </div>
             <div className="confirm-actions">
               <button className="confirm-btn-cancel" onClick={() => setVoidTarget(null)}>Cancel</button>

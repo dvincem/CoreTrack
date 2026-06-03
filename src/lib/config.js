@@ -125,3 +125,41 @@ export const allowOnlySignedDigits = (e) => {
     e.preventDefault();
   }
 };
+
+export function toLocalYYYYMMDD(date = new Date()) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getLocalTodayYYYYMMDD() {
+  return toLocalYYYYMMDD(new Date());
+}
+
+/**
+ * Robust clipboard helper with fallback for non-secure contexts (HTTP)
+ */
+export function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+    } catch (err) {
+      console.error('Fallback copy failed', err);
+    }
+    document.body.removeChild(textArea);
+    return Promise.resolve();
+  }
+}
+

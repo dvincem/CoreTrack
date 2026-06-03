@@ -1,7 +1,7 @@
 import '../pages_css/POSPage.css';
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
+import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals, getLocalTodayYYYYMMDD } from '../lib/config'
 import Pagination from '../components/Pagination'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -405,8 +405,10 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [selectedTiremen, setSelectedTiremen] = React.useState([]);
   const [selectedCustomer, setSelectedCustomer] = React.useState("");
   const [saleNotes, setSaleNotes] = React.useState("");
+  const [notesFocused, setNotesFocused] = React.useState(false);
   const [invoiceNumber, setInvoiceNumber] = React.useState("");
-  const [hasInvoice, setHasInvoice] = React.useState(true);
+  const [invoiceFocused, setInvoiceFocused] = React.useState(false);
+  const hasInvoice = invoiceNumber.trim() !== "";
   const [paymentSplits, setPaymentSplits] = React.useState([{ method: "CASH", amount: "" }]);
   const [splitMode, setSplitMode] = React.useState(false);
   const [isDraftLoaded, setIsDraftLoaded] = React.useState(false);
@@ -432,7 +434,8 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [toast, setToast] = React.useState(null); // { amount }
   const [dotModal, setDotModal] = React.useState(null); // array of DOT variants to pick from
   const [designModal, setDesignModal] = React.useState(null); // array of design_variants to pick from
-  const [showCommission, setShowCommission] = React.useState(true); // collapsible commission section
+  const [showCommission, setShowCommission] = React.useState(false); // collapsible commission section — collapsed by default
+
   const cartColRef = React.useRef(null);
   const isResettingPersistence = React.useRef(false);
   const draftDropRef = React.useRef(null);
@@ -502,6 +505,8 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       setSelectedTiremen(d.tireman_ids ? JSON.parse(d.tireman_ids) : []);
       setPaymentSplits(d.payment_splits ? JSON.parse(d.payment_splits) : [{ method: "CASH", amount: "" }]);
       setSplitMode(!!d.split_mode);
+      setShowExtraCommission(data.showExtraCommission || false);
+      setShowCommission(false);
       setActiveDraftId(d.draft_id);
       setShowDraftsDrop(false);
     } catch (e) {
@@ -672,7 +677,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
   async function loadPOS() {
     try {
-      const todayLocal = businessDate || new Date().toISOString().split('T')[0];
+      const todayLocal = businessDate || getLocalTodayYYYYMMDD();
 
       const [srv, stf, cust, valve, weight, attendanceRes, rulesRes] = await Promise.all([
         apiFetch(`${API_URL}/services`),
@@ -859,6 +864,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     setActiveDraftId(null);
     setExtraCommission(0);
     setShowExtraCommission(false);
+    setShowCommission(false);
     setTimeout(() => { isResettingPersistence.current = false; }, 100);
   }
 
@@ -912,7 +918,6 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     }
     if (paymentSplits.some(p => p.method === "CREDIT") && !selectedCustomer && !custSearch.trim()) { setError("Select or type a customer name for credit/pautang transactions"); return; }
     if (hasInvoice && !invoiceNumber.trim()) { setError("Invoice number is required"); return; }
-    if (!saleNotes.trim()) { setError("Notes are required (add vehicle/plate info)"); return; }
 
     // --- Confirmation Step ---
     if (!showConfirmModal) {
@@ -1004,7 +1009,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           tireman_balancing_total: cart.reduce((sum, c) =>
             sum + (c.wheel_balancing ? (c.balancing_labor_price ?? balancingServicePrice ?? 0) * (c.balancing_quantity || c.quantity) : 0), 0),
           customer_id: finalCustomerId || null,
-          sale_notes: saleNotes.trim() || null,
+          sale_notes: saleNotes.trim() || "None",
           invoice_number: hasInvoice ? invoiceNumber.trim() : "",
           payment_method: paymentSplits[0]?.method || "CASH",
           payment_splits: splitMode ? paymentSplits.map(p => ({ method: p.method, amount: parseFloat(p.amount) || 0 })) : null,
@@ -1104,15 +1109,17 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     [commissionBreakdown]
   );
 
+  const effectiveCommission = (commissionOverride !== null ? commissionOverride : autoCommission) + extraCommission;
+  const perTiremanCommission = selectedTiremen.length > 0
+    ? effectiveCommission / selectedTiremen.length
+    : 0;
+
   // Reset override when cart changes significantly
   React.useEffect(() => {
     setCommissionOverride(null);
   }, [cart.length]);
 
-  const effectiveCommission = (commissionOverride !== null ? commissionOverride : autoCommission) + extraCommission;
-  const perTiremanCommission = selectedTiremen.length > 0
-    ? effectiveCommission / selectedTiremen.length
-    : 0;
+
 
   const needsTireman = cart.some(c => c.type === 'SERVICE') ||
     cart.some(c => c.wheel_balancing) ||
@@ -1189,8 +1196,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           (!needsTireman || selectedTiremen.length > 0) &&
           cart.length > 0 &&
           paymentSplits.length > 0 &&
-          (!hasInvoice || invoiceNumber.trim()) &&
-          saleNotes.trim();
+          (!hasInvoice || invoiceNumber.trim());
 
         if (canComplete) {
           e.preventDefault();
@@ -1714,7 +1720,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             </div>
 
             {cart.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                 <button
                   className="pos-cart-draft-btn"
                   onClick={saveAsDraft}
@@ -1731,21 +1737,42 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     textTransform: "uppercase",
                     letterSpacing: "0.03em",
                     cursor: "pointer",
-                    transition: "all 0.15s"
+                    transition: "all 0.15s",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.25rem"
                   }}
                 >
-                  Save Draft
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  <span className="pos-btn-text">Save Draft</span>
                 </button>
-                <button className="pos-cart-clear" onClick={() => setShowClearCartModal(true)}>
-                  Clear
+                <button
+                  className="pos-cart-clear"
+                  onClick={() => setShowClearCartModal(true)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.25rem"
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  <span className="pos-btn-text">Clear</span>
                 </button>
               </div>
             )}
           </div>
 
 
-          {/* Form fields — compact grid */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", padding: "0.25rem 0.85rem 0" }}>
+          <div className="pos-cart-body">
+            {/* Form fields — compact grid */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", padding: "0.25rem 0.85rem 0", flexShrink: 0 }}>
 
             {/* Row 1: Customer + Invoice # */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
@@ -1796,51 +1823,57 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               <div>
                 <div className="pos-staff-label">Invoice #{hasInvoice && <span style={{ color: "var(--th-rose)", fontWeight: 600, marginLeft: 3 }}>*</span>}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  {hasInvoice ? (
-                    <input
-                      type="text"
-                      className="pos-staff-select"
-                      style={{ padding: "0.3rem 0.45rem", fontSize: "0.8rem", borderRadius: 7, flex: 1, minWidth: 0 }}
-                      placeholder="0001"
-                      inputMode="numeric"
-                      value={invoiceNumber}
-                      onChange={e => setInvoiceNumber(e.target.value.replace(/\D/g, ''))}
-                    />
-                  ) : (
-                    <div style={{ flex: 1, padding: "0.3rem 0.5rem", fontSize: "0.78rem", borderRadius: 7, background: "var(--th-bg-input)", border: "1px dashed var(--th-border-strong)", color: "var(--th-text-faint)", fontStyle: "italic" }}>
-                      No invoice
-                    </div>
-                  )}
-                  <div
-                    onClick={() => { setHasInvoice(v => !v); setInvoiceNumber(""); }}
-                    title={hasInvoice ? "No invoice" : "Has invoice"}
+                  <input
+                    type="text"
+                    className="pos-staff-select"
                     style={{
-                      width: 28, height: 16, borderRadius: 8, cursor: "pointer", flexShrink: 0,
-                      background: hasInvoice ? "var(--th-sky)" : "var(--th-bg-input)",
-                      border: `1px solid ${hasInvoice ? "var(--th-sky)" : "var(--th-border-strong)"}`,
-                      position: "relative", transition: "background 0.2s, border-color 0.2s",
+                      padding: "0.3rem 0.45rem",
+                      fontSize: "0.8rem",
+                      borderRadius: 7,
+                      flex: 1,
+                      minWidth: 0,
+                      boxSizing: "border-box",
+                      border: (invoiceFocused || hasInvoice) ? "1px solid var(--th-border-strong)" : "1px dashed var(--th-border-strong)",
+                      background: "var(--th-bg-input)",
+                      color: (invoiceFocused || hasInvoice) ? "var(--th-text-primary)" : "var(--th-text-faint)",
+                      fontStyle: (invoiceFocused || hasInvoice) ? "normal" : "italic",
+                      cursor: "pointer",
+                      outline: "none",
                     }}
-                  >
-                    <div style={{
-                      position: "absolute", top: 2, left: hasInvoice ? 12 : 2,
-                      width: 10, height: 10, borderRadius: "50%",
-                      background: hasInvoice ? "#fff" : "var(--th-text-faint)",
-                      transition: "left 0.2s",
-                    }} />
-                  </div>
+                    placeholder="0001"
+                    inputMode="numeric"
+                    value={invoiceFocused ? invoiceNumber : (invoiceNumber || "No invoice")}
+                    onFocus={() => setInvoiceFocused(true)}
+                    onBlur={() => setInvoiceFocused(false)}
+                    onChange={e => setInvoiceNumber(e.target.value.replace(/\D/g, ''))}
+                  />
                 </div>
               </div>
             </div>
 
             {/* Row 2: Notes */}
             <div>
-              <div className="pos-staff-label">Notes <span style={{ color: "var(--th-rose)", fontWeight: 600 }}>*</span></div>
+              <div className="pos-staff-label">Notes</div>
               <input
                 type="text"
                 className="pos-staff-select"
-                style={{ padding: "0.3rem 0.45rem", fontSize: "0.8rem", borderRadius: 7, width: "100%", boxSizing: "border-box" }}
+                style={{
+                  padding: "0.3rem 0.45rem",
+                  fontSize: "0.8rem",
+                  borderRadius: 7,
+                  width: "100%",
+                  boxSizing: "border-box",
+                  border: (notesFocused || saleNotes.trim() !== "") ? "1px solid var(--th-border-strong)" : "1px dashed var(--th-border-strong)",
+                  background: "var(--th-bg-input)",
+                  color: (notesFocused || saleNotes.trim() !== "") ? "var(--th-text-primary)" : "var(--th-text-faint)",
+                  fontStyle: (notesFocused || saleNotes.trim() !== "") ? "normal" : "italic",
+                  cursor: "pointer",
+                  outline: "none",
+                }}
                 placeholder="Vehicle plate, type, any relevant info"
-                value={saleNotes}
+                value={notesFocused ? saleNotes : (saleNotes || "None")}
+                onFocus={() => setNotesFocused(true)}
+                onBlur={() => setNotesFocused(false)}
                 onChange={e => setSaleNotes(e.target.value)}
                 maxLength={300}
               />
@@ -2084,42 +2117,46 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               ))
             )}
           </div>
+        </div>
 
-          {/* Commission panel — bottom of cart, above footer */}
-          {commissionBreakdown.length > 0 && (
+        {(commissionBreakdown.length > 0 || effectiveCommission > 0) && (
             <div style={{
-              margin: "0 0 0 0",
               borderTop: "1px solid var(--th-border)",
-              padding: "0.45rem 0.85rem",
               background: "var(--th-bg-card-alt)",
+              flexShrink: 0,
             }}>
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                cursor: "pointer", userSelect: "none",
-              }} onClick={() => setShowCommission(!showCommission)}>
-                <div style={{
+              {/* ── Commission Header (always visible) ── */}
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: "0.5rem",
+                  padding: "0.4rem 0.85rem",
+                  cursor: "pointer", userSelect: "none",
+                }}
+                onClick={() => setShowCommission(prev => !prev)}
+              >
+                {/* Label */}
+                <span style={{
                   fontFamily: "'Barlow Condensed',sans-serif",
                   fontWeight: 700, fontSize: "0.72rem",
                   textTransform: "uppercase", letterSpacing: "0.07em",
-                  color: "var(--th-text-faint)",
+                  color: "var(--th-text-faint)", flex: 1,
                 }}>
                   Tireman Commission
-                </div>
-                {/* Total always visible in header */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: "0.5rem",
-                  marginLeft: "auto", marginRight: "0.5rem",
-                }}>
-                  <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)" }}>
-                    Total
-                  </span>
+                </span>
+
+                {/* Total input — always visible, click stops propagation so it doesn't toggle */}
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <span style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>Total</span>
                   <div style={{
-                    display: "flex", alignItems: "center", gap: "0.25rem",
+                    display: "flex", alignItems: "center", gap: "0.2rem",
                     background: "var(--th-bg-input)",
                     border: `1px solid ${commissionOverride !== null ? "var(--th-sky)" : "var(--th-border-strong)"}`,
-                    borderRadius: 7, padding: "0.25rem 0.5rem",
+                    borderRadius: 6, padding: "0.2rem 0.45rem",
                   }}>
-                    <span style={{ fontSize: "0.72rem", color: "var(--th-text-faint)" }}>₱</span>
+                    <span style={{ fontSize: "0.7rem", color: "var(--th-text-faint)" }}>₱</span>
                     <input
                       type="number" min="0" step="1"
                       value={effectiveCommission}
@@ -2127,96 +2164,94 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       onChange={e => setCommissionOverride(Math.max(0, Number(e.target.value)))}
                       onClick={e => e.stopPropagation()}
                       style={{
-                        width: 60, background: "transparent", border: "none", outline: "none",
+                        width: 58, background: "transparent", border: "none", outline: "none",
                         color: "var(--th-amber)", fontFamily: "'Barlow Condensed',sans-serif",
-                        fontWeight: 700, fontSize: "0.9rem", textAlign: "right", cursor: "text",
+                        fontWeight: 700, fontSize: "0.88rem", textAlign: "right", cursor: "text",
                       }}
                     />
                   </div>
                 </div>
+
+                {/* Chevron */}
                 <span style={{
-                  fontSize: "0.9rem", color: "var(--th-text-faint)",
-                  transition: "transform 0.15s", transform: showCommission ? "rotate(0deg)" : "rotate(-90deg)",
-                  flexShrink: 0,
-                }}>▼</span>
+                  fontSize: "0.75rem", color: "var(--th-text-faint)", flexShrink: 0,
+                  transition: "transform 0.2s ease",
+                  transform: showCommission ? "rotate(180deg)" : "rotate(0deg)",
+                  display: "inline-block",
+                }}>▲</span>
               </div>
 
+              {/* ── Commission Details (collapsible) ── */}
               {showCommission && (
-                <>
-                  {commissionBreakdown.map((line, i) => (
-                    <div key={i} style={{
-                      display: "flex", justifyContent: "space-between",
-                      fontSize: "0.78rem", color: "var(--th-text-muted)",
-                      marginBottom: "0.15rem", marginTop: i === 0 ? "0.2rem" : 0,
-                    }}>
-                      <span>{line.qty}× {line.label} @ ₱{line.rate}</span>
-                      <span style={{ fontWeight: 600, color: "var(--th-amber)" }}>₱{line.total.toLocaleString()}</span>
-                    </div>
-                  ))}
-
-                  <div style={{ borderTop: "1px solid var(--th-border)", margin: "0.25rem 0" }} />
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <span style={{ fontSize: "0.78rem", color: "var(--th-text-muted)", flex: 1 }}>
-                      Total
-                      {commissionOverride !== null && (
-                        <button onClick={() => setCommissionOverride(null)} style={{
-                          marginLeft: "0.35rem", fontSize: "0.68rem",
-                          background: "none", border: "none",
-                          color: "var(--th-sky)", cursor: "pointer", textDecoration: "underline",
-                        }}>reset</button>
-                      )}
-                    </span>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: "0.25rem",
-                      background: "var(--th-bg-input)",
-                      border: `1px solid ${commissionOverride !== null ? "var(--th-sky)" : "var(--th-border-strong)"}`,
-                      borderRadius: 7, padding: "0.25rem 0.5rem",
-                    }}>
-                      <span style={{ fontSize: "0.72rem", color: "var(--th-text-faint)" }}>₱</span>
-                      <input
-                        type="number" min="0" step="1"
-                        value={effectiveCommission}
-                        onKeyDown={allowOnlyDecimals}
-                        onChange={e => setCommissionOverride(Math.max(0, Number(e.target.value)))}
-                        style={{
-                          width: 68, background: "transparent", border: "none", outline: "none",
-                          color: "var(--th-amber)", fontFamily: "'Barlow Condensed',sans-serif",
-                          fontWeight: 700, fontSize: "0.95rem", textAlign: "right",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {selectedTiremen.length > 0 ? (
-                    <div style={{
-                      fontSize: "0.75rem", color: "var(--th-text-faint)",
-                      display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: "0.3rem",
-                      gap: "0.5rem",
-                    }}>
-                      <span style={{ flex: 1, wordBreak: "break-word" }}>÷ {selectedTiremen.length} tireman{selectedTiremen.length > 1 ? 'en' : ''}</span>
-                      <span style={{ fontWeight: 600, color: "var(--th-emerald)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                        ₱{perTiremanCommission.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each
-                      </span>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: "0.72rem", color: "var(--th-text-faint)", marginTop: "0.3rem", fontStyle: "italic" }}>
-                      Select tireman(s) to split
+                <div style={{
+                  borderTop: "1px solid var(--th-border)",
+                  padding: "0.35rem 0.85rem 0.45rem",
+                }}>
+                  {/* Breakdown lines */}
+                  {commissionBreakdown.length > 0 && (
+                    <div className="pos-comm-scroll">
+                      {commissionBreakdown.map((line, i) => (
+                        <div key={i} style={{
+                          display: "flex", justifyContent: "space-between", alignItems: "center",
+                          fontSize: "0.77rem", color: "var(--th-text-muted)",
+                          padding: "0.1rem 0",
+                        }}>
+                          <span>{line.qty}× {line.label} @ ₱{line.rate}</span>
+                          <span style={{ fontWeight: 600, color: "var(--th-amber)", flexShrink: 0, marginLeft: "0.5rem" }}>
+                            ₱{line.total.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </>
+
+                  {/* Override reset */}
+                  {commissionOverride !== null && (
+                    <div style={{ marginTop: "0.3rem", fontSize: "0.7rem", color: "var(--th-text-faint)" }}>
+                      Overridden —{" "}
+                      <button
+                        onClick={() => setCommissionOverride(null)}
+                        style={{
+                          background: "none", border: "none", padding: 0,
+                          color: "var(--th-sky)", cursor: "pointer",
+                          textDecoration: "underline", fontSize: "0.7rem",
+                        }}
+                      >reset to auto</button>
+                    </div>
+                  )}
+
+                  {/* Per-tireman split */}
+                  <div style={{
+                    marginTop: "0.35rem",
+                    fontSize: "0.75rem", color: "var(--th-text-faint)",
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    gap: "0.5rem",
+                  }}>
+                    {selectedTiremen.length > 0 ? (
+                      <>
+                        <span>÷ {selectedTiremen.length} tireman{selectedTiremen.length > 1 ? 'en' : ''}</span>
+                        <span style={{ fontWeight: 700, color: "var(--th-emerald)", flexShrink: 0 }}>
+                          ₱{perTiremanCommission.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontStyle: "italic" }}>Select tireman(s) to split</span>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}
 
-          {/* Manual extra commission toggle — always visible when cart has items */}
-          {cart.length > 0 && (
+          {/* Manual extra commission — only shown when no auto-commission */}
+          {cart.length > 0 && autoCommission === 0 && (
             <div style={{
               borderTop: "1px solid var(--th-border)",
               padding: "0.35rem 0.85rem",
               display: "flex", alignItems: "center", gap: "0.5rem",
               background: showExtraCommission ? "rgba(251,191,36,0.04)" : "transparent",
               transition: "background 0.15s",
+              flexShrink: 0,
             }}>
               <button
                 onClick={() => { setShowExtraCommission(v => !v); if (showExtraCommission) setExtraCommission(0); }}
@@ -2272,15 +2307,15 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           )}
 
           {/* Footer */}
-          <div className="pos-cart-footer" style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "0.6rem", alignItems: "center" }}>
-            <div>
+          <div className="pos-cart-footer">
+            <div style={{ flexShrink: 0 }}>
               <div className="pos-total-label" style={{ marginBottom: "0.1rem" }}>Total</div>
               <div className="pos-total-amount">{posCurrency(total)}</div>
             </div>
             <button
               className={`pos-complete-btn${loading ? " loading" : ""}`}
               onClick={completeSale}
-              disabled={loading || !selectedHandlerId || (needsTireman && selectedTiremen.length === 0) || cart.length === 0 || paymentSplits.length === 0 || (hasInvoice && !invoiceNumber.trim()) || !saleNotes.trim()}
+              disabled={loading || !selectedHandlerId || (needsTireman && selectedTiremen.length === 0) || cart.length === 0 || paymentSplits.length === 0 || (hasInvoice && !invoiceNumber.trim())}
             >
               {loading ? "Processing…" : "Complete Sale →"}
             </button>
@@ -2390,7 +2425,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               </table>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.5rem' }}>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 0.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--th-text-muted)' }}>Payment Method</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--th-emerald)', fontWeight: 700, textAlign: 'right' }}>
@@ -2400,18 +2435,25 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                   }
                 </div>
               </div>
+              {effectiveCommission > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--th-text-muted)' }}>Tireman Commission</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--th-amber,#fbbf24)', fontWeight: 700, textAlign: 'right' }}>
+                    {currency(effectiveCommission)}
+                    {selectedTiremen.length > 1 && ` (split: ${currency(perTiremanCommission)} each)`}
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--th-border-strong)', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--th-text-primary)' }}>Total Amount</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--th-orange)' }}>{currency(total)}</div>
               </div>
             </div>
 
-            {saleNotes && (
-              <div style={{ padding: '0.8rem', background: 'rgba(251, 191, 36, 0.05)', border: '1px dashed var(--th-amber)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-amber)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.3rem' }}>Notes</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--th-text-body)', fontStyle: 'italic' }}>{saleNotes}</div>
-              </div>
-            )}
+            <div style={{ padding: '0.8rem', background: 'rgba(251, 191, 36, 0.05)', border: '1px dashed var(--th-amber)', borderRadius: '8px' }}>
+              <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--th-amber)', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.3rem' }}>Notes</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--th-text-body)', fontStyle: 'italic' }}>{saleNotes.trim() || "None"}</div>
+            </div>
 
             <div className="confirm-actions" style={{ display: 'flex', gap: '0.8rem' }}>
               <button

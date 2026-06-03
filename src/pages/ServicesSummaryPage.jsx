@@ -1,6 +1,6 @@
 import '../pages_css/ServicesSummaryPage.css';
 import React from 'react'
-import { API_URL, apiFetch, allowOnlyDecimals } from '../lib/config'
+import { API_URL, apiFetch, allowOnlyDecimals, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } from '../lib/config'
 import usePaginatedResource from '../hooks/usePaginatedResource'
 import KpiCard from '../components/KpiCard'
 import { DataTable } from '../components/DataTable'
@@ -14,7 +14,7 @@ const fmtCompact = (n) => {
   if (v >= 1_000) return '₱' + (v / 1_000).toLocaleString('en-PH', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + 'K'
   return fmt(v)
 }
-const today = () => new Date().toISOString().split('T')[0]
+const today = () => getLocalTodayYYYYMMDD()
 
 function aggregateItems(items) {
   const map = {}
@@ -104,7 +104,7 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
   }
 
   // History state
-  const historyWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const historyWeekAgo = toLocalYYYYMMDD(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
   const [histStartDate, setHistStartDate] = React.useState(historyWeekAgo)
   const [histEndDate, setHistEndDate] = React.useState(today())
   const [histType, setHistType] = React.useState('all')
@@ -139,11 +139,11 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
     const d = new Date(t)
     let from = t
     if (key === 'today') { from = t }
-    else if (key === 'yesterday') { const y = new Date(t); y.setDate(y.getDate() - 1); from = y.toISOString().split('T')[0]; setEndDate(from); setStartDate(from); setActiveRange(key); loadWith(from, from); return }
-    else if (key === '7d') { d.setDate(d.getDate() - 6); from = d.toISOString().split('T')[0] }
-    else if (key === '30d') { d.setDate(d.getDate() - 29); from = d.toISOString().split('T')[0] }
-    else if (key === '3m') { d.setMonth(d.getMonth() - 3); from = d.toISOString().split('T')[0] }
-    else if (key === '6m') { d.setMonth(d.getMonth() - 6); from = d.toISOString().split('T')[0] }
+    else if (key === 'yesterday') { const y = new Date(t); y.setDate(y.getDate() - 1); from = toLocalYYYYMMDD(y); setEndDate(from); setStartDate(from); setActiveRange(key); loadWith(from, from); return }
+    else if (key === '7d') { d.setDate(d.getDate() - 6); from = toLocalYYYYMMDD(d) }
+    else if (key === '30d') { d.setDate(d.getDate() - 29); from = toLocalYYYYMMDD(d) }
+    else if (key === '3m') { d.setMonth(d.getMonth() - 3); from = toLocalYYYYMMDD(d) }
+    else if (key === '6m') { d.setMonth(d.getMonth() - 6); from = toLocalYYYYMMDD(d) }
     else if (key === 'yr') { from = `${d.getFullYear()}-01-01` }
     setStartDate(from)
     setEndDate(t)

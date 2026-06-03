@@ -1,6 +1,6 @@
 import '../pages_css/DashboardPage.css';
 import React from 'react'
-import { API_URL, apiFetch, SkeletonRows } from '../lib/config'
+import { API_URL, apiFetch, SkeletonRows, getLocalTodayYYYYMMDD } from '../lib/config'
 import KpiCard from '../components/KpiCard'
 import { LineChart } from '@mui/x-charts/LineChart'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
@@ -50,16 +50,15 @@ function MonthlyChart({ shopId }) {
     if (!shopId) return
     // NOTE: Month Sales KPI = calendar month (e.g. May 1-today).
     // This chart = rolling 30 days (e.g. Apr 16-May 16), so totals will differ.
-    // perPage=500 reduces truncation risk; voided rows are excluded below.
-    apiFetch(`${API_URL}/sales/${shopId}?startDate=${start}&endDate=${end}&perPage=500`)
+    apiFetch(`${API_URL}/dashboard-revenue-trend/${shopId}?startDate=${start}&endDate=${end}`)
       .then(r => r.json())
       .then(d => {
         const totals = {}
-          ; (Array.isArray(d?.data) ? d.data : []).forEach(s => {
-            if (s.is_void) return  // exclude voided transactions
-            const dateStr = s.business_date || (s.sale_datetime || '').split('T')[0].split(' ')[0]
-            if (dateStr) totals[dateStr] = (totals[dateStr] || 0) + (s.total_amount || 0)
+        if (Array.isArray(d)) {
+          d.forEach(row => {
+            if (row.date) totals[row.date] = row.revenue || 0
           })
+        }
         const mapped = days.map(d => ({
           date: d.date,
           label: d.date.slice(5).replace('-', '/'),
@@ -754,7 +753,7 @@ function DashboardPage({ shopId, shopName, businessDate, userPower = 0 }) {
     if (!shopId) return
     setSpinning(true); setLoading(true)
 
-    const effectiveDate = businessDate || new Date().toISOString().split('T')[0]
+    const effectiveDate = businessDate || getLocalTodayYYYYMMDD()
     const p1 = apiFetch(`${API_URL}/dashboard/${shopId}?date=${effectiveDate}`).then(r => r.json()).then(d => setData(d || {})).catch(() => { })
     const p2 = apiFetch(`${API_URL}/recap-jobs/${shopId}`).then(r => r.json()).then(jobs => {
       if (Array.isArray(jobs)) setRecapCount(jobs.filter(j => !['CLAIMED', 'REJECTED', 'FORFEITED'].includes(j.current_status)).length)
