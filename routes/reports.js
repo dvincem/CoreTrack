@@ -40,7 +40,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         CASE 
           WHEN EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = sh.sale_id AND si.sale_type = 'PRODUCT') THEN 'SALE'
           ELSE 'SERVICE'
-        END as type
+        END as type,
+        (DATE(sh.sale_datetime, 'localtime') < sh.business_date) as isAfterHours
       FROM sale_header sh
       LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
       WHERE sh.shop_id = ? AND sh.is_void = 0 AND sh.business_date = ?`,

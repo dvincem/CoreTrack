@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { v4: uuidv4 } = require("uuid");
 const { db } = require("../Database");
 const { dbRun, dbGet, dbAll, dbSerialize, syncCurrentStock, logPriceHistory, findOrCreateDotVariant } = require("../lib/db");
 const { calculateAutoAdjustedPrice } = require("../lib/pricing");
@@ -269,6 +270,7 @@ router.post("/orders/:order_id/receive", async (req, res) => {
       quantity: parseFloat(ri.quantity) || original.quantity,
       unit_cost: !isNaN(parseFloat(ri.unit_cost)) ? parseFloat(ri.unit_cost) : (original.unit_cost || 0),
       dot_number: (ri.dot_number || '').trim() || original.dot_number || null,
+      design: ri.design !== undefined ? (ri.design || '').trim() : undefined,
     };
   });
 
@@ -279,6 +281,62 @@ router.post("/orders/:order_id/receive", async (req, res) => {
     const TIRE_CATS = ['PCR','SUV','TBR','LT','MOTORCYCLE','TIRE','RECAP','TUBE'];
     for (const item of receivedItems) {
       const isTire = TIRE_CATS.includes((item.category || '').toUpperCase());
+
+      // Update Design if provided and differs (Separation logic)
+      if (item.design !== undefined && item.design !== null) {
+        const cleanDesign = item.design.trim().toUpperCase();
+        const currentItem = await dbGet(`SELECT design, brand, size, category, parent_item_id FROM item_master WHERE item_id = ?`, [item.item_id]);
+        if (currentItem && currentItem.design !== cleanDesign) {
+          const parentId = currentItem.parent_item_id || item.item_id;
+          const origParent = await dbGet(`SELECT * FROM item_master WHERE item_id = ?`, [parentId]);
+          
+          if (origParent) {
+            // Find existing parent item record matching new design
+            const existing = await dbGet(
+              `SELECT item_id FROM item_master 
+               WHERE category = ? AND COALESCE(brand,'') = ? AND COALESCE(design,'') = ? AND COALESCE(size,'') = ? 
+                 AND parent_item_id IS NULL AND is_active = 1`,
+              [origParent.category, origParent.brand || '', cleanDesign, origParent.size || '']
+            );
+            
+            let resolvedParentId;
+            if (existing) {
+              resolvedParentId = existing.item_id;
+            } else {
+              // Create a brand new parent item master
+              const newParentId = `ITEM-${uuidv4()}`;
+              const newName = [origParent.brand, cleanDesign, origParent.size].filter(Boolean).join(' ');
+              
+              await dbRun(
+                `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, rim_size, unit_cost, selling_price, unit, supplier_id, reorder_point, dot_number, parent_item_id, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 1)`,
+                [
+                  newParentId, newParentId, newName, origParent.category,
+                  origParent.brand, cleanDesign, origParent.size, origParent.rim_size,
+                  origParent.unit_cost, origParent.selling_price, origParent.unit || 'PCS',
+                  origParent.supplier_id, origParent.reorder_point || 5
+                ]
+              );
+              
+              const ts = new Date().toISOString();
+              logPriceHistory(newParentId, 'UNIT_COST', null, origParent.unit_cost, received_by, 'Parent created on design edit during receive', ts);
+              logPriceHistory(newParentId, 'SELLING_PRICE', null, origParent.selling_price, received_by, 'Parent created on design edit during receive', ts);
+              resolvedParentId = newParentId;
+            }
+            
+            // Update order_items to point to the resolved parent ID (temporarily, before variant resolution)
+            await dbRun(`UPDATE order_items SET item_id = ? WHERE order_item_id = ?`, [resolvedParentId, item.order_item_id]);
+            
+            // Update local item object so subsequent logic works under this resolved parent ID
+            item.item_id = resolvedParentId;
+            item.brand = origParent.brand;
+            item.design = cleanDesign;
+            item.size = origParent.size;
+            item.category = origParent.category;
+          }
+        }
+      }
+
       if (isTire && item.dot_number) {
         const parentCheck = await dbGet(`SELECT dot_number, parent_item_id FROM item_master WHERE item_id = ?`, [item.item_id]);
         const parentItemId = (parentCheck && parentCheck.parent_item_id) ? parentCheck.parent_item_id : item.item_id;

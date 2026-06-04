@@ -64,7 +64,9 @@ export function calculateAutoAdjustedPrice(oldPrice, oldCost, newCost, category)
     const effOld = getEffectiveCost(oc);
     const effNew = getEffectiveCost(nc);
     const rawNewPrice = p + (effNew - effOld);
-    return Math.round(rawNewPrice / 100) * 100;
+    const base = Math.floor(rawNewPrice / 100) * 100;
+    const butal = rawNewPrice % 100;
+    return butal < 30 ? base : base + 100;
   } else {
     // Constant increase (simple delta)
     return p + (nc - oc);

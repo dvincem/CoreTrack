@@ -976,7 +976,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             sale_type: "PRODUCT",
             quantity: c.valve_quantity,
             unit_price: 0,
-            category: c.category || null,
+            category: "VALVE",
             valve_type: c.valve_type,
             valve_quantity: c.valve_quantity,
           });
@@ -992,6 +992,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             sale_type: "PRODUCT",
             quantity: c.wheel_weights_qty,
             unit_price: 0,
+            category: "WHEEL WEIGHT",
             wheel_balancing: true,
             wheel_weights_qty: c.wheel_weights_qty,
           });
@@ -1125,10 +1126,14 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
     cart.some(c => c.wheel_balancing) ||
     autoCommission > 0;
 
-  const serviceStaff = React.useMemo(
-    () => staff.filter(s => SERVICE_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()) && presentStaffIds.includes(s.staff_id)),
-    [staff, presentStaffIds]
-  );
+  const serviceStaff = React.useMemo(() => {
+    // If shop is closed (Next Day Mode) or if no staff are present/clocked in for the current business date yet,
+    // allow choosing from all active service staff members.
+    if (isShopClosed || presentStaffIds.length === 0) {
+      return staff.filter(s => SERVICE_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()));
+    }
+    return staff.filter(s => SERVICE_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()) && presentStaffIds.includes(s.staff_id));
+  }, [staff, presentStaffIds, isShopClosed]);
 
   /* Category filter + DOT grouping now happen server-side via /pos-items.
      Map the server response into the {_rep, _variants} shape consumed
@@ -1703,7 +1708,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                 >
                   <option value="" disabled>Handled By</option>
                   {staff
-                    .filter(s => MANAGEMENT_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()) && (presentStaffIds.includes(s.staff_id) || s.staff_id === currentStaffId))
+                    .filter(s => MANAGEMENT_ROLES.map(r => r.toLowerCase()).includes((s.role || '').toLowerCase()) && (presentStaffIds.includes(s.staff_id) || s.staff_id === currentStaffId || isShopClosed || presentStaffIds.length === 0))
                     .map(s => (
                       <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>
                     ))

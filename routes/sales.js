@@ -36,7 +36,7 @@ function markRecapSold(shop_id, soldItemIds, sale_id) {
   });
 }
 
-function recordCreditReceivable(shop_id, customer_id, sale_id, total_amount, down_payment, due_date, description, created_by) {
+function recordCreditReceivable(shop_id, customer_id, sale_id, total_amount, down_payment, due_date, description, created_by, business_date) {
   if (!customer_id) return Promise.resolve();
   const dp = parseFloat(down_payment) || 0;
   const balance = Math.max(0, total_amount - dp);
@@ -51,10 +51,16 @@ function recordCreditReceivable(shop_id, customer_id, sale_id, total_amount, dow
         if (err) return reject(err);
         if (dp > 0) {
           const pay_id = `RPAY-${uuidv4()}`;
+          // Set the payment date of the down payment to match the sale's business_date
+          // So it correctly falls on the same business date for reports and ledgers
+          let payment_date = now;
+          if (business_date) {
+            payment_date = `${business_date}T${new Date().toTimeString().slice(0, 8)}.000Z`;
+          }
           db.run(
             `INSERT INTO receivable_payments (payment_id, receivable_id, shop_id, amount, payment_date, payment_method, notes, recorded_by)
              VALUES (?, ?, ?, ?, ?, 'CASH', 'Down payment at POS', ?)`,
-            [pay_id, receivable_id, shop_id, dp, now, created_by || 'POS'],
+            [pay_id, receivable_id, shop_id, dp, payment_date, created_by || 'POS'],
             (err2) => { if (err2) console.error('receivable down-payment insert error:', err2.message); resolve(); }
           );
         } else {
@@ -174,6 +180,14 @@ router.post("/sales/complete", async (req, res) => {
     for (const item of items) {
       const line_total = item.quantity * item.unit_price;
       total_amount += line_total;
+      let itemCategory = item.category || null;
+      if (item.valve_type && item.valve_quantity > 0) {
+        itemCategory = "VALVE";
+      }
+      if (item.wheel_weights_qty && item.wheel_weights_qty > 0) {
+        itemCategory = "WHEEL WEIGHT";
+      }
+
       saleItems.push({
         sale_item_id: `ITEM-${uuidv4()}`, sale_id,
         item_or_service_id: item.item_or_service_id, item_name: item.item_name || "Unknown Item",
@@ -181,7 +195,7 @@ router.post("/sales/complete", async (req, res) => {
         sku: item.sku || null, 
         brand: item.brand ? item.brand.toUpperCase() : null, 
         design: item.design ? item.design.toUpperCase() : null,
-        tire_size: item.tire_size || null, category: item.category || null,
+        tire_size: item.tire_size || null, category: itemCategory,
         dot_number: item.dot_number || null,
         valve_type: item.valve_type || null, valve_quantity: item.valve_quantity || null,
         wheel_balancing: item.wheel_balancing || false, balancing_quantity: item.balancing_quantity || null,
@@ -237,7 +251,7 @@ router.post("/sales/complete", async (req, res) => {
                       const creditAmt = creditSplit ? creditSplit.amount : total_amount;
                       const desc = saleItems.map(i => i.item_name).slice(0, 3).join(', ');
                       try {
-                        await recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by);
+                        await recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by, business_date);
                       } catch (rcvErr) {
                         console.error('receivable insert error:', rcvErr.message);
                         return res.status(500).json({ error: `Sale recorded but failed to create credit receivable: ${rcvErr.message}` });
@@ -260,7 +274,7 @@ router.post("/sales/complete", async (req, res) => {
                 if (creditSplit || payment_method === 'CREDIT') {
                   const creditAmt = creditSplit ? creditSplit.amount : total_amount;
                   const desc = saleItems.map(i => i.item_name).slice(0, 3).join(', ');
-                  recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by)
+                  recordCreditReceivable(shop_id, customer_id, sale_id, creditAmt, credit_down_payment, credit_due_date, desc, created_by, business_date)
                     .then(() => res.json({ sale_id, total_amount, item_count: saleItems.length, status: "success", message: "Sale completed successfully" }))
                     .catch((rcvErr) => {
                       console.error('receivable insert error:', rcvErr.message);

@@ -175,6 +175,25 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
       .catch(() => setBales([]))
   }
 
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      const openStaffIds = Object.keys(baleDeduct).filter(id => baleDeduct[id]?.open);
+      if (openStaffIds.length === 0) return;
+      const clickedInside = event.target.closest('.ss-bale-panel') || event.target.closest('.ss-bale-badge');
+      if (!clickedInside) {
+        setBaleDeduct(prev => {
+          const next = { ...prev };
+          openStaffIds.forEach(id => {
+            next[id] = { ...next[id], open: false };
+          });
+          return next;
+        });
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [baleDeduct]);
+
   async function submitBaleDeduct(staffId) {
     const state = baleDeduct[staffId] || {}
     const amt = parseFloat(state.amount)
@@ -381,7 +400,17 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                               {cardBds.open && (
                                 <div className="ss-bale-panel">
                                   <input className="ss-bale-input" type="number" min="1" step="1" value={cardBds.amount}
-                                    onKeyDown={allowOnlyDecimals}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault(); e.stopPropagation();
+                                        submitBaleDeduct(tireman.staff_id);
+                                      } else if (e.key === 'Escape') {
+                                        e.preventDefault(); e.stopPropagation();
+                                        setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...cardBds, open: false } }));
+                                      } else {
+                                        allowOnlyDecimals(e);
+                                      }
+                                    }}
                                     onChange={e => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...cardBds, amount: e.target.value } }))} />
                                   <button className="ss-bale-confirm" disabled={cardBds.saving} onClick={() => submitBaleDeduct(tireman.staff_id)}>
                                     {cardBds.saving ? '…' : '✓'}
@@ -606,16 +635,26 @@ export default function ServicesSummaryPage({ shopId, isShopClosed, userRole, cu
                         if (!modalBale) return null
                         const bds = baleDeduct[tireman.staff_id] || { open: false, amount: '100', saving: false }
                         return (
-                          <div className="ss-bale-modal-row">
+                          <div className="ss-bale-modal-row" onClick={e => e.stopPropagation()}>
                             {canDeductBale ? (
                               <>
                                 <button className="ss-bale-badge" onClick={() => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, open: !bds.open, amount: bds.amount || '100' } }))}>
                                   📒 Bale {fmt(modalBale.balance_amount)}
                                 </button>
                                 {bds.open && (
-                                  <div className="ss-bale-panel">
+                                  <div className="ss-bale-panel" onClick={e => e.stopPropagation()}>
                                     <input className="ss-bale-input" type="number" min="1" step="1" value={bds.amount}
-                                      onKeyDown={allowOnlyDecimals}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault(); e.stopPropagation();
+                                          submitBaleDeduct(tireman.staff_id);
+                                        } else if (e.key === 'Escape') {
+                                          e.preventDefault(); e.stopPropagation();
+                                          setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, open: false } }));
+                                        } else {
+                                          allowOnlyDecimals(e);
+                                        }
+                                      }}
                                       onChange={e => setBaleDeduct(prev => ({ ...prev, [tireman.staff_id]: { ...bds, amount: e.target.value } }))} />
                                     <button className="ss-bale-confirm" disabled={bds.saving} onClick={() => submitBaleDeduct(tireman.staff_id)}>
                                       {bds.saving ? '…' : '✓ Deduct'}

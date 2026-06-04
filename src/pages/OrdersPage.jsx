@@ -4095,6 +4095,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
                 dot_number:
                   (ov.dot_number ?? ri.dot_number ?? "").toString().trim() ||
                   null,
+                design:
+                  ov.design !== undefined
+                    ? ov.design
+                    : ri.design || null,
               };
             }),
             not_received_items: (orderDetails.items || [])
@@ -5894,6 +5898,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   /\d+\/\d+[Rr]\d+/.test(item.size || "") ||
                   (item.item_name || "").toLowerCase().includes("tire");
                 const dispDot = ov.dot_number ?? item.dot_number ?? "";
+                const dispDesign = ov.design ?? item.design ?? "";
                 return (
                   <div
                     key={item.order_item_id}
@@ -6097,6 +6102,43 @@ export default function OrdersPage({ shopId, onRefresh }) {
                                 Required
                               </div>
                             )}
+                          </div>
+                        )}
+                        {isTire && (
+                          <div style={{ flex: 1 }}>
+                            <label
+                              style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.06em",
+                                color: "var(--th-text-dim)",
+                                display: "block",
+                                marginBottom: "0.25rem",
+                                minHeight: "1.35rem",
+                              }}
+                            >
+                              Design
+                            </label>
+                            <input
+                              className="ord-input"
+                              type="text"
+                              placeholder="e.g. Premio ARZ1"
+                              value={dispDesign}
+                              onChange={(e) =>
+                                setReceiveOverrides((prev) => ({
+                                  ...prev,
+                                  [item.order_item_id]: {
+                                    ...prev[item.order_item_id],
+                                    design: e.target.value,
+                                  },
+                                }))
+                              }
+                              style={{
+                                fontSize: "0.88rem",
+                                width: "100%",
+                              }}
+                            />
                           </div>
                         )}
                       </div>

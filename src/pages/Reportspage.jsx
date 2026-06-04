@@ -6,6 +6,7 @@ import DataTable from '../components/DataTable'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
 import { ChartThemeProvider, RevenueDonutChart } from '../components/ChartWrapper'
+import { BarChart } from '@mui/x-charts/BarChart'
 
 /* ─────────────────────────────────────────────
    UTILITIES
@@ -622,6 +623,10 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   const digitalTotal = gcashTotal + bpiTotal + bdoTotal + cardTotal + bankTotal + checkTotal
   const creditTotal = getMethodTotal('CREDIT')
 
+  const totalAfterHours = (cashPool.salesCashToday !== undefined)
+    ? ((cashPool.salesCashAfterHours || 0) + (cashPool.salesDigitalAfterHours || 0) + (cashPool.salesCreditAfterHours || 0))
+    : 0;
+
   const typeColors = {
     SALE: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     SERVICE: 'bg-sky-500/10 text-sky-500 border-sky-500/20',
@@ -639,7 +644,19 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
   }
 
   const txnCols = [
-    { key: 'timestamp', label: 'Time', width: '80px', render: t => new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+    {
+      key: 'timestamp',
+      label: 'Time',
+      width: '95px',
+      render: t => (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {t.isAfterHours === 1 && (
+            <span title="After Hours Yesterday" style={{ cursor: 'help' }}>🌙</span>
+          )}
+        </span>
+      )
+    },
     { key: 'type', label: 'Type', width: '100px', align: 'center', render: t => <span className={`px-2 py-0.5 text-[0.6rem] font-black uppercase rounded border ${typeColors[t.type] || 'bg-gray-500/10 text-gray-500 border-gray-500/20'}`}>{t.type.replace('_', ' ')}</span> },
     {
       key: 'id', label: 'Reference', width: '120px',
@@ -651,7 +668,30 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
         return <span style={{ color: 'var(--th-text-faint)', fontSize: '0.72rem' }}>—</span>
       }
     },
-    { key: 'customerName', label: 'Description', render: t => t.customerName || (t.type === 'SALE' || t.type === 'SERVICE' ? 'Walk-in' : 'General') },
+    {
+      key: 'customerName',
+      label: 'Description',
+      render: t => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span>{t.customerName || (t.type === 'SALE' || t.type === 'SERVICE' ? 'Walk-in' : 'General')}</span>
+          {t.isAfterHours === 1 && (
+            <span style={{
+              fontSize: '0.55rem',
+              fontWeight: 800,
+              background: 'var(--th-amber-bg)',
+              color: 'var(--th-amber)',
+              border: '1px solid var(--th-amber)',
+              padding: '0.1rem 0.35rem',
+              borderRadius: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}>
+              After Hours
+            </span>
+          )}
+        </div>
+      )
+    },
     { key: 'paymentMethod', label: 'Method', align: 'center', render: t => <span className="px-2 py-0.5 text-[0.65rem] font-bold rounded bg-gray-500/10 border border-gray-500/20">{t.paymentMethod}</span> },
     {
       key: 'amount', label: 'Amount', align: 'right', render: t => {
@@ -675,6 +715,34 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
           {isClosed && <span className="rpt-badge" style={{ background: 'var(--th-amber-bg)', color: 'var(--th-amber)', border: '1px solid var(--th-amber)' }}>Closed</span>}
         </div>
       </div>
+
+      {totalAfterHours > 0 && (
+        <div style={{
+          padding: '1rem',
+          background: 'rgba(245, 158, 11, 0.05)',
+          borderRadius: '12px',
+          border: '1px solid rgba(245, 158, 11, 0.2)',
+          display: 'flex',
+          gap: '0.75rem',
+          alignItems: 'flex-start',
+          marginBottom: '0.5rem',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <span style={{ fontSize: '1.25rem', lineHeight: '1.25rem' }}>🌙</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ fontWeight: 800, color: 'var(--th-amber)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              After-Hours Sales Detected (Yesterday Night): {currency(totalAfterHours)}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--th-text-dim)', lineHeight: '1.4' }}>
+              These transactions were recorded after yesterday's close and are business-dated for today.
+              {cashPool.salesCashAfterHours > 0 && (
+                <> If the physical cash of <strong>{currency(cashPool.salesCashAfterHours)}</strong> was removed from the register last night, it will not be present in today's physical opening drawer.</>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── KPI rows ── */}
       <div className="th-section-label">Financial Summary</div>
@@ -795,14 +863,39 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
             {showCashBreakdown && (
               <div style={{ margin: '0 0 0.25rem', padding: '0.65rem 0.75rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 {[
-                  kpis.grossSales > 0 && { label: 'Gross Sales', value: kpis.grossSales, sign: '+', color: 'var(--th-emerald)' },
+                  ...(cashPool.salesCashToday !== undefined ? [
+                    ((cashPool.salesCashToday + cashPool.salesDigitalToday + cashPool.salesCreditToday) > 0) && {
+                      label: 'Gross Sales (Active Day)',
+                      value: (cashPool.salesCashToday + cashPool.salesDigitalToday + cashPool.salesCreditToday),
+                      sign: '+',
+                      color: 'var(--th-emerald)'
+                    },
+                    ((cashPool.salesCashAfterHours + cashPool.salesDigitalAfterHours + cashPool.salesCreditAfterHours) > 0) && {
+                      label: 'Gross Sales (After-Hours Yesterday)',
+                      value: (cashPool.salesCashAfterHours + cashPool.salesDigitalAfterHours + cashPool.salesCreditAfterHours),
+                      sign: '+',
+                      color: 'var(--th-amber)'
+                    }
+                  ] : [
+                    kpis.grossSales > 0 && { label: 'Gross Sales', value: kpis.grossSales, sign: '+', color: 'var(--th-emerald)' }
+                  ]),
                   kpis.serviceIncome > 0 && { label: 'Net Services', value: kpis.serviceIncome, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualCashIn > 0 && { label: 'Manual Cash In', value: cashPool.manualCashIn, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualGcashIn > 0 && { label: 'GCash In', value: cashPool.manualGcashIn, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.collectionsTotal > 0 && { label: 'Receivable Collections', value: cashPool.collectionsTotal, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.baleRepaymentsTotal > 0 && { label: 'Bale Repayments', value: cashPool.baleRepaymentsTotal, sign: '+', color: 'var(--th-emerald)' },
-                  cashPool.digitalFromSales > 0 && { label: 'Non-Cash Sales (GCash/Card)', value: cashPool.digitalFromSales, sign: '−', color: 'var(--th-rose)' },
-                  cashPool.creditFromSales > 0 && { label: 'Credit Sales (Utang)', value: cashPool.creditFromSales, sign: '−', color: 'var(--th-rose)' },
+                  ...(cashPool.salesCashToday !== undefined ? [
+                    cashPool.salesDigitalToday > 0 && { label: 'Non-Cash Sales (Active Day)', value: cashPool.salesDigitalToday, sign: '−', color: 'var(--th-rose)' },
+                    cashPool.salesDigitalAfterHours > 0 && { label: 'Non-Cash Sales (After-Hours)', value: cashPool.salesDigitalAfterHours, sign: '−', color: 'var(--th-rose)' }
+                  ] : [
+                    cashPool.digitalFromSales > 0 && { label: 'Non-Cash Sales (GCash/Card)', value: cashPool.digitalFromSales, sign: '−', color: 'var(--th-rose)' }
+                  ]),
+                  ...(cashPool.salesCashToday !== undefined ? [
+                    cashPool.salesCreditToday > 0 && { label: 'Credit Sales (Active Day)', value: cashPool.salesCreditToday, sign: '−', color: 'var(--th-rose)' },
+                    cashPool.salesCreditAfterHours > 0 && { label: 'Credit Sales (After-Hours)', value: cashPool.salesCreditAfterHours, sign: '−', color: 'var(--th-rose)' }
+                  ] : [
+                    cashPool.creditFromSales > 0 && { label: 'Credit Sales (Utang)', value: cashPool.creditFromSales, sign: '−', color: 'var(--th-rose)' }
+                  ]),
                   cashPool.manualGcashOut > 0 && { label: 'GCash Out', value: cashPool.manualGcashOut, sign: '−', color: 'var(--th-rose)' },
                   cashPool.purchasesDeducted > 0 && { label: 'Purchases', value: cashPool.purchasesDeducted, sign: '−', color: 'var(--th-rose)' },
                   cashPool.commissionsDeducted > 0 && { label: 'Commissions', value: cashPool.commissionsDeducted, sign: '−', color: 'var(--th-rose)' },
@@ -819,6 +912,17 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                   <span style={{ color: 'var(--th-text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>=  Cash on Hand</span>
                   <span style={{ fontWeight: 900, color: 'var(--th-emerald)', fontVariantNumeric: 'tabular-nums' }}>{currency(cashOnHand)}</span>
                 </div>
+                {cashPool.salesCashAfterHours > 0 && (
+                  <div style={{ borderTop: '1px solid var(--th-border)', marginTop: '0.4rem', paddingTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--th-text-dim)', fontStyle: 'italic' }}>Expected Drawer (Active Day)</span>
+                      <span style={{ fontWeight: 800, color: 'var(--th-emerald)', fontVariantNumeric: 'tabular-nums' }}>{currency(Math.max(0, cashOnHand - cashPool.salesCashAfterHours))}</span>
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--th-text-faint)', fontStyle: 'italic', textAlign: 'right' }}>
+                      (Excludes yesterday's after-hours cash: {currency(cashPool.salesCashAfterHours)})
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <div className="rpt-recon-row" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowDigitalBreakdown(v => !v)}>

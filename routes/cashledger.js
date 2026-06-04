@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { db }  = require('../Database');
 const { v4: uuidv4 } = require('uuid');
-const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD } = require('../lib/businessDate');
+const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD, toLocalYYYYMMDD } = require('../lib/businessDate');
 
 const VALID_TYPES = ['CASH_IN', 'CASH_OUT', 'GCASH_IN', 'GCASH_OUT', 'CARD_IN', 'CARD_OUT', 'BANK_IN', 'BANK_OUT'];
 
@@ -29,13 +29,13 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
   const endDate = req.query.endDate || today;
 
   try {
-    const [manual, sales, expenses, receivables, payables] = await Promise.all([
+    const [manual, sales, expenses, receivables, payables, bales, commissions] = await Promise.all([
       // 1. Manual cash_ledger entries
       q(`SELECT * FROM cash_ledger WHERE shop_id = ? AND is_void = 0 AND entry_date BETWEEN ? AND ?
          ORDER BY entry_date, created_at`, [shop_id, startDate, endDate]),
 
-      // 2. Sales (with items summary)
-      q(`SELECT sh.sale_id, DATE(sh.sale_datetime, 'localtime') AS sale_date, TIME(sh.sale_datetime, 'localtime') AS sale_time,
+      // 2. Sales (with items summary) - filtered by business_date
+      q(`SELECT sh.sale_id, sh.business_date AS sale_date, TIME(sh.sale_datetime, 'localtime') AS sale_time,
             sh.total_amount, sh.payment_method, sh.payment_splits, sh.credit_down_payment,
             sh.invoice_number, sh.created_by,
             GROUP_CONCAT(DISTINCT si.item_name) AS item_names,
@@ -43,7 +43,7 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
          FROM sale_header sh
          LEFT JOIN sale_items si ON sh.sale_id = si.sale_id
          LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
-         WHERE sh.shop_id = ? AND DATE(sh.sale_datetime, 'localtime') BETWEEN ? AND ? AND sh.is_void = 0
+         WHERE sh.shop_id = ? AND sh.business_date BETWEEN ? AND ? AND sh.is_void = 0
          GROUP BY sh.sale_id`, [shop_id, startDate, endDate]),
 
       // 3. Expenses
@@ -53,19 +53,40 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
         [shop_id, startDate, endDate]),
 
       // 4. Receivable payments (credit collections) — exclude opening balance down payment rows
-      q(`SELECT rp.*, ar.description AS receivable_desc, cm.customer_name
+      q(`SELECT rp.*, TIME(rp.payment_date, 'localtime') AS payment_time, ar.description AS receivable_desc, cm.customer_name
          FROM receivable_payments rp
          JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
          LEFT JOIN customer_master cm ON ar.customer_id = cm.customer_id
-         WHERE rp.shop_id = ? AND ar.status != 'VOIDED' AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0) AND rp.payment_date BETWEEN ? AND ?`,
+         WHERE rp.shop_id = ? AND ar.status != 'VOIDED' AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)
+           AND DATE(rp.payment_date, 'localtime') BETWEEN ? AND ?`,
         [shop_id, startDate, endDate]),
 
       // 5. Payable payments (supplier payments)
-      q(`SELECT pp.*, ap.description AS payable_desc, ap.payee_name, sm.supplier_name
+      q(`SELECT pp.*, TIME(pp.payment_date, 'localtime') AS payment_time, ap.description AS payable_desc, ap.payee_name, sm.supplier_name
          FROM payable_payments pp
          JOIN accounts_payable ap ON pp.payable_id = ap.payable_id
          LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
-         WHERE pp.shop_id = ? AND ap.status != 'VOIDED' AND pp.payment_date BETWEEN ? AND ?`,
+         WHERE pp.shop_id = ? AND ap.status != 'VOIDED'
+           AND DATE(pp.payment_date, 'localtime') BETWEEN ? AND ?`,
+        [shop_id, startDate, endDate]),
+
+      // 6. Bale payments (staff repayments)
+      q(`SELECT bp.*, TIME(bp.payment_date, 'localtime') AS payment_time, sm.full_name as staff_name
+         FROM bale_payments bp
+         JOIN bale_book bb ON bp.bale_id = bb.bale_id
+         LEFT JOIN staff_master sm ON bb.staff_id = sm.staff_id
+         WHERE bb.shop_id = ? AND COALESCE(bp.is_void, 0) = 0
+           AND DATE(bp.payment_date, 'localtime') BETWEEN ? AND ?`,
+        [shop_id, startDate, endDate]),
+
+      // 7. Commissions (staff payouts) - filtered by business_date
+      q(`SELECT ll.log_id, ll.business_date, 
+            CASE WHEN ll.commission_amount = 0 THEN ll.total_amount / 2.0 ELSE ll.commission_amount END as commission_paid,
+            st.full_name as staff_name, sh.invoice_number
+         FROM labor_log ll
+         JOIN staff_master st ON ll.staff_id = st.staff_id
+         LEFT JOIN sale_header sh ON ll.sale_id = sh.sale_id
+         WHERE ll.shop_id = ? AND ll.is_void = 0 AND ll.business_date BETWEEN ? AND ?`,
         [shop_id, startDate, endDate]),
     ]);
 
@@ -122,27 +143,9 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
             reference_id: s.sale_id, editable: false,
           });
         });
-        if (s.credit_down_payment > 0) {
-          unified.push({
-            id: `${s.sale_id}-DP`, date: s.sale_date, time: s.sale_time || '',
-            source: 'SALE', source_label: 'Sale (Down Payment)',
-            payment_method: 'CASH', direction: 'IN',
-            amount: s.credit_down_payment, description: `Down Payment: ${desc}${cust}`,
-            notes: null, recorded_by: s.created_by,
-            reference_id: s.sale_id, editable: false,
-          });
-        }
       } else if (s.payment_method === 'CREDIT') {
-        if (s.credit_down_payment > 0) {
-          unified.push({
-            id: `${s.sale_id}-DP`, date: s.sale_date, time: s.sale_time || '',
-            source: 'SALE', source_label: 'Sale (Down Payment)',
-            payment_method: 'CASH', direction: 'IN',
-            amount: s.credit_down_payment, description: `Down Payment: ${desc}${cust}`,
-            notes: null, recorded_by: s.created_by,
-            reference_id: s.sale_id, editable: false,
-          });
-        }
+        // Down payment is recorded under receivable_payments and handled there.
+        // The credit sale itself is not cash movement.
       } else {
         unified.push({
           id: s.sale_id, date: s.sale_date, time: s.sale_time || '',
@@ -170,12 +173,15 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
 
     // ── Receivable payments (credit collections from customers) ──
     receivables.forEach(rp => {
+      const isDownPayment = rp.notes === 'Down payment at POS';
       unified.push({
-        id: rp.payment_id, date: rp.payment_date, time: '',
-        source: 'RECEIVABLE', source_label: 'Credit Collection',
+        id: rp.payment_id, date: toLocalYYYYMMDD(rp.payment_date), time: rp.payment_time ? rp.payment_time.slice(0, 5) : '',
+        source: 'RECEIVABLE', source_label: isDownPayment ? 'Sale (Down Payment)' : 'Credit Collection',
         payment_method: normalizeMethod(rp.payment_method), direction: 'IN',
         amount: rp.amount,
-        description: `Collection: ${rp.receivable_desc || 'Payment'}${rp.customer_name ? ' · ' + rp.customer_name : ''}`,
+        description: isDownPayment 
+          ? `Down Payment: ${rp.receivable_desc || 'Payment'}${rp.customer_name ? ' · ' + rp.customer_name : ''}`
+          : `Collection: ${rp.receivable_desc || 'Payment'}${rp.customer_name ? ' · ' + rp.customer_name : ''}`,
         notes: rp.notes, recorded_by: rp.recorded_by,
         reference_id: rp.payment_id, editable: false,
       });
@@ -184,13 +190,39 @@ router.get('/cash-flow/:shop_id', async (req, res) => {
     // ── Payable payments (supplier payments) ──
     payables.forEach(pp => {
       unified.push({
-        id: pp.payment_id, date: pp.payment_date, time: '',
+        id: pp.payment_id, date: toLocalYYYYMMDD(pp.payment_date), time: pp.payment_time ? pp.payment_time.slice(0, 5) : '',
         source: 'PAYABLE', source_label: 'Supplier Payment',
         payment_method: normalizeMethod(pp.payment_method), direction: 'OUT',
         amount: pp.amount,
         description: `Supplier: ${pp.supplier_name || pp.payee_name || pp.payable_desc || 'Payment'}`,
         notes: pp.notes, recorded_by: pp.recorded_by,
         reference_id: pp.payment_id, editable: false,
+      });
+    });
+
+    // ── Bale repayments (staff repayments) ──
+    bales.forEach(bp => {
+      unified.push({
+        id: bp.payment_id, date: toLocalYYYYMMDD(bp.payment_date), time: bp.payment_time ? bp.payment_time.slice(0, 5) : '',
+        source: 'RECEIVABLE', source_label: 'Bale Repayment',
+        payment_method: normalizeMethod(bp.payment_method), direction: 'IN',
+        amount: bp.amount,
+        description: `Bale Repayment: ${bp.staff_name || 'Staff'}`,
+        notes: bp.notes, recorded_by: bp.recorded_by,
+        reference_id: bp.payment_id, editable: false,
+      });
+    });
+
+    // ── Commission payouts ──
+    commissions.forEach(c => {
+      unified.push({
+        id: c.log_id, date: c.business_date, time: '',
+        source: 'EXPENSE', source_label: 'Commission Payout',
+        payment_method: 'CASH', direction: 'OUT',
+        amount: c.commission_paid,
+        description: `Commission Payout: ${c.staff_name || 'Staff'}${c.invoice_number ? ` (Sale ${c.invoice_number})` : ''}`,
+        notes: null, recorded_by: 'SYSTEM',
+        reference_id: c.log_id, editable: false,
       });
     });
 

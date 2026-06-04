@@ -192,13 +192,25 @@ router.post("/receivables", (req, res) => {
   );
 });
 
-router.post("/receivables/:receivable_id/payment", (req, res) => {
+router.post("/receivables/:receivable_id/payment", async (req, res) => {
   const { v4: uuidv4 } = require("uuid");
   const { receivable_id } = req.params;
   const { shop_id, amount, payment_date, payment_method, notes, recorded_by } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ error: "Valid amount required" });
   const pay_id = `RPAY-${uuidv4()}`;
-  const pdate = payment_date || new Date().toISOString();
+  
+  const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD } = require("../lib/businessDate");
+  const systemToday = getLocalTodayYYYYMMDD();
+  let pdate = payment_date || new Date().toISOString();
+  if (pdate.startsWith(systemToday)) {
+    try {
+      const effectiveDate = await getEffectiveYYYYMMDD(shop_id);
+      pdate = effectiveDate + pdate.substring(10);
+    } catch (e) {
+      console.error("Failed to get effective business date for receivable payment:", e);
+    }
+  }
+
   db.run(
     `INSERT INTO receivable_payments (payment_id, receivable_id, shop_id, amount, payment_date, payment_method, notes, recorded_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -292,13 +304,25 @@ router.post("/bale", (req, res) => {
   );
 });
 
-router.post("/bale/:bale_id/payment", (req, res) => {
+router.post("/bale/:bale_id/payment", async (req, res) => {
   const { bale_id } = req.params;
   const { shop_id, amount, payment_date, payment_method, notes, recorded_by } = req.body;
   const amt = parseFloat(amount);
   if (!amt || amt <= 0) return res.status(400).json({ error: "Enter a valid payment amount." });
   const pay_id = `BPAY-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
-  const pdate = payment_date || new Date().toISOString();
+  
+  const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD } = require("../lib/businessDate");
+  const systemToday = getLocalTodayYYYYMMDD();
+  let pdate = payment_date || new Date().toISOString();
+  if (pdate.startsWith(systemToday)) {
+    try {
+      const effectiveDate = await getEffectiveYYYYMMDD(shop_id);
+      pdate = effectiveDate + pdate.substring(10);
+    } catch (e) {
+      console.error("Failed to get effective business date for bale payment:", e);
+    }
+  }
+
   db.run(
     `INSERT INTO bale_payments (payment_id, bale_id, shop_id, amount, payment_date, payment_method, notes, recorded_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -563,7 +587,7 @@ router.put("/payables/recurring-group/:group_id/from/:installment", (req, res) =
   );
 });
 
-router.post("/payables/:payable_id/payment", (req, res) => {
+router.post("/payables/:payable_id/payment", async (req, res) => {
   const { v4: uuidv4 } = require("uuid");
   const { payable_id } = req.params;
   const { shop_id, amount, payment_date, payment_method, notes, recorded_by,
@@ -571,7 +595,19 @@ router.post("/payables/:payable_id/payment", (req, res) => {
   const amt = parseFloat(amount);
   if (!amt || amt <= 0) return res.status(400).json({ error: "Valid amount required" });
   const pay_id = `PPAY-${uuidv4()}`;
-  const pdate = payment_date || new Date().toISOString();
+  
+  const { getEffectiveYYYYMMDD, getLocalTodayYYYYMMDD } = require("../lib/businessDate");
+  const systemToday = getLocalTodayYYYYMMDD();
+  let pdate = payment_date || new Date().toISOString();
+  if (pdate.startsWith(systemToday)) {
+    try {
+      const effectiveDate = await getEffectiveYYYYMMDD(shop_id);
+      pdate = effectiveDate + pdate.substring(10);
+    } catch (e) {
+      console.error("Failed to get effective business date for payable payment:", e);
+    }
+  }
+
   db.run(
     `INSERT INTO payable_payments (payment_id, payable_id, shop_id, amount, payment_date, payment_method,
       check_number, bank, check_date, release_date, check_status, notes, recorded_by, created_at)
