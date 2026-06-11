@@ -32,8 +32,8 @@ const ordCompact = (n) => {
 /* ── Status helpers ── */
 const STATUS_META = {
   ALL: { color: "var(--th-sky)", label: "All" },
-  PENDING: { color: "var(--th-amber)", label: "Pending" },
-  CONFIRMED: { color: "var(--th-sky)", label: "Confirmed" },
+  PENDING: { color: "var(--th-amber)", label: "TO ORDER" },
+  CONFIRMED: { color: "var(--th-sky)", label: "PLACED ORDER" },
   RECEIVED: { color: "var(--th-emerald)", label: "Received" },
   CANCELLED: { color: "var(--th-rose)", label: "Cancelled" },
 };
@@ -143,13 +143,13 @@ function DetailItem({ item, orderStatus }) {
     badgeLabel = isReceived ? "✓ Rcvd" : "✕ Not Rcvd";
   } else if (orderStatus === "CONFIRMED") {
     badgeClass = "CONFIRMED";
-    badgeLabel = "✓ Confirmed";
+    badgeLabel = "✓ Placed Order";
   } else if (orderStatus === "CANCELLED") {
     badgeClass = "CANCELLED";
     badgeLabel = "✕ Cancelled";
   } else {
     badgeClass = "PENDING";
-    badgeLabel = "Pending";
+    badgeLabel = "To Order";
   }
 
   const showAmounts =
@@ -3329,7 +3329,21 @@ export default function OrdersPage({ shopId, onRefresh }) {
   const [editSaving, setEditSaving] = React.useState(false);
   const [editAddSearch, setEditAddSearch] = React.useState("");
   const [editAddResults, setEditAddResults] = React.useState([]);
-  const [editAddPending, setEditAddPending] = React.useState([]); // new items to add
+  const [editAddPending, setEditAddPending] = React.useState([]); // existing-inventory items to add
+  const [editAddTab, setEditAddTab] = React.useState("search"); // "search" | "new"
+  const [editAddNewItems, setEditAddNewItems] = React.useState([]); // off-inventory new items to add
+  const [editAddNewItemForm, setEditAddNewItemForm] = React.useState({
+    brand: "", design: "", size: "", category: "",
+    unit_cost: "", selling_price: "", quantity: "1",
+    reorder_point: "0", supplier_id: "", dot_number: "",
+  });
+  const [editAddNewItemErr, setEditAddNewItemErr] = React.useState("");
+  const [editOrderBrand, setEditOrderBrand] = React.useState("");       // detected dominant brand
+  const [editOrderSupplierId, setEditOrderSupplierId] = React.useState(""); // detected dominant supplier
+  const [editBrandFilterLocked, setEditBrandFilterLocked] = React.useState(true); // brand chip on/off
+  const [editNewDesignSuggestions, setEditNewDesignSuggestions] = React.useState([]);
+  const [editNewSizeSuggestions, setEditNewSizeSuggestions] = React.useState([]);
+  const [editNewCategoryDetected, setEditNewCategoryDetected] = React.useState(false); // true when category was auto-set
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [supplierFilter, setSupplierFilter] = React.useState("");
   const [searchSuggestions, setSearchSuggestions] = React.useState([]);
@@ -3699,17 +3713,17 @@ export default function OrdersPage({ shopId, onRefresh }) {
       orderDetails?.items?.reduce((s, i) => s + (i.line_total || 0), 0) ??
       0;
     setPending({
-      title: `${newStatus === "CONFIRMED" ? "Confirm" : "Update"} Order?`,
+      title: `${newStatus === "CONFIRMED" ? "Place" : "Update"} Order?`,
       rows: [
         { label: "Order", value: orderId },
-        { label: "New Status", value: newStatus },
+        { label: "New Status", value: STATUS_META[newStatus]?.label || newStatus },
         {
           label: "Items",
           value: `${itemCount} item${itemCount !== 1 ? "s" : ""}`,
         },
         { label: "Amount", value: ordCurrency(amount) },
       ],
-      okLabel: newStatus === "CONFIRMED" ? "Confirm Order" : `Set ${newStatus}`,
+      okLabel: newStatus === "CONFIRMED" ? "Place Order" : `Set ${STATUS_META[newStatus]?.label || newStatus}`,
       danger: false,
       action: () => updateOrderStatus(orderId, newStatus),
     });
@@ -3746,7 +3760,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       title: "Cancel Order?",
       rows: [
         { label: "Order", value: orderId },
-        { label: "Status", value: order?.status || "—" },
+        { label: "Status", value: STATUS_META[order?.status]?.label || order?.status || "—" },
         {
           label: "Items",
           value: `${itemCount} item${itemCount !== 1 ? "s" : ""}`,
@@ -3789,7 +3803,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       title: "Delete Order?",
       rows: [
         { label: "Order", value: order.order_id },
-        { label: "Status", value: order.status },
+        { label: "Status", value: STATUS_META[order.status]?.label || order.status },
         { label: "Amount", value: ordCurrency(order.total_amount) },
         ...(isReceived ? [{ label: "⚠ Warning", value: "This order was received. Inventory will NOT be reversed." }] : []),
       ],
@@ -3981,21 +3995,60 @@ export default function OrdersPage({ shopId, onRefresh }) {
       quantity: i.quantity,
       unit_cost: i.unit_cost,
       dot_number: i.dot_number || "",
+      design: i.design || "",
       item_name: i.item_name || i.displaySize || "",
-      brand: i.brand, design: i.design, size: i.size,
+      brand: i.brand, size: i.size,
       received_status: i.received_status,
     })));
+
+    // ── Detect dominant brand & supplier from existing order items ──
+    const items = orderDetails.items || [];
+    const brandCount = {}, supplierCount = {};
+    for (const i of items) {
+      if (i.brand) brandCount[i.brand] = (brandCount[i.brand] || 0) + 1;
+      if (i.supplier_id) supplierCount[i.supplier_id] = (supplierCount[i.supplier_id] || 0) + 1;
+    }
+    const detectedBrand = Object.entries(brandCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    const detectedSupplierId = Object.entries(supplierCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    setEditOrderBrand(detectedBrand);
+    setEditOrderSupplierId(detectedSupplierId);
+    setEditBrandFilterLocked(!!detectedBrand); // enable chip only if a brand was found
+
     setEditAddPending([]);
+    setEditAddNewItems([]);
+    setEditAddTab("search");
+    setEditAddNewItemForm({
+      brand: detectedBrand,
+      design: "", size: "", category: "",
+      unit_cost: "", selling_price: "", quantity: "1",
+      reorder_point: "0",
+      supplier_id: detectedSupplierId,
+      dot_number: "",
+    });
+    setEditAddNewItemErr("");
     setEditAddSearch("");
     setEditAddResults([]);
+    setEditNewDesignSuggestions([]);
+    setEditNewSizeSuggestions([]);
+    setEditNewCategoryDetected(false);
     setEditMode(true);
   }
 
   function cancelEditMode() {
     setEditMode(false);
     setEditAddPending([]);
+    setEditAddNewItems([]);
+    setEditAddTab("search");
+    setEditAddNewItemForm({ brand: "", design: "", size: "", category: "", unit_cost: "", selling_price: "", quantity: "1", reorder_point: "0", supplier_id: "", dot_number: "" });
+    setEditAddNewItemErr("");
     setEditAddSearch("");
     setEditAddResults([]);
+    setEditOrderBrand("");
+    setEditOrderSupplierId("");
+    setEditBrandFilterLocked(false);
+    setEditNewDesignSuggestions([]);
+    setEditNewSizeSuggestions([]);
+    setEditNewCategoryDetected(false);
   }
 
   async function saveEditMode() {
@@ -4008,27 +4061,36 @@ export default function OrdersPage({ shopId, onRefresh }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order_notes: editNotes, delivery_receipt: editDR }),
       });
-      // 2. Save each item
+      // 2. Save each existing item (qty, cost, dot, design)
       for (const ei of editItems) {
         const orig = (orderDetails.items || []).find(i => i.order_item_id === ei.order_item_id);
         const changed = !orig ||
           String(ei.quantity) !== String(orig.quantity) ||
           String(ei.unit_cost) !== String(orig.unit_cost) ||
-          (ei.dot_number || "") !== (orig.dot_number || "");
+          (ei.dot_number || "") !== (orig.dot_number || "") ||
+          (ei.design || "").trim().toUpperCase() !== (orig.design || "").trim().toUpperCase();
         if (changed) {
           await apiFetch(`${API_URL}/orders/${orderDetails.order_id}/items/${ei.order_item_id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ quantity: ei.quantity, unit_cost: ei.unit_cost, dot_number: ei.dot_number }),
+            body: JSON.stringify({
+              quantity: ei.quantity,
+              unit_cost: ei.unit_cost,
+              dot_number: ei.dot_number,
+              design: ei.design,
+            }),
           });
         }
       }
-      // 3. Add new items
-      if (editAddPending.length > 0) {
+      // 3. Add inventory-search items + new off-inventory items in one call
+      if (editAddPending.length > 0 || editAddNewItems.length > 0) {
         await apiFetch(`${API_URL}/orders/${orderDetails.order_id}/items`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: editAddPending }),
+          body: JSON.stringify({
+            items: editAddPending,
+            new_items: editAddNewItems,
+          }),
         });
       }
       // Refresh
@@ -4037,9 +4099,10 @@ export default function OrdersPage({ shopId, onRefresh }) {
       setOrderDetails(fresh);
       setEditMode(false);
       setEditAddPending([]);
+      setEditAddNewItems([]);
       fetchOrders();
       fetchOrdersKpi();
-      setToast({ msg: "Order saved.", type: "success" });
+      setToast({ title: "Order saved.", sub: "Changes applied" });
     } catch (e) {
       setToast({ msg: e.message || "Save failed", type: "error" });
     } finally {
@@ -4047,13 +4110,25 @@ export default function OrdersPage({ shopId, onRefresh }) {
     }
   }
 
-  async function editAddItemSearch(q) {
+  async function editAddItemSearch(q, brandLockedOverride) {
     setEditAddSearch(q);
     if (!q || q.length < 2) { setEditAddResults([]); return; }
     try {
-      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}&perPage=20&groupByDot=true`);
+      const locked = brandLockedOverride !== undefined ? brandLockedOverride : editBrandFilterLocked;
+      const brandParam = (locked && editOrderBrand)
+        ? `&brand=${encodeURIComponent(editOrderBrand)}`
+        : "";
+      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}${brandParam}&perPage=30&groupByDot=true`);
       const d = await r.json();
-      setEditAddResults(Array.isArray(d) ? d : (d.data || []));
+      let results = Array.isArray(d) ? d : (d.data || []);
+      if (editOrderBrand && !locked) {
+        const ub = editOrderBrand.toUpperCase();
+        results = [
+          ...results.filter(x => (x.brand || "").toUpperCase() === ub),
+          ...results.filter(x => (x.brand || "").toUpperCase() !== ub),
+        ];
+      }
+      setEditAddResults(results);
     } catch { setEditAddResults([]); }
   }
 
@@ -4070,6 +4145,75 @@ export default function OrdersPage({ shopId, onRefresh }) {
     }]);
     setEditAddSearch("");
     setEditAddResults([]);
+  }
+
+  // Fetch design suggestions for the New Item form (filtered by detected brand)
+  async function fetchDesignSuggestions(q) {
+    if (!q || q.length < 1) { setEditNewDesignSuggestions([]); return; }
+    try {
+      const brand = editOrderBrand || editAddNewItemForm.brand;
+      const brandParam = brand ? `&brand=${encodeURIComponent(brand)}` : "";
+      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}${brandParam}&perPage=50&groupByDot=true`);
+      const d = await r.json();
+      const items = Array.isArray(d) ? d : (d.data || []);
+      const seen = new Set();
+      const designs = [];
+      for (const it of items) {
+        const design = (it.design || "").trim();
+        if (design && design.toUpperCase().includes(q.toUpperCase()) && !seen.has(design.toUpperCase())) {
+          seen.add(design.toUpperCase());
+          designs.push(design);
+        }
+      }
+      setEditNewDesignSuggestions(designs.slice(0, 8));
+    } catch { setEditNewDesignSuggestions([]); }
+  }
+
+  // Fetch size suggestions + auto-detect category
+  async function fetchSizeSuggestions(q, design) {
+    if (!q || q.length < 1) { setEditNewSizeSuggestions([]); return; }
+    try {
+      const brand = editOrderBrand || editAddNewItemForm.brand;
+      const brandParam = brand ? `&brand=${encodeURIComponent(brand)}` : "";
+      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(q)}${brandParam}&perPage=50&groupByDot=true`);
+      const d = await r.json();
+      const items = Array.isArray(d) ? d : (d.data || []);
+      const seen = new Set();
+      const sizes = [];
+      for (const it of items) {
+        const size = (it.size || "").trim();
+        if (size && size.toUpperCase().includes(q.toUpperCase()) && !seen.has(size.toUpperCase())) {
+          seen.add(size.toUpperCase());
+          sizes.push({ size, category: it.category || "" });
+        }
+      }
+      setEditNewSizeSuggestions(sizes.slice(0, 8));
+    } catch { setEditNewSizeSuggestions([]); }
+  }
+
+  // Auto-detect category from inventory for a given brand+size+design combination
+  async function autoDetectCategory(size, design) {
+    if (!size) return;
+    try {
+      const brand = editOrderBrand || editAddNewItemForm.brand;
+      const brandParam = brand ? `&brand=${encodeURIComponent(brand)}` : "";
+      const r = await apiFetch(`${API_URL}/items/${shopId}?q=${encodeURIComponent(size)}${brandParam}&perPage=50&groupByDot=true`);
+      const d = await r.json();
+      const items = Array.isArray(d) ? d : (d.data || []);
+      // Find best match: same brand + size, preferably same design
+      const normalSize = size.toUpperCase().replace(/\s/g, "");
+      const normalDesign = (design || "").toUpperCase();
+      const best = items.find(it =>
+        (it.size || "").toUpperCase().replace(/\s/g, "") === normalSize &&
+        (it.design || "").toUpperCase() === normalDesign
+      ) || items.find(it =>
+        (it.size || "").toUpperCase().replace(/\s/g, "") === normalSize
+      );
+      if (best && best.category) {
+        setEditAddNewItemForm(f => ({ ...f, category: best.category }));
+        setEditNewCategoryDetected(true);
+      }
+    } catch { /* silent */ }
   }
 
   async function receiveOrder() {
@@ -4482,7 +4626,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   </div>
                 </div>
                 <div className="th-kpi amber">
-                  <div className="th-kpi-label kpi-lbl">Pending</div>
+                  <div className="th-kpi-label kpi-lbl">TO ORDER</div>
                   <div className="th-kpi-value kpi-val">
                     {ordersKpi.pending}
                   </div>
@@ -4491,7 +4635,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   </div>
                 </div>
                 <div className="th-kpi violet">
-                  <div className="th-kpi-label kpi-lbl">Confirmed</div>
+                  <div className="th-kpi-label kpi-lbl">PLACED ORDER</div>
                   <div className="th-kpi-value kpi-val">
                     {ordersKpi.confirmed}
                   </div>
@@ -4868,7 +5012,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                         <td>
                           <span className={`ord-badge ${order.status}`}>
                             {STATUS_ICONS[order.status]}
-                            {order.status}
+                            {STATUS_META[order.status]?.label || order.status}
                           </span>
                           <div className="ord-date">
                             {new Date(order.created_at).toLocaleString(
@@ -4958,7 +5102,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                   <div className="ord-meta-label">Status</div>
                   <div>
                     <span className={`ord-badge ${orderDetails.status}`}>
-                      {STATUS_ICONS[orderDetails.status]} {orderDetails.status}
+                      {STATUS_ICONS[orderDetails.status]} {STATUS_META[orderDetails.status]?.label || orderDetails.status}
                     </span>
                   </div>
                 </div>
@@ -5255,100 +5399,390 @@ export default function OrdersPage({ shopId, onRefresh }) {
                     </div>
                   ))}
 
-                  {/* Add new items (PENDING/CONFIRMED only) */}
+                  {/* Add items section — PENDING/CONFIRMED only */}
                   {["PENDING", "CONFIRMED"].includes(orderDetails.status) && (
                     <div style={{ marginTop: "0.75rem" }}>
                       <div className="ord-section-title" style={{ marginBottom: "0.4rem" }}>+ Add Items</div>
-                      <div style={{ position: "relative" }}>
-                        <input
-                          type="text"
-                          placeholder="Search item to add..."
-                          value={editAddSearch}
-                          onChange={e => editAddItemSearch(e.target.value)}
-                          style={{
-                            width: "100%", boxSizing: "border-box",
-                            background: "var(--th-surface)", color: "var(--th-text)",
-                            border: "1px solid var(--th-border)", borderRadius: 6,
-                            padding: "0.4rem 0.6rem", fontSize: "0.85rem",
-                          }}
-                        />
-                        {editAddResults.length > 0 && (
-                          <div style={{
-                            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
-                            background: "var(--th-surface)", border: "1px solid var(--th-border)",
-                            borderRadius: 6, maxHeight: 200, overflowY: "auto",
+
+                      {/* Tab switcher */}
+                      <div style={{ display: "flex", borderBottom: "1px solid var(--th-border)", marginBottom: "0.55rem" }}>
+                        {[{ id: "search", label: "Inventory Search" }, { id: "new", label: "+ New Item" }].map(tab => (
+                          <button key={tab.id} onClick={() => setEditAddTab(tab.id)} style={{
+                            flex: 1, padding: "0.38rem 0.5rem", cursor: "pointer",
+                            fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
+                            fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.06em",
+                            border: "none", background: "transparent",
+                            borderBottom: editAddTab === tab.id ? "2px solid var(--th-orange, #f97316)" : "2px solid transparent",
+                            color: editAddTab === tab.id ? "var(--th-orange, #f97316)" : "var(--th-text-dim, #94a3b8)",
+                            transition: "color 0.15s, border-color 0.15s",
                           }}>
-                            {editAddResults.map(it => (
-                              <div key={it.item_id}
-                                onClick={() => editAddItemSelect(it)}
-                                style={{
-                                  padding: "0.45rem 0.65rem", cursor: "pointer",
-                                  fontSize: "0.83rem", borderBottom: "1px solid var(--th-border-soft)",
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = "var(--th-hover)"}
-                                onMouseLeave={e => e.currentTarget.style.background = ""}
-                              >
-                                <span style={{ fontWeight: 600 }}>{[it.brand, it.design, it.size].filter(Boolean).join(" ") || it.item_name}</span>
-                                {it.sku && <span style={{ color: "var(--th-text-muted)", marginLeft: "0.4rem", fontSize: "0.78rem" }}>{it.sku}</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                            {tab.label}
+                          </button>
+                        ))}
                       </div>
-                      {/* Staged new items */}
-                      {editAddPending.map((ap, idx) => (
-                        <div key={idx} style={{
-                          background: "var(--th-emerald-bg, #d1fae5)", border: "1px solid var(--th-emerald)",
-                          borderRadius: 8, padding: "0.5rem 0.75rem", marginTop: "0.4rem",
-                        }}>
-                          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--th-emerald)", marginBottom: "0.3rem" }}>
-                            + {ap.item_name}
-                          </div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.4rem", alignItems: "end" }}>
-                            <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
-                              Qty
-                              <input type="number" min="0.01" step="any" value={ap.quantity}
-                                onKeyDown={allowOnlyDecimals}
-                                onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
-                                style={{
-                                  display: "block", width: "100%", boxSizing: "border-box",
-                                  background: "var(--th-bg)", color: "var(--th-text)",
-                                  border: "1px solid var(--th-border)", borderRadius: 5,
-                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
-                                }} />
-                            </label>
-                            <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
-                              Unit Cost
-                              <input type="number" min="0" step="any" value={ap.unit_cost}
-                                onKeyDown={allowOnlyDecimals}
-                                onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
-                                style={{
-                                  display: "block", width: "100%", boxSizing: "border-box",
-                                  background: "var(--th-bg)", color: "var(--th-text)",
-                                  border: "1px solid var(--th-border)", borderRadius: 5,
-                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
-                                }} />
-                            </label>
-                            <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
-                              DOT #
-                              <input type="text" value={ap.dot_number}
-                                onKeyDown={allowOnlyDigits}
-                                onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
-                                placeholder="e.g. 2524"
-                                style={{
-                                  display: "block", width: "100%", boxSizing: "border-box",
-                                  background: "var(--th-bg)", color: "var(--th-text)",
-                                  border: "1px solid var(--th-border)", borderRadius: 5,
-                                  padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem"
-                                }} />
-                            </label>
-                            <button
-                              onClick={() => setEditAddPending(prev => prev.filter((_, i) => i !== idx))}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--th-rose)", fontSize: "1rem", paddingBottom: "0.1rem" }}
-                            >✕</button>
-                          </div>
+
+                      {/* ── Inventory Search tab ── */}
+                      {editAddTab === "search" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                          {/* Brand filter chip */}
+                          {editOrderBrand && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <div style={{
+                                display: "inline-flex", alignItems: "center", gap: "0.3rem",
+                                background: editBrandFilterLocked ? "rgba(56,189,248,0.12)" : "var(--th-surface)",
+                                border: `1px solid ${editBrandFilterLocked ? "var(--th-sky)" : "var(--th-border)"}`,
+                                borderRadius: 20, padding: "0.18rem 0.55rem",
+                                fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em",
+                                color: editBrandFilterLocked ? "var(--th-sky)" : "var(--th-text-muted)",
+                                cursor: "pointer", transition: "all 0.15s",
+                              }}
+                                onClick={() => {
+                                  const newLocked = !editBrandFilterLocked;
+                                  setEditBrandFilterLocked(newLocked);
+                                  setEditAddResults([]);
+                                  if (editAddSearch.length >= 2) {
+                                    editAddItemSearch(editAddSearch, newLocked);
+                                  }
+                                }}
+                                title={editBrandFilterLocked ? "Click to show all brands" : "Click to filter by this brand"}
+                              >
+                                {editBrandFilterLocked ? "⚡" : "○"} {editOrderBrand}
+                                {editBrandFilterLocked
+                                  ? <span style={{ marginLeft: 2, opacity: 0.7, fontSize: "0.68rem" }}>× clear</span>
+                                  : <span style={{ marginLeft: 2, opacity: 0.6, fontSize: "0.68rem" }}>filter</span>}
+                              </div>
+                              <span style={{ fontSize: "0.68rem", color: "var(--th-text-faint)", fontStyle: "italic" }}>
+                                {editBrandFilterLocked ? `Filtering to ${editOrderBrand}` : "All brands"}
+                              </span>
+                            </div>
+                          )}
+                          {/* Search input */}
+                          <input
+                            type="text"
+                            placeholder={editOrderBrand && editBrandFilterLocked
+                              ? `Search ${editOrderBrand} sizes...`
+                              : "Search item to add..."}
+                            value={editAddSearch}
+                            onChange={e => editAddItemSearch(e.target.value)}
+                            style={{
+                              width: "100%", boxSizing: "border-box",
+                              background: "var(--th-surface)", color: "var(--th-text)",
+                              border: `1px solid ${editBrandFilterLocked && editOrderBrand ? "var(--th-sky)" : "var(--th-border)"}`,
+                              borderRadius: 6,
+                              padding: "0.4rem 0.6rem", fontSize: "0.85rem",
+                            }}
+                          />
+                          {/* Results — rendered in normal flow (no absolute overlay) */}
+                          {editAddResults.length > 0 && (
+                            <div style={{
+                              background: "var(--th-surface-raised, var(--th-surface))",
+                              border: "1px solid var(--th-border)",
+                              borderRadius: 6, maxHeight: 180, overflowY: "auto",
+                              boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+                            }}>
+                              {editAddResults.map(it => (
+                                <div key={it.item_id}
+                                  onClick={() => editAddItemSelect(it)}
+                                  style={{ padding: "0.45rem 0.65rem", cursor: "pointer", fontSize: "0.83rem", borderBottom: "1px solid var(--th-border-soft)", display: "flex", flexDirection: "column", gap: "0.1rem" }}
+                                  onMouseEnter={e => e.currentTarget.style.background = "var(--th-hover)"}
+                                  onMouseLeave={e => e.currentTarget.style.background = ""}
+                                >
+                                  <span style={{ fontWeight: 700, color: "var(--th-text)" }}>
+                                    {[it.brand, it.design, it.size].filter(Boolean).join(" ") || it.item_name}
+                                  </span>
+                                  {it.sku && (
+                                    <span style={{ color: "var(--th-text-muted)", fontSize: "0.73rem" }}>{it.sku}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* Staged inventory items */}
+                          {editAddPending.map((ap, idx) => (
+                            <div key={idx} style={{
+                              background: "rgba(52,211,153,0.08)", border: "1px solid var(--th-emerald)",
+                              borderRadius: 8, padding: "0.5rem 0.75rem",
+                            }}>
+                              <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--th-emerald)", marginBottom: "0.3rem" }}>+ {ap.item_name}</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.4rem", alignItems: "end" }}>
+                                <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                                  Qty
+                                  <input type="number" min="0.01" step="any" value={ap.quantity}
+                                    onKeyDown={allowOnlyDecimals}
+                                    onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
+                                    style={{ display: "block", width: "100%", boxSizing: "border-box", background: "var(--th-bg)", color: "var(--th-text)", border: "1px solid var(--th-border)", borderRadius: 5, padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                                </label>
+                                <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                                  Unit Cost
+                                  <input type="number" min="0" step="any" value={ap.unit_cost}
+                                    onKeyDown={allowOnlyDecimals}
+                                    onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, unit_cost: e.target.value } : x))}
+                                    style={{ display: "block", width: "100%", boxSizing: "border-box", background: "var(--th-bg)", color: "var(--th-amber)", fontWeight: 700, border: "1px solid var(--th-border)", borderRadius: 5, padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                                </label>
+                                <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>
+                                  DOT #
+                                  <input type="text" value={ap.dot_number || ""}
+                                    onKeyDown={allowOnlyDigits}
+                                    onChange={e => setEditAddPending(prev => prev.map((x, i) => i === idx ? { ...x, dot_number: e.target.value } : x))}
+                                    placeholder="e.g. 2524"
+                                    style={{ display: "block", width: "100%", boxSizing: "border-box", background: "var(--th-bg)", color: "var(--th-text)", border: "1px solid var(--th-border)", borderRadius: 5, padding: "0.3rem 0.4rem", fontSize: "0.85rem", marginTop: "0.2rem" }} />
+                                </label>
+                                <button onClick={() => setEditAddPending(prev => prev.filter((_, i) => i !== idx))}
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--th-rose)", fontSize: "1rem", paddingBottom: "0.1rem" }}>✕</button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+
+                      {/* ── New Item tab ── */}
+                      {editAddTab === "new" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+
+                          {/* Row 1: Brand (locked) + Supplier (locked) */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
+                            <div>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700, display: "block", marginBottom: "0.2rem" }}>
+                                Brand <span style={{ fontSize: "0.6rem", color: "var(--th-sky)", fontWeight: 700, marginLeft: 4 }}>🔒 LOCKED</span>
+                              </label>
+                              <div style={{
+                                display: "flex", alignItems: "center",
+                                background: "rgba(56,189,248,0.08)",
+                                border: "1px solid var(--th-sky)", borderRadius: 6,
+                                padding: "0.38rem 0.6rem", fontSize: "0.88rem",
+                                fontWeight: 800, color: "var(--th-sky)",
+                                letterSpacing: "0.05em", minHeight: "2.1rem",
+                              }}>
+                                {editOrderBrand || editAddNewItemForm.brand || "—"}
+                              </div>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700, display: "block", marginBottom: "0.2rem" }}>
+                                Supplier <span style={{ fontSize: "0.6rem", color: "var(--th-sky)", fontWeight: 700, marginLeft: 4 }}>🔒 LOCKED</span>
+                              </label>
+                              <div style={{
+                                display: "flex", alignItems: "center",
+                                background: "rgba(56,189,248,0.08)",
+                                border: "1px solid var(--th-sky)", borderRadius: 6,
+                                padding: "0.38rem 0.6rem", fontSize: "0.82rem",
+                                fontWeight: 600, color: "var(--th-sky)",
+                                minHeight: "2.1rem", overflow: "hidden", whiteSpace: "nowrap",
+                              }}>
+                                {(suppliers || []).find(s => s.supplier_id === (editOrderSupplierId || editAddNewItemForm.supplier_id))?.supplier_name || "—"}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Row 2: Design (with autocomplete) + Size (with autocomplete) */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
+                            {/* Design field with suggestions */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700 }}>
+                                Design <span style={{ color: "var(--th-sky)" }}>*</span>
+                              </label>
+                              <input className="inv-input" placeholder="e.g. Premio Comfort"
+                                value={editAddNewItemForm.design}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setEditAddNewItemForm(f => ({ ...f, design: v }));
+                                  fetchDesignSuggestions(v);
+                                }}
+                                onBlur={() => setTimeout(() => setEditNewDesignSuggestions([]), 150)}
+                                autoComplete="off"
+                              />
+                              {editNewDesignSuggestions.length > 0 && (
+                                <div style={{
+                                  background: "var(--th-surface)", border: "1px solid var(--th-border)",
+                                  borderRadius: 6, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                                }}>
+                                  {editNewDesignSuggestions.map(d => (
+                                    <div key={d}
+                                      onMouseDown={() => {
+                                        setEditAddNewItemForm(f => ({ ...f, design: d }));
+                                        setEditNewDesignSuggestions([]);
+                                      }}
+                                      style={{ padding: "0.35rem 0.6rem", cursor: "pointer", fontSize: "0.82rem", fontWeight: 600, borderBottom: "1px solid var(--th-border-soft)" }}
+                                      onMouseEnter={e => e.currentTarget.style.background = "var(--th-hover)"}
+                                      onMouseLeave={e => e.currentTarget.style.background = ""}
+                                    >
+                                      {d}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Size field with suggestions */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700 }}>
+                                Size <span style={{ color: "var(--th-sky)" }}>*</span>
+                              </label>
+                              <input className="inv-input" placeholder="e.g. 185/60R15"
+                                value={editAddNewItemForm.size}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setEditAddNewItemForm(f => ({ ...f, size: v }));
+                                  fetchSizeSuggestions(v, editAddNewItemForm.design);
+                                }}
+                                onBlur={() => {
+                                  setTimeout(() => setEditNewSizeSuggestions([]), 150);
+                                  if (editAddNewItemForm.size) autoDetectCategory(editAddNewItemForm.size, editAddNewItemForm.design);
+                                }}
+                                autoComplete="off"
+                              />
+                              {editNewSizeSuggestions.length > 0 && (
+                                <div style={{
+                                  background: "var(--th-surface)", border: "1px solid var(--th-border)",
+                                  borderRadius: 6, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                                }}>
+                                  {editNewSizeSuggestions.map(({ size, category }) => (
+                                    <div key={size}
+                                      onMouseDown={() => {
+                                        setEditAddNewItemForm(f => ({ ...f, size }));
+                                        setEditNewSizeSuggestions([]);
+                                        autoDetectCategory(size, editAddNewItemForm.design);
+                                      }}
+                                      style={{ padding: "0.35rem 0.6rem", cursor: "pointer", fontSize: "0.82rem", borderBottom: "1px solid var(--th-border-soft)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                      onMouseEnter={e => e.currentTarget.style.background = "var(--th-hover)"}
+                                      onMouseLeave={e => e.currentTarget.style.background = ""}
+                                    >
+                                      <span style={{ fontWeight: 600 }}>{size}</span>
+                                      {category && <span style={{ fontSize: "0.68rem", color: "var(--th-text-muted)", marginLeft: 6 }}>{category}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Row 3: Category (auto-detected) + Qty */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 0.7fr", gap: "0.45rem" }}>
+                            <div>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem", marginBottom: "0.2rem" }}>
+                                Category <span style={{ color: "var(--th-sky)" }}>*</span>
+                                {editNewCategoryDetected && editAddNewItemForm.category && (
+                                  <span style={{ fontSize: "0.58rem", background: "rgba(52,211,153,0.15)", border: "1px solid #34d399", color: "#34d399", borderRadius: 10, padding: "0.05rem 0.3rem", fontWeight: 700 }}>
+                                    AUTO ✓
+                                  </span>
+                                )}
+                              </label>
+                              <select className="inv-input"
+                                value={editAddNewItemForm.category}
+                                onChange={e => {
+                                  setEditNewCategoryDetected(false);
+                                  setEditAddNewItemForm(f => ({ ...f, category: e.target.value }));
+                                }}
+                              >
+                                <option value="">— Select —</option>
+                                {["PCR","SUV","TBR","LT","MOTORCYCLE","TUBE","RECAP","FLAP","RECAPPING","VALVE","WHEEL WEIGHT","WHEEL BALANCING","ACCESSORIES","OTHER"].map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700, display: "block", marginBottom: "0.2rem" }}>Qty</label>
+                              <input className="inv-input" type="number" min="1" step="1" placeholder="1"
+                                value={editAddNewItemForm.quantity}
+                                onKeyDown={allowOnlyDigits}
+                                onChange={e => setEditAddNewItemForm(f => ({ ...f, quantity: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Row 4: Unit Cost + Selling Price */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
+                            <div>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700, display: "block", marginBottom: "0.2rem" }}>
+                                Unit Cost <span style={{ color: "var(--th-sky)" }}>*</span>
+                              </label>
+                              <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00"
+                                value={editAddNewItemForm.unit_cost}
+                                onKeyDown={allowOnlyDecimals}
+                                style={{ color: "var(--th-amber)", fontWeight: 700 }}
+                                onChange={e => setEditAddNewItemForm(f => ({ ...f, unit_cost: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--th-text-faint)", fontWeight: 700, display: "block", marginBottom: "0.2rem" }}>
+                                Selling Price <span style={{ color: "var(--th-sky)" }}>*</span>
+                              </label>
+                              <input className="inv-input" type="number" min="0" step="0.01" placeholder="0.00"
+                                value={editAddNewItemForm.selling_price}
+                                onKeyDown={allowOnlyDecimals}
+                                style={{ color: "var(--th-emerald)", fontWeight: 700 }}
+                                onChange={e => setEditAddNewItemForm(f => ({ ...f, selling_price: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          {editAddNewItemErr && (
+                            <div style={{ fontSize: "0.8rem", color: "var(--th-rose)", background: "rgba(251,113,133,0.1)", border: "1px solid var(--th-rose)", borderRadius: 6, padding: "0.3rem 0.55rem" }}>
+                              ⚠ {editAddNewItemErr}
+                            </div>
+                          )}
+                          <button
+                            className="inv-btn inv-btn-emerald"
+                            onClick={() => {
+                              setEditAddNewItemErr("");
+                              const f = editAddNewItemForm;
+                              const brand = (editOrderBrand || f.brand || "").trim();
+                              const supplierId = editOrderSupplierId || f.supplier_id;
+                              if (!brand) return setEditAddNewItemErr("Brand could not be detected");
+                              if (!supplierId) return setEditAddNewItemErr("Supplier could not be detected");
+                              if (!f.design.trim()) return setEditAddNewItemErr("Design is required");
+                              if (!f.size.trim()) return setEditAddNewItemErr("Size is required");
+                              if (!f.category) return setEditAddNewItemErr("Category is required");
+                              if (!f.unit_cost || parseFloat(f.unit_cost) <= 0) return setEditAddNewItemErr("Unit cost is required");
+                              if (!f.selling_price || parseFloat(f.selling_price) <= 0) return setEditAddNewItemErr("Selling price is required");
+                              const qty = parseInt(f.quantity) || 1;
+                              setEditAddNewItems(prev => [...prev, {
+                                brand,
+                                design: f.design.trim(),
+                                size: f.size.trim(),
+                                category: f.category,
+                                unit_cost: parseFloat(f.unit_cost),
+                                selling_price: parseFloat(f.selling_price),
+                                quantity: qty,
+                                reorder_point: parseInt(f.reorder_point) || 0,
+                                supplier_id: supplierId,
+                                dot_number: f.dot_number || "",
+                                _label: `${brand.toUpperCase()} ${f.design.trim()} ${f.size.trim()}`,
+                              }]);
+                              // Reset form — keep brand & supplier locked, clear design/size/etc.
+                              setEditAddNewItemForm({
+                                brand, design: "", size: "", category: "",
+                                unit_cost: "", selling_price: "", quantity: "1",
+                                reorder_point: "0", supplier_id: supplierId, dot_number: "",
+                              });
+                              setEditAddNewItemErr("");
+                              setEditNewDesignSuggestions([]);
+                              setEditNewSizeSuggestions([]);
+                              setEditNewCategoryDetected(false);
+                            }}
+                            style={{ fontWeight: 800, marginTop: "0.1rem" }}
+                          >
+                            ✦ Stage New Item
+                          </button>
+                          {editAddNewItems.map((ni, idx) => (
+                            <div key={idx} style={{
+                              background: "rgba(52,211,153,0.08)", border: "1px solid #34d399",
+                              borderRadius: 8, padding: "0.5rem 0.75rem",
+                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem",
+                            }}>
+                              <div>
+                                <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#34d399" }}>
+                                  <span style={{ fontSize: "0.62rem", background: "rgba(52,211,153,0.15)", border: "1px solid #34d399", color: "#34d399", borderRadius: 4, padding: "0.05rem 0.35rem", marginRight: "0.4rem", verticalAlign: "middle" }}>NEW</span>
+                                  {ni._label}
+                                </div>
+                                <div style={{ fontSize: "0.74rem", color: "var(--th-text-muted)", marginTop: "0.1rem" }}>
+                                  {ni.category} · Qty {ni.quantity} · Cost {ordCurrency(ni.unit_cost)}
+                                </div>
+                              </div>
+                              <button onClick={() => setEditAddNewItems(prev => prev.filter((_, i) => i !== idx))}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--th-rose)", fontSize: "1rem" }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -5394,7 +5828,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                           stageUpdateOrderStatus(orderDetails.order_id, "CONFIRMED")
                         }
                       >
-                        ✓ Confirm Order
+                        ✓ Place Order
                       </button>
                       <button
                         className="ord-btn ord-btn-rose"

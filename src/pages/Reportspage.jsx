@@ -879,7 +879,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                   ] : [
                     kpis.grossSales > 0 && { label: 'Gross Sales', value: kpis.grossSales, sign: '+', color: 'var(--th-emerald)' }
                   ]),
-                  kpis.serviceIncome > 0 && { label: 'Net Services', value: kpis.serviceIncome, sign: '+', color: 'var(--th-emerald)' },
+                  kpis.serviceIncome > 0 && { label: 'Services (after 50% tiremen pay)', value: kpis.serviceIncome, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualCashIn > 0 && { label: 'Manual Cash In', value: cashPool.manualCashIn, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.manualGcashIn > 0 && { label: 'GCash In', value: cashPool.manualGcashIn, sign: '+', color: 'var(--th-emerald)' },
                   cashPool.collectionsTotal > 0 && { label: 'Receivable Collections', value: cashPool.collectionsTotal, sign: '+', color: 'var(--th-emerald)' },
@@ -979,8 +979,13 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
                       <span style={{ color: 'var(--th-text-faint)' }}>
                         {txn.customerName || (txn.type === 'SALE' || txn.type === 'SERVICE' ? 'Walk-in' : 'General')}
                         <span style={{ fontSize: '0.65rem', color: 'var(--th-text-dim)', marginLeft: '0.3rem' }}>({txn.type})</span>
+                        {txn.creditAmount < txn.amount && (
+                          <span style={{ fontSize: '0.62rem', color: 'var(--th-text-dim)', marginLeft: '0.25rem' }}>
+                            [+{currency(txn.amount - txn.creditAmount)} DP]
+                          </span>
+                        )}
                       </span>
-                      <span style={{ fontWeight: 700, color: 'var(--th-amber)', fontVariantNumeric: 'tabular-nums' }}>+ {currency(txn.amount)}</span>
+                      <span style={{ fontWeight: 700, color: 'var(--th-amber)', fontVariantNumeric: 'tabular-nums' }}>+ {currency(txn.creditAmount ?? txn.amount)}</span>
                     </div>
                   ))
                 }

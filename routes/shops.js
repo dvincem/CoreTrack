@@ -150,4 +150,25 @@ router.get("/shops/:shop_id/closures", async (req, res) => {
   }
 });
 
+// ── PATCH /api/shops/:shop_id/auto-order-system ───────────────────────────────
+// Toggles the global auto-reorder trigger for the shop.
+// Body: { enabled: 0 | 1 }
+router.patch("/shops/:shop_id/auto-order-system", async (req, res) => {
+  const { shop_id } = req.params;
+  const { enabled } = req.body;
+  if (enabled === undefined || enabled === null) {
+    return res.status(400).json({ error: "enabled (0 or 1) is required" });
+  }
+  const flag = enabled ? 1 : 0;
+  try {
+    await dbRun(
+      `UPDATE shop_master SET auto_reorder_system_enabled = ? WHERE shop_id = ?`,
+      [flag, shop_id]
+    );
+    res.json({ shop_id, auto_reorder_system_enabled: flag });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

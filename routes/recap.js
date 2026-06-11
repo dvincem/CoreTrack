@@ -15,6 +15,7 @@ function normalizeOwnership(raw) {
 const RECAP_SELECT = `
     SELECT rjm.recap_job_id as job_id, rjm.shop_id, rjm.ownership_type, rjm.customer_id,
       cm.customer_name, rjm.supplier_id, sm.supplier_name, rjm.casing_description,
+      rjm.recap_type,
       rjm.current_status as status, rjm.intake_date, rjm.return_date, rjm.recap_cost,
       rjm.expected_selling_price, rjm.source_item_id, rjm.finished_item_id,
       rjm.claim_deadline_date, rjm.dot_number, rjm.forfeited_flag, rjm.forfeited_date,
@@ -124,7 +125,7 @@ router.get("/recap-jobs/:job_id/details", (req, res) => {
   db.get(
     `SELECT rjm.recap_job_id as job_id, rjm.shop_id, rjm.ownership_type, rjm.customer_id,
       cm.customer_name, cm.phone as customer_phone, rjm.supplier_id, sm.supplier_name, sm.phone as supplier_phone,
-      rjm.casing_description, rjm.current_status as status, rjm.intake_date, rjm.return_date,
+      rjm.casing_description, rjm.recap_type, rjm.current_status as status, rjm.intake_date, rjm.return_date,
       rjm.recap_cost, rjm.expected_selling_price, rjm.source_item_id, rjm.finished_item_id,
       rjm.claim_deadline_date, rjm.dot_number, rjm.forfeited_flag, rjm.forfeited_date, rjm.forfeited_by_staff_id,
       rjm.forfeiture_reason, rjm.related_sale_id, rjm.created_at, rjm.created_by
@@ -237,6 +238,72 @@ router.post("/recap-jobs", async (req, res) => {
         },
       );
     },
+  );
+});
+
+// ── PATCH: update editable fields on an INTAKE job (recap_type) ────────────────────
+router.patch("/recap-jobs/:job_id/details", async (req, res) => {
+  const { job_id } = req.params;
+  const { recap_type, performed_by_staff_id } = req.body;
+
+  const VALID_RECAP_TYPES = ['Fullcap', 'Topcap', 'Cold Process'];
+  if (recap_type !== undefined && recap_type !== null && !VALID_RECAP_TYPES.includes(recap_type)) {
+    return res.status(400).json({ error: `Invalid recap_type. Must be one of: ${VALID_RECAP_TYPES.join(', ')}` });
+  }
+
+  db.get(
+    `SELECT rjm.recap_job_id, rjm.shop_id, rjm.current_status, rjm.recap_type as old_recap_type,
+            rjm.finished_item_id, im.design as old_design, im.item_name as old_item_name,
+            im.brand, im.size
+     FROM recap_job_master rjm
+     LEFT JOIN item_master im ON rjm.finished_item_id = im.item_id
+     WHERE rjm.recap_job_id = ?`,
+    [job_id],
+    async (err, job) => {
+      if (err || !job) return res.status(404).json({ error: 'Job not found' });
+
+      const fields = [];
+      const params = [];
+      const changes = [];
+
+      if (recap_type !== undefined && recap_type !== job.old_recap_type) {
+        fields.push('recap_type = ?');
+        params.push(recap_type);
+        changes.push(`Recap type changed: ${job.old_recap_type || 'None'} → ${recap_type}`);
+
+        // Keep item_master.design in sync with recap_type
+        if (job.finished_item_id) {
+          const newDesign = recap_type ? recap_type.toUpperCase() : null;
+          db.run(
+            `UPDATE item_master SET design = ?,
+               item_name = TRIM(COALESCE(brand,'') || ' ' || COALESCE(?, design, '') || ' ' || COALESCE(size,''))
+             WHERE item_id = ?`,
+            [newDesign, newDesign, job.finished_item_id]
+          );
+        }
+      }
+
+      if (fields.length === 0) {
+        return res.json({ ok: true, message: 'Nothing to update' });
+      }
+
+      params.push(job_id);
+      db.run(
+        `UPDATE recap_job_master SET ${fields.join(', ')} WHERE recap_job_id = ?`,
+        params,
+        async function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          const now = await getEffectiveISO(job.shop_id);
+          const ledger_id = `RECAPL-${Date.now()}`;
+          db.run(
+            `INSERT INTO recap_job_ledger (recap_job_ledger_id, recap_job_id, shop_id, event_type, performed_by_staff_id, system_note, event_timestamp)
+             VALUES (?, ?, ?, 'FIELD_EDIT', ?, ?, ?)`,
+            [ledger_id, job_id, job.shop_id, performed_by_staff_id || null, changes.join('; '), now],
+            () => res.json({ ok: true, message: changes.join('; ') })
+          );
+        }
+      );
+    }
   );
 });
 

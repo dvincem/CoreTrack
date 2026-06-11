@@ -430,7 +430,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
   const [posLoaded, setPosLoaded] = React.useState(false);
   const [showMiscModal, setShowMiscModal] = React.useState(false);
   const [showConfirmModal, setShowConfirmModal] = React.useState(false);
-  const [miscForm, setMiscForm] = React.useState({ name: "", price: "", cost: "", qty: "1", category: "", newCategory: "" });
+  const [miscForm, setMiscForm] = React.useState({ name: "", price: "", cost: "", qty: "1", category: "MISC", newCategory: "" });
   const [toast, setToast] = React.useState(null); // { amount }
   const [dotModal, setDotModal] = React.useState(null); // array of DOT variants to pick from
   const [designModal, setDesignModal] = React.useState(null); // array of design_variants to pick from
@@ -833,7 +833,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
       wheel_balancing: false, balancing_quantity: 0,
       wheel_weights_item_id: null, wheel_weights_name: null, wheel_weights_qty: 0,
     }]);
-    setMiscForm({ name: "", price: "", cost: "", qty: "1", category: "", newCategory: "" });
+    setMiscForm({ name: "", price: "", cost: "", qty: "1", category: "MISC", newCategory: "" });
     setShowMiscModal(false);
   }
 
@@ -1227,12 +1227,37 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
           e.preventDefault();
           setShowMiscModal(false);
         }
+      } else if (e.ctrlKey && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+        // Ctrl+Letter — toggle tireman whose first name starts with that letter
+        // Only fire when no modal is open and focus isn't on an input/textarea/select
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (showMiscModal || dotModal || designModal || showClearCartModal || showConfirmModal || pendingDeleteDraft) return;
+        const letter = e.key.toUpperCase();
+        const matches = serviceStaff.filter(s => (s.full_name.split(' ')[0] || '').toUpperCase().startsWith(letter));
+        if (matches.length === 0) return;
+        e.preventDefault();
+        if (matches.length === 1) {
+          // Single match — simple toggle
+          const s = matches[0];
+          setSelectedTiremen(prev =>
+            prev.includes(s.staff_id) ? prev.filter(id => id !== s.staff_id) : [...prev, s.staff_id]
+          );
+        } else {
+          // Multiple matches — cycle: select next unselected, or deselect all if all selected
+          setSelectedTiremen(prev => {
+            const allSelected = matches.every(s => prev.includes(s.staff_id));
+            if (allSelected) return prev.filter(id => !matches.some(s => s.staff_id === id));
+            const nextUnselected = matches.find(s => !prev.includes(s.staff_id));
+            return nextUnselected ? [...prev, nextUnselected.staff_id] : prev;
+          });
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showConfirmModal, loading, selectedHandlerId, needsTireman, selectedTiremen, cart, paymentSplits, hasInvoice, invoiceNumber, saleNotes, showMiscModal, dotModal, designModal, showClearCartModal, pendingDeleteDraft, deleteDraft]);
+  }, [showConfirmModal, loading, selectedHandlerId, needsTireman, selectedTiremen, cart, paymentSplits, hasInvoice, invoiceNumber, saleNotes, showMiscModal, dotModal, designModal, showClearCartModal, pendingDeleteDraft, deleteDraft, serviceStaff]);
 
   return (
     <>
@@ -1392,7 +1417,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     <div style={{ fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--th-text-dim)", marginBottom: "0.25rem" }}>Item Name <span style={{ color: "var(--th-rose)" }}>*</span></div>
                     <input
                       autoFocus
-                      type="text" placeholder="e.g. Generic tire sealant"
+                      type="text" placeholder="e.g. GENERIC TIRE SEALANT"
                       value={miscForm.name}
                       onChange={e => setMiscForm(f => ({ ...f, name: e.target.value }))}
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: "var(--th-text-primary)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
@@ -1435,7 +1460,7 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                       onChange={e => setMiscForm(f => ({ ...f, category: e.target.value, newCategory: "" }))}
                       style={{ width: "100%", background: "var(--th-bg-input)", border: "1px solid var(--th-border-strong)", color: miscForm.category ? "var(--th-text-primary)" : "var(--th-text-faint)", padding: "0.45rem 0.65rem", borderRadius: 7, fontFamily: "var(--font-body)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }}
                     >
-                      <option value="">MISC</option>
+                      <option value="MISC">MISC</option>
                       {livePosCategories.map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
@@ -1787,13 +1812,13 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                   <input
                     type="text"
                     className="pos-staff-select"
-                    style={{ padding: "0.3rem 0.45rem", fontSize: "0.8rem", borderRadius: 7, width: "100%", boxSizing: "border-box" }}
+                    style={{ padding: "0.3rem 0.45rem", fontSize: "0.8rem", borderRadius: 7, width: "100%", boxSizing: "border-box", textTransform: "uppercase" }}
                     placeholder="Search Customer / Walk-in"
                     value={custSearch || (customers.find(c => c.customer_id === selectedCustomer)?.customer_name || "")}
                     onFocus={() => setShowCustDrop(true)}
                     onBlur={() => setTimeout(() => setShowCustDrop(false), 200)}
                     onChange={e => {
-                      setCustSearch(e.target.value);
+                      setCustSearch(e.target.value.toUpperCase());
                       if (!e.target.value) setSelectedCustomer("");
                     }}
                   />
@@ -2056,19 +2081,41 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.28rem" }}>
                 {serviceStaff.map((s) => {
                   const active = selectedTiremen.includes(s.staff_id);
+                  const firstName = s.full_name.split(' ')[0] || '';
+                  const letter = firstName[0]?.toUpperCase() || '';
+                  // Build tooltip: show hotkey only if this is the FIRST staff with that letter
+                  const isFirstWithLetter = serviceStaff.findIndex(x => (x.full_name.split(' ')[0]||'').toUpperCase().startsWith(letter)) === serviceStaff.indexOf(s);
+                  const hotkey = letter ? (isFirstWithLetter ? `Ctrl+${letter}` : `Ctrl+${letter} (cycle)`) : '';
                   return (
-                    <button key={s.staff_id} onClick={() =>
-                      setSelectedTiremen(prev => active ? prev.filter(id => id !== s.staff_id) : [...prev, s.staff_id])
-                    } style={{
-                      padding: "0.15rem 0.45rem",
-                      borderRadius: 20,
-                      border: `1px solid ${active ? "var(--th-orange)" : "var(--th-border-strong)"}`,
-                      background: active ? "var(--th-orange-bg)" : "var(--th-bg-input)",
-                      color: active ? "var(--th-orange)" : "var(--th-text-muted)",
-                      fontSize: "0.76rem", fontWeight: active ? 700 : 400,
-                      cursor: "pointer", transition: "all 0.15s",
-                    }}>
-                      {s.full_name.split(' ')[0]}
+                    <button
+                      key={s.staff_id}
+                      title={hotkey ? `${firstName} — ${hotkey}` : firstName}
+                      onClick={() =>
+                        setSelectedTiremen(prev => active ? prev.filter(id => id !== s.staff_id) : [...prev, s.staff_id])
+                      } style={{
+                        padding: "0.15rem 0.45rem",
+                        borderRadius: 20,
+                        border: `1px solid ${active ? "var(--th-orange)" : "var(--th-border-strong)"}`,
+                        background: active ? "var(--th-orange-bg)" : "var(--th-bg-input)",
+                        color: active ? "var(--th-orange)" : "var(--th-text-muted)",
+                        fontSize: "0.76rem", fontWeight: active ? 700 : 400,
+                        cursor: "pointer", transition: "all 0.15s",
+                        position: "relative",
+                      }}>
+                      {firstName}
+                      {letter && isFirstWithLetter && (
+                        <span style={{
+                          position: "absolute", top: "-5px", right: "-4px",
+                          background: active ? "var(--th-orange)" : "var(--th-text-faint)",
+                          color: "#fff", borderRadius: "50%",
+                          width: "11px", height: "11px",
+                          fontSize: "0.48rem", fontWeight: 900,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          lineHeight: 1, fontFamily: "'Barlow Condensed',sans-serif",
+                          letterSpacing: 0, pointerEvents: "none",
+                          boxShadow: "0 0 0 1.5px var(--th-bg-card)",
+                        }}>{letter}</span>
+                      )}
                     </button>
                   );
                 })}

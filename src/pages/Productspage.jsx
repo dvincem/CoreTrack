@@ -121,7 +121,8 @@ function Productspage({ shopId }) {
     brand: "",
     design: "",
     size: "",
-    dot_number: ""
+    dot_number: "",
+    reorder_point: ""
   });
   const [detailsSaving, setDetailsSaving] = React.useState(false);
   const [detailsVisible, setDetailsVisible] = React.useState(false);
@@ -134,6 +135,8 @@ function Productspage({ shopId }) {
   const [saving, setSaving] = React.useState(false);
   const [pending, setPending] = React.useState(null);
   const [pendingAdj, setPendingAdj] = React.useState(null);
+  const [autoOrderEnabled, setAutoOrderEnabled] = React.useState(true);
+  const [autoOrderToggling, setAutoOrderToggling] = React.useState(false);
 
   // Detail panel
   const [selected, setSelected] = React.useState(null);
@@ -158,6 +161,7 @@ function Productspage({ shopId }) {
         qty: parseInt(parts[3]) || 0,
         selling_price: parseFloat(parts[4]) || 0,
         unit_cost: parseFloat(parts[5]) || 0,
+        reorder_point: parts[6] !== undefined ? (parseInt(parts[6]) ?? 5) : 5,
       };
     }).filter(v => v.item_id);
   }
@@ -639,7 +643,15 @@ function Productspage({ shopId }) {
   function startEdit(e, item, field) {
     e.stopPropagation();
     setEditCell({ item_id: item.item_id, field });
-    setEditVal(field === "selling_price" ? item.selling_price : item.unit_cost);
+    setEditVal(
+      field === "selling_price"
+        ? item.selling_price
+        : field === "reorder_point"
+          ? (item.reorder_point ?? 5)
+          : field === "reorder_qty"
+            ? (item.reorder_qty ?? 4)
+            : item.unit_cost
+    );
   }
   async function commitEdit(item) {
     if (!editCell) return;
@@ -655,10 +667,21 @@ function Productspage({ shopId }) {
       ? variants.map(v => v.item_id)
       : [item.item_id];
 
-    const pathSuffix = editCell.field === "selling_price" ? "selling-price" : "unit-cost";
-    const body = editCell.field === "selling_price"
-      ? { selling_price: val }
-      : { unit_cost: val };
+    let pathSuffix = "";
+    let body = {};
+    if (editCell.field === "selling_price") {
+      pathSuffix = "selling-price";
+      body = { selling_price: val };
+    } else if (editCell.field === "reorder_point") {
+      pathSuffix = "reorder-point";
+      body = { reorder_point: Math.round(val) };
+    } else if (editCell.field === "reorder_qty") {
+      pathSuffix = "reorder-qty";
+      body = { reorder_qty: Math.max(1, Math.round(val)) };
+    } else {
+      pathSuffix = "unit-cost";
+      body = { unit_cost: val };
+    }
     try {
       // Update each real variant — for grouped items (multi-DOT) this applies the same price to all
       await Promise.all(realIds.map(id =>
@@ -679,6 +702,78 @@ function Productspage({ shopId }) {
     }
     setEditCell(null);
   }
+
+  async function toggleAutoReorder(e, item) {
+    e.stopPropagation();
+    const newVal = item.auto_reorder_enabled ? 0 : 1;
+    const variants = parseVariantInfo(item.variant_info);
+    // Use first real variant ID for the server-side eligibility check
+    const primaryId = variants.length > 0 ? variants[0].item_id : item.item_id;
+    try {
+      await apiFetch(`${API_URL}/items/${encodeURIComponent(primaryId)}/auto-reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newVal }),
+      });
+      refetchItems();
+    } catch (err) {
+      // Surface server validation messages (e.g., no supplier, excluded category)
+      const msg = err?.message || "Failed to toggle auto-reorder.";
+      toast(msg, "error");
+    }
+  }
+
+  // Fetch global auto-order system state from shop settings on mount
+  React.useEffect(() => {
+    if (!shopId) return;
+    apiFetch(`${API_URL}/shops`)
+      .then(r => r.json())
+      .then(shops => {
+        const shop = Array.isArray(shops) ? shops.find(s => s.shop_id === shopId) : null;
+        if (shop && shop.auto_reorder_system_enabled !== undefined) {
+          setAutoOrderEnabled(!!shop.auto_reorder_system_enabled);
+        }
+      })
+      .catch(() => {}); // silently ignore — default stays true
+  }, [shopId]);
+
+  async function toggleAutoOrderSystem() {
+    if (autoOrderToggling) return;
+    setAutoOrderToggling(true);
+    const newVal = autoOrderEnabled ? 0 : 1;
+    try {
+      await apiFetch(`${API_URL}/shops/${shopId}/auto-order-system`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newVal }),
+      });
+      setAutoOrderEnabled(!!newVal);
+
+      if (newVal === 1) {
+        // Immediately backfill: scan all items below maintaining qty and create/update orders
+        try {
+          const data = await apiFetch(`${API_URL}/orders/auto-generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shop_id: shopId, created_by: "AUTO" }),
+          });
+          const count = data.items_queued ?? 0;
+          toast(count > 0
+            ? `Auto-Order ON — ${count} item${count !== 1 ? "s" : ""} queued for restock`
+            : "Auto-Order ON — all items are sufficiently stocked"
+          );
+        } catch {
+          toast("Auto-Order enabled. (Order scan failed — will retry on next sale.)");
+        }
+      } else {
+        toast("Auto-Order system disabled");
+      }
+    } catch {
+      toast("Failed to update auto-order setting.", "error");
+    }
+    setAutoOrderToggling(false);
+  }
+
 
   async function updateModalPrice(newVal, variantId) {
     const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
@@ -726,6 +821,23 @@ function Productspage({ shopId }) {
     } catch { toast("Failed to update cost.", "error"); }
   }
 
+  async function updateModalReorderQty(newVal, variantId) {
+    const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
+    try {
+      await Promise.all(realIds.map(id =>
+        apiFetch(`${API_URL}/items/${encodeURIComponent(id)}/reorder-qty`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reorder_qty: Math.max(1, Math.round(newVal)) }),
+        })
+      ));
+      toast("Maintaining qty updated!");
+      refetchItems();
+      fetchKpi();
+      setSelected(prev => ({ ...prev, reorder_qty: newVal }));
+    } catch { toast("Failed to update maintaining qty.", "error"); }
+  }
+
 
   /* ── Detail panel ── */
   async function openDetail(item) {
@@ -745,12 +857,14 @@ function Productspage({ shopId }) {
     // For multi-design groups item.design is null — seed from first design in design_list
     const seedDesign = item.design ||
       (item.design_list ? item.design_list.split(',').filter(Boolean)[0] || "" : "");
+    const firstVar = variants[0];
     setDetailForm({
       category: item.category || "",
       brand: item.brand || "",
       design: seedDesign,
       size: item.size || "",
-      dot_number: item.dot_number || ""
+      dot_number: item.dot_number || "",
+      reorder_point: item.reorder_point !== undefined && item.reorder_point !== null ? item.reorder_point : (firstVar?.reorder_point ?? 5)
     });
     try {
       // For non-grouped tire items variant_info still holds the real item_id;
@@ -841,6 +955,7 @@ function Productspage({ shopId }) {
         category: data.category,
         size: data.size,
         dot_number: data.dot_number,
+        reorder_point: data.reorder_point,
         item_name: data.item_name,
       }));
     } catch (err) {
@@ -1324,6 +1439,69 @@ function Productspage({ shopId }) {
         );
       },
     },
+    {
+      key: "_auto_reorder",
+      label: "Auto-Order",
+      align: "center",
+      render: (item) => {
+        const BLOCKED_CATS = ['RECAP', 'RECAPPING', 'USED TIRE', 'MAG WHEELS', 'VALVE'];
+        const isBlockedCat = BLOCKED_CATS.includes((item.category || '').toUpperCase());
+        const hasNoSupplier = !item.supplier_id;
+        const isIneligible = isBlockedCat || hasNoSupplier;
+        const enabled = !!item.auto_reorder_enabled;
+        const isLow = item.current_quantity < (item.reorder_qty ?? 4);
+
+        const ineligibleReason = isBlockedCat
+          ? `Category "${item.category}" cannot auto-reorder`
+          : "No supplier — assign a supplier first";
+
+        if (isIneligible) {
+          return (
+            <span
+              title={ineligibleReason}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "0.3rem",
+                fontSize: "0.7rem", fontWeight: 600, color: "var(--th-muted)",
+                opacity: 0.5, cursor: "not-allowed",
+                padding: "0.2rem 0.55rem",
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              N/A
+            </span>
+          );
+        }
+
+        return (
+          <button
+            onClick={(e) => toggleAutoReorder(e, item)}
+            title={enabled ? "Auto-reorder ON — click to disable" : "Auto-reorder OFF — click to enable"}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "0.35rem",
+              padding: "0.2rem 0.55rem", borderRadius: 20, border: "none",
+              cursor: "pointer", fontSize: "0.72rem", fontWeight: 700,
+              letterSpacing: "0.04em", transition: "all 0.18s",
+              background: enabled
+                ? isLow ? "rgba(16,185,129,0.18)" : "rgba(16,185,129,0.10)"
+                : "rgba(100,116,139,0.10)",
+              color: enabled ? "var(--th-emerald)" : "var(--th-muted)",
+              boxShadow: enabled ? `0 0 0 1.5px ${isLow ? "var(--th-emerald)" : "#10b98144"}` : "none",
+            }}
+          >
+            <span style={{
+              width: 9, height: 9, borderRadius: "50%",
+              background: enabled ? "var(--th-emerald)" : "var(--th-muted)",
+              display: "inline-block", flexShrink: 0,
+              boxShadow: enabled && isLow ? "0 0 5px var(--th-emerald)" : "none",
+            }} />
+            {enabled ? (isLow ? "ON ⚠" : "ON") : "OFF"}
+          </button>
+        );
+      },
+    },
   ];
 
   return (
@@ -1341,9 +1519,38 @@ function Productspage({ shopId }) {
           <div className="prod-title">
             Product <span>Management</span>
           </div>
-          <button className="prod-btn-primary" onClick={openAddModal}>
-            + Add Product
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            {/* Auto-Order System toggle */}
+            <button
+              onClick={toggleAutoOrderSystem}
+              disabled={autoOrderToggling}
+              title={autoOrderEnabled ? "Auto-Order is ON — click to disable" : "Auto-Order is OFF — click to enable"}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "0.45rem",
+                padding: "0.38rem 0.85rem", borderRadius: 20, border: "none",
+                cursor: autoOrderToggling ? "wait" : "pointer",
+                fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em",
+                transition: "all 0.2s",
+                background: autoOrderEnabled
+                  ? "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.08))"
+                  : "rgba(100,116,139,0.12)",
+                color: autoOrderEnabled ? "var(--th-emerald)" : "var(--th-text-faint)",
+                boxShadow: autoOrderEnabled ? "0 0 0 1.5px #10b98155, 0 2px 8px rgba(16,185,129,0.15)" : "0 0 0 1px var(--th-border-strong)",
+                opacity: autoOrderToggling ? 0.6 : 1,
+              }}
+            >
+              <span style={{
+                width: 9, height: 9, borderRadius: "50%", flexShrink: 0, display: "inline-block",
+                background: autoOrderEnabled ? "var(--th-emerald)" : "var(--th-text-faint)",
+                boxShadow: autoOrderEnabled ? "0 0 6px var(--th-emerald)" : "none",
+                transition: "all 0.2s",
+              }} />
+              Auto-Order: {autoOrderEnabled ? "ON" : "OFF"}
+            </button>
+            <button className="prod-btn-primary" onClick={openAddModal}>
+              + Add Product
+            </button>
+          </div>
         </div>
 
         {/* Add Product Modal */}
@@ -1866,6 +2073,7 @@ function Productspage({ shopId }) {
                 "w30",
                 "w20",
                 "w20",
+                "w20",
                 "w30",
                 "w30",
                 "w20",
@@ -1887,7 +2095,7 @@ function Productspage({ shopId }) {
                   <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
                 </svg>
               }
-              minWidth={920}
+              minWidth={980}
               currentPage={page}
               totalPages={totalPages}
               onPageChange={setPage}
@@ -1912,7 +2120,8 @@ function Productspage({ shopId }) {
                 setDetailForm(prev => ({ 
                   ...prev, 
                   dot_number: v.dot_number || "",
-                  design: v.design || prev.design 
+                  design: v.design || prev.design,
+                  reorder_point: v.reorder_point ?? 5
                 }));
               }
             }}
@@ -1932,6 +2141,7 @@ function Productspage({ shopId }) {
             }}
             onUpdateCost={updateModalCost}
             onUpdatePrice={updateModalPrice}
+            onUpdateReorderQty={updateModalReorderQty}
             incomingOrders={incomingOrders}
             incomingLoading={incomingLoading}
             historyContent={
@@ -2320,29 +2530,44 @@ function Productspage({ shopId }) {
                       />
                     </div>
                   </div>
-                  <div style={{ position: 'relative' }}>
-                    <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Design</label>
-                    <input
-                      className="prod-adj-input"
-                      type="text"
-                      placeholder="Design"
-                      value={detailForm.design}
-                      onChange={e => setDetailForm({ ...detailForm, design: e.target.value.toUpperCase() })}
-                      style={{ width: "100%" }}
-                      onFocus={() => setActiveSug({ idx: -1, field: 'design' })}
-                      onBlur={() => setTimeout(() => setActiveSug(null), 200)}
-                    />
-                    {activeSug?.idx === -1 && activeSug?.field === 'design' && detailForm.design && (
-                      <div className="prod-sug-drop" style={{ width: '100%' }}>
-                        {dbDesigns.filter(d => {
-                          const m = d.design.toLowerCase().includes(detailForm.design.toLowerCase());
-                          const b = detailForm.brand ? d.brand?.toLowerCase() === detailForm.brand.toLowerCase() : true;
-                          return m && b;
-                        }).slice(0, 8).map(d => (
-                          <div key={d.design} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, design: d.design })}>{d.design}</div>
-                        ))}
-                      </div>
-                    )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "0.5rem" }}>
+                    <div style={{ position: 'relative' }}>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Design</label>
+                      <input
+                        className="prod-adj-input"
+                        type="text"
+                        placeholder="Design"
+                        value={detailForm.design}
+                        onChange={e => setDetailForm({ ...detailForm, design: e.target.value.toUpperCase() })}
+                        style={{ width: "100%" }}
+                        onFocus={() => setActiveSug({ idx: -1, field: 'design' })}
+                        onBlur={() => setTimeout(() => setActiveSug(null), 200)}
+                      />
+                      {activeSug?.idx === -1 && activeSug?.field === 'design' && detailForm.design && (
+                        <div className="prod-sug-drop" style={{ width: '100%' }}>
+                          {dbDesigns.filter(d => {
+                            const m = d.design.toLowerCase().includes(detailForm.design.toLowerCase());
+                            const b = detailForm.brand ? d.brand?.toLowerCase() === detailForm.brand.toLowerCase() : true;
+                            return m && b;
+                          }).slice(0, 8).map(d => (
+                            <div key={d.design} className="prod-sug-item" onMouseDown={() => setDetailForm({ ...detailForm, design: d.design })}>{d.design}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label style={{ fontSize: "0.7rem", opacity: 0.7, display: "block", marginBottom: "0.2rem" }}>Reorder Pt.</label>
+                      <input
+                        className="prod-adj-input"
+                        type="number"
+                        min="0"
+                        placeholder="5"
+                        value={detailForm.reorder_point}
+                        onKeyDown={allowOnlyDigits}
+                        onChange={e => setDetailForm({ ...detailForm, reorder_point: e.target.value })}
+                        style={{ width: "100%" }}
+                      />
+                    </div>
                   </div>
                   <button
                     className="prod-btn-primary"

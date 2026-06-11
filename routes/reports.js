@@ -28,7 +28,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
 
     const summary = await getDailySummary(shop_id, targetDate);
 
-    // Fetch transactions list for the report (not part of simple summary object)
+    // Fetch transactions list for the report
+    // credit_down_payment is read directly from sale_header — no JOIN needed.
     const salesTransactions = await dbAll(
       `SELECT
         sh.sale_id as id,
@@ -36,8 +37,10 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         cm.customer_name as customerName,
         sh.total_amount as amount,
         sh.payment_method as paymentMethod,
+        sh.payment_splits as paymentSplits,
+        COALESCE(sh.credit_down_payment, 0) as creditDownPayment,
         sh.sale_datetime as timestamp,
-        CASE 
+        CASE
           WHEN EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = sh.sale_id AND si.sale_type = 'PRODUCT') THEN 'SALE'
           ELSE 'SERVICE'
         END as type,
@@ -47,6 +50,24 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       WHERE sh.shop_id = ? AND sh.is_void = 0 AND sh.business_date = ?`,
       [shop_id, targetDate]
     );
+
+    // Compute creditAmount per transaction for the credit breakdown list:
+    //   - If payment_splits exists: use the CREDIT split amount
+    //   - If CREDIT sale with credit_down_payment: creditAmount = total - down payment
+    //   - Otherwise: creditAmount = full amount
+    const resolvedSales = salesTransactions.map(t => {
+      let creditAmount = t.amount;
+      if (t.paymentSplits) {
+        try {
+          const splits = JSON.parse(t.paymentSplits);
+          const creditSplit = splits.find(s => (s.method || '').toUpperCase() === 'CREDIT');
+          if (creditSplit) creditAmount = parseFloat(creditSplit.amount) || 0;
+        } catch { /* ignore */ }
+      } else if ((t.paymentMethod || '').toUpperCase() === 'CREDIT' && t.creditDownPayment > 0) {
+        creditAmount = Math.max(0, t.amount - t.creditDownPayment);
+      }
+      return { ...t, creditAmount };
+    });
 
     const expenseTransactions = await dbAll(
       `SELECT
@@ -122,7 +143,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
       JOIN accounts_receivable ar ON rp.receivable_id = ar.receivable_id
       JOIN customer_master cm ON ar.customer_id = cm.customer_id
       WHERE rp.shop_id = ? AND rp.is_void = 0 AND DATE(rp.payment_date, 'localtime') = ?
-        AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)`,
+        AND (rp.is_opening_balance IS NULL OR rp.is_opening_balance = 0)
+        AND COALESCE(rp.notes, '') != 'Down payment at POS'`,
       [shop_id, targetDate]
     );
 
@@ -171,7 +193,7 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
     });
 
     const transactions = [
-      ...salesTransactions, 
+      ...resolvedSales, 
       ...expenseTransactions, 
       ...purchaseTransactions, 
       ...commissionTransactions,

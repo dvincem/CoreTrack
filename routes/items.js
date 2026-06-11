@@ -81,13 +81,18 @@ router.get("/items/:shop_id", async (req, res) => {
       MIN(selling_price) as min_price,
       MAX(selling_price) as max_price,
       MAX(selling_price) as selling_price,
+      MAX(reorder_point) as reorder_point,
+      MAX(reorder_qty) as reorder_qty,
+      MAX(auto_reorder_enabled) as auto_reorder_enabled,
+      MAX(supplier_id) as supplier_id,
+      MAX(supplier_name) as supplier_name,
       MAX(dot_number) as dot_number,
       SUM(current_quantity) as current_quantity,
       MAX(last_stock_update) as last_stock_update,
       COUNT(*) as variant_count,
       COUNT(DISTINCT COALESCE(design,'')) as design_count,
       GROUP_CONCAT(DISTINCT COALESCE(design,'')) as design_list,
-      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || REPLACE(COALESCE(design,'NONE'),':','_') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0)) as variant_info
+      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || REPLACE(COALESCE(design,'NONE'),':','_') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0) || ':' || COALESCE(reorder_point,5)) as variant_info
     `;
     fromClause = `
       FROM (
@@ -360,13 +365,14 @@ router.put("/items/:item_id/supplier", (req, res) => {
 
 router.put("/items/:item_id/details", (req, res) => {
   const { item_id } = req.params;
-  const { category, brand, design, size, dot_number } = req.body;
+  const { category, brand, design, size, dot_number, reorder_point } = req.body;
 
   const upperBrand = brand ? brand.toUpperCase().trim() : null;
   const upperDesign = design ? design.toUpperCase().trim() : null;
   const trimmedSize = size ? size.trim().toUpperCase().replace(/\s*X\s*/gi, '-').replace(/\s*-\s*/g, '-') : null;
   const trimmedCat = category ? category.trim().toUpperCase() : "MISC";
   const trimmedDot = dot_number ? dot_number.toString().trim() : null;
+  const rp = reorder_point !== undefined && reorder_point !== null ? parseInt(reorder_point, 10) : 5;
 
   // item_name excludes design when design is blank (non-tire items)
   const item_name = [upperBrand, upperDesign, trimmedSize].filter(Boolean).join(' ');
@@ -407,7 +413,7 @@ router.put("/items/:item_id/details", (req, res) => {
         
         // ── SURGICAL UPDATE ──────────────────────────────────────────────────
         // Shared fields: Category, Brand, Size
-        // Specific fields: Design, DOT (item_id only)
+        // Specific fields: Design, DOT, Reorder Point (item_id only)
         
         db.run(
           `UPDATE item_master
@@ -420,8 +426,8 @@ router.put("/items/:item_id/details", (req, res) => {
             // Update specific fields for the target item
             try {
               await dbRun(
-                `UPDATE item_master SET design = ?, dot_number = ? WHERE item_id = ?`,
-                [upperDesign, trimmedDot, item_id]
+                `UPDATE item_master SET design = ?, dot_number = ?, reorder_point = ? WHERE item_id = ?`,
+                [upperDesign, trimmedDot, rp, item_id]
               );
               
               // Log DOT/Design changes if any
@@ -449,6 +455,7 @@ router.put("/items/:item_id/details", (req, res) => {
                 design: upperDesign,
                 size: trimmedSize,
                 dot_number: trimmedDot,
+                reorder_point: rp,
                 item_name: [upperBrand, upperDesign, trimmedSize].filter(Boolean).join(' '),
                 updated_count: ids.length,
                 message: "Item details updated surgically",
@@ -460,6 +467,80 @@ router.put("/items/:item_id/details", (req, res) => {
         );
       });
     });
+  });
+});
+
+router.put("/items/:item_id/reorder-point", (req, res) => {
+  const { item_id } = req.params;
+  const { reorder_point } = req.body;
+  if (reorder_point === undefined || reorder_point === null || parseInt(reorder_point) < 0) {
+    return res.status(400).json({ error: "Reorder point must be a non-negative number" });
+  }
+  const newRp = parseInt(reorder_point, 10);
+  db.run(`UPDATE item_master SET reorder_point = ? WHERE item_id = ?`, [newRp, item_id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ item_id, reorder_point: newRp, message: "Reorder point updated successfully" });
+  });
+});
+
+// Update maintaining qty (quantity to order per restock) for a single item
+router.put("/items/:item_id/reorder-qty", (req, res) => {
+  const { item_id } = req.params;
+  const { reorder_qty } = req.body;
+  if (reorder_qty === undefined || reorder_qty === null || parseInt(reorder_qty) < 1) {
+    return res.status(400).json({ error: "Maintaining qty must be at least 1" });
+  }
+  const newQty = parseInt(reorder_qty, 10);
+  db.run(`UPDATE item_master SET reorder_qty = ? WHERE item_id = ? OR parent_item_id = ?`, [newQty, item_id, item_id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ item_id, reorder_qty: newQty, changes: this.changes, message: "Maintaining qty updated successfully" });
+  });
+});
+
+// Toggle auto-reorder for a single item (or all variants via parent_item_id)
+// Blocked for: no supplier, RECAP, USED TIRE, MAG WHEELS, VALVE
+const AUTO_REORDER_BLOCKED_CATS = ['RECAP', 'RECAPPING', 'USED TIRE', 'MAG WHEELS', 'VALVE'];
+router.put("/items/:item_id/auto-reorder", (req, res) => {
+  const { item_id } = req.params;
+  const { enabled } = req.body;
+  const flag = enabled ? 1 : 0;
+
+  // Guard: fetch item and validate eligibility before enabling
+  db.get(`SELECT supplier_id, category FROM item_master WHERE item_id = ?`, [item_id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: "Item not found" });
+    if (flag === 1) {
+      if (!row.supplier_id) {
+        return res.status(400).json({ error: "Cannot enable auto-reorder: item has no supplier assigned." });
+      }
+      if (AUTO_REORDER_BLOCKED_CATS.includes((row.category || '').toUpperCase())) {
+        return res.status(400).json({ error: `Cannot enable auto-reorder: category "${row.category}" is excluded.` });
+      }
+    }
+    // Apply to item and all DOT variants
+    db.run(
+      `UPDATE item_master SET auto_reorder_enabled = ? WHERE item_id = ? OR parent_item_id = ?`,
+      [flag, item_id, item_id],
+      function (err2) {
+        if (err2) return res.status(500).json({ error: err2.message });
+        // Also propagate to the parent if this item is a DOT child.
+        // This keeps the parent flag in sync with the auto-generate endpoint
+        // which uses parent-level rows (parent_item_id IS NULL) for scanning.
+        db.run(
+          `UPDATE item_master SET auto_reorder_enabled = ?
+           WHERE item_id IN (
+             SELECT parent_item_id FROM item_master
+             WHERE item_id = ? AND parent_item_id IS NOT NULL
+           )`,
+          [flag, item_id],
+          () => {
+            // Non-fatal — parent may not exist (non-DOT item). Always respond.
+            res.json({ item_id, auto_reorder_enabled: flag, changes: this.changes, message: "Auto-reorder updated" });
+          }
+        );
+      }
+    );
+
   });
 });
 
@@ -732,6 +813,7 @@ router.get("/items-archived/:shop_id", (req, res) => {
       SELECT im.item_id, im.sku, im.item_name, im.category, im.brand, im.design,
         im.size, im.rim_size, im.unit_cost, im.selling_price, im.is_active,
         im.supplier_id, im.dot_number, im.parent_item_id, sm.supplier_name,
+        im.reorder_point,
         COALESCE(cs.current_quantity, 0) as current_quantity
       FROM item_master im
       LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?

@@ -123,7 +123,12 @@ router.get("/orders/:shop_id", (req, res) => {
   const whereParams = [shop_id];
   if (status) { whereParts.push(`o.status = ?`); whereParams.push(status); }
   if (supplier_id) {
-    whereParts.push(`EXISTS (SELECT 1 FROM order_items oi2 WHERE oi2.order_id = o.order_id AND oi2.supplier_id = ?)`);
+    whereParts.push(`EXISTS (
+      SELECT 1 FROM order_items oi2
+      LEFT JOIN item_master im2 ON oi2.item_id = im2.item_id
+      WHERE oi2.order_id = o.order_id
+        AND COALESCE(oi2.supplier_id, im2.supplier_id) = ?
+    )`);
     whereParams.push(supplier_id);
   }
   if (q && String(q).trim()) {
@@ -542,13 +547,13 @@ router.post("/orders/:order_id/receive", async (req, res) => {
                         return res.json({ order_id, status: "RECEIVED", items_received: receivedIds.length, items_not_received: not_received_items.length, total_amount: order.total_amount, message: "Items received. Failed to create restock order." });
                       }
                       let totalAmount = 0;
-                      const itemStmt = db.prepare(`INSERT INTO order_items (order_item_id, order_id, item_id, quantity, unit_cost, line_total, received_status) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+                      const itemStmt = db.prepare(`INSERT INTO order_items (order_item_id, order_id, item_id, quantity, unit_cost, line_total, supplier_id, received_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
                       for (const unreceivedItem of not_received_items) {
                         const originalItem = items.find((i) => i.order_item_id === unreceivedItem.order_item_id);
                         if (originalItem) {
                           const lineTotal = originalItem.quantity * originalItem.unit_cost;
                           totalAmount += lineTotal;
-                          itemStmt.run([`OI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, newOrderId, originalItem.item_id, originalItem.quantity, originalItem.unit_cost, lineTotal, "PENDING"]);
+                          itemStmt.run([`OI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, newOrderId, originalItem.item_id, originalItem.quantity, originalItem.unit_cost, lineTotal, originalItem.supplier_id || null, "PENDING"]);
                         }
                       }
                       itemStmt.finalize(() => {
@@ -588,45 +593,144 @@ router.put("/orders/:order_id", (req, res) => {
   );
 });
 
-// Edit an order item (qty, unit_cost, dot_number)
-router.put("/orders/:order_id/items/:order_item_id", (req, res) => {
+// Edit an order item (qty, unit_cost, dot_number, design)
+router.put("/orders/:order_id/items/:order_item_id", async (req, res) => {
   const { order_id, order_item_id } = req.params;
-  const { quantity, unit_cost, dot_number } = req.body;
+  const { quantity, unit_cost, dot_number, design } = req.body;
   const qty = parseFloat(quantity);
   const cost = parseFloat(unit_cost);
   if (isNaN(qty) || qty <= 0) return res.status(400).json({ error: "Invalid quantity" });
   if (isNaN(cost) || cost < 0) return res.status(400).json({ error: "Invalid unit cost" });
   const line_total = qty * cost;
-  db.run(
-    `UPDATE order_items SET quantity = ?, unit_cost = ?, line_total = ?, dot_number = ?
-     WHERE order_item_id = ? AND order_id = ?`,
-    [qty, cost, line_total, dot_number || null, order_item_id, order_id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      db.get(`SELECT COALESCE(SUM(line_total), 0) as t FROM order_items WHERE order_id = ?`, [order_id], (e, r) => {
-        db.run(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [r ? r.t : 0, order_id], () => {
-          res.json({ order_item_id, line_total, new_order_total: r ? r.t : 0, message: "Item updated" });
-        });
-      });
+
+  try {
+    // If design is provided, update item_master.design and item_name for this order item's item
+    if (design !== undefined) {
+      const cleanDesign = (design || '').trim().toUpperCase();
+      const oi = await new Promise((resolve, reject) =>
+        db.get(`SELECT item_id FROM order_items WHERE order_item_id = ? AND order_id = ?`, [order_item_id, order_id], (e, r) => e ? reject(e) : resolve(r))
+      );
+      if (oi && oi.item_id) {
+        const currentItem = await new Promise((resolve, reject) =>
+          db.get(`SELECT design, brand, size FROM item_master WHERE item_id = ?`, [oi.item_id], (e, r) => e ? reject(e) : resolve(r))
+        );
+        if (currentItem && (currentItem.design || '').toUpperCase() !== cleanDesign) {
+          const newName = [currentItem.brand, cleanDesign, currentItem.size].filter(Boolean).join(' ');
+          await new Promise((resolve, reject) =>
+            db.run(`UPDATE item_master SET design = ?, item_name = ? WHERE item_id = ?`,
+              [cleanDesign || null, newName, oi.item_id], (e) => e ? reject(e) : resolve())
+          );
+        }
+      }
     }
-  );
+
+    db.run(
+      `UPDATE order_items SET quantity = ?, unit_cost = ?, line_total = ?, dot_number = ?
+       WHERE order_item_id = ? AND order_id = ?`,
+      [qty, cost, line_total, dot_number || null, order_item_id, order_id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        db.get(`SELECT COALESCE(SUM(line_total), 0) as t FROM order_items WHERE order_id = ?`, [order_id], (e, r) => {
+          db.run(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [r ? r.t : 0, order_id], () => {
+            res.json({ order_item_id, line_total, new_order_total: r ? r.t : 0, message: "Item updated" });
+          });
+        });
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Add item(s) to an existing PENDING or CONFIRMED order
-router.post("/orders/:order_id/items", (req, res) => {
+// Add item(s) to an existing PENDING or CONFIRMED order (also supports new_items for off-inventory items)
+router.post("/orders/:order_id/items", async (req, res) => {
   const { order_id } = req.params;
-  const { items: newItems } = req.body;
-  if (!newItems || !newItems.length) return res.status(400).json({ error: "items array required" });
-  db.get(`SELECT order_id, status FROM orders WHERE order_id = ?`, [order_id], (err, row) => {
-    if (err || !row) return res.status(404).json({ error: "Order not found" });
-    if (!["PENDING", "CONFIRMED"].includes(row.status)) {
+  const { items: existingItems = [], new_items: newItemDefs = [] } = req.body;
+  if (!existingItems.length && !newItemDefs.length)
+    return res.status(400).json({ error: "items or new_items array required" });
+
+  // Helper to auto-build a SKU for new items
+  function buildEditSku(ni) {
+    const cat = (ni.category || 'MISC').toUpperCase().replace(/\s+/g, '');
+    const brand = (ni.brand || '').toUpperCase().replace(/\s+/g, '').substring(0, 4);
+    const design = (ni.design || '').toUpperCase().replace(/\s+/g, '').substring(0, 4);
+    const size = (ni.size || '').replace(/\s+/g, '');
+    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${cat}-${brand}-${design}-${size}-${rand}`;
+  }
+
+  try {
+    const order = await new Promise((resolve, reject) =>
+      db.get(`SELECT order_id, shop_id, status FROM orders WHERE order_id = ?`, [order_id], (err, row) => err ? reject(err) : resolve(row))
+    );
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (!["PENDING", "CONFIRMED"].includes(order.status))
       return res.status(400).json({ error: "Can only add items to PENDING or CONFIRMED orders" });
+
+    // ── Step 1: Create item_master rows for new items and merge into allItems ──
+    const allItems = [...existingItems];
+    for (const ni of newItemDefs) {
+      const upperBrand  = ni.brand  ? ni.brand.toUpperCase()  : null;
+      const upperDesign = ni.design ? ni.design.toUpperCase() : null;
+      const cat = (ni.category || 'MISC').toUpperCase();
+      const size = ni.size || null;
+
+      // Check if this item already exists
+      const existing = await new Promise((resolve, reject) =>
+        db.get(
+          `SELECT item_id, supplier_id FROM item_master WHERE category = ? AND COALESCE(brand,'') = ? AND COALESCE(design,'') = ? AND COALESCE(size,'') = ? AND parent_item_id IS NULL AND is_active = 1`,
+          [cat, upperBrand || '', upperDesign || '', size || ''],
+          (e, r) => e ? reject(e) : resolve(r)
+        )
+      );
+
+      let targetItemId;
+      if (existing) {
+        targetItemId = existing.item_id;
+        // Backfill supplier_id on item_master if currently unset and we have one from the order
+        if (!existing.supplier_id && ni.supplier_id) {
+          await new Promise((resolve, reject) =>
+            db.run(
+              `UPDATE item_master SET supplier_id = ? WHERE item_id = ?`,
+              [ni.supplier_id, targetItemId],
+              (e) => e ? reject(e) : resolve()
+            )
+          );
+        }
+      } else {
+        targetItemId = `ITEM-EDIT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const sku = buildEditSku(ni);
+        const item_name = [upperBrand, upperDesign, size].filter(Boolean).join(' ');
+        await new Promise((resolve, reject) =>
+          db.run(
+            `INSERT INTO item_master (item_id, sku, item_name, category, brand, design, size, unit_cost, selling_price, supplier_id, reorder_point, is_active, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+            [
+              targetItemId, sku, item_name, cat, upperBrand, upperDesign, size,
+              parseFloat(ni.unit_cost) || 0, parseFloat(ni.selling_price) || 0,
+              ni.supplier_id || null, parseInt(ni.reorder_point) || 0,
+            ],
+            (e) => e ? reject(e) : resolve()
+          )
+        );
+      }
+
+      allItems.push({
+        item_id: targetItemId,
+        supplier_id: ni.supplier_id || null,
+        quantity: parseFloat(ni.quantity) || 1,
+        unit_cost: parseFloat(ni.unit_cost) || 0,
+        dot_number: (ni.dot_number || '').trim() || null,
+        is_new_item: 1,
+      });
     }
+
+    // ── Step 2: Insert all items into order_items ──
     const stmt = db.prepare(
       `INSERT INTO order_items (order_item_id, order_id, item_id, supplier_id, quantity, unit_cost, line_total, dot_number, is_new_item, received_status, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)`
     );
-    for (const it of newItems) {
+    for (const it of allItems) {
       const qty = parseFloat(it.quantity) || 1;
       const cost = parseFloat(it.unit_cost) || 0;
       stmt.run([
@@ -635,15 +739,26 @@ router.post("/orders/:order_id/items", (req, res) => {
         qty, cost, qty * cost, it.dot_number || null, it.is_new_item ? 1 : 0
       ]);
     }
-    stmt.finalize((err2) => {
-      if (err2) return res.status(500).json({ error: err2.message });
-      db.get(`SELECT COALESCE(SUM(line_total), 0) as t FROM order_items WHERE order_id = ?`, [order_id], (e, r) => {
-        db.run(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [r ? r.t : 0, order_id], () => {
-          res.json({ message: "Items added", count: newItems.length, new_order_total: r ? r.t : 0 });
-        });
-      });
+
+    await new Promise((resolve, reject) => stmt.finalize((e) => e ? reject(e) : resolve()));
+
+    const totRow = await new Promise((resolve, reject) =>
+      db.get(`SELECT COALESCE(SUM(line_total), 0) as t FROM order_items WHERE order_id = ?`, [order_id], (e, r) => e ? reject(e) : resolve(r))
+    );
+    await new Promise((resolve, reject) =>
+      db.run(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [totRow ? totRow.t : 0, order_id], (e) => e ? reject(e) : resolve())
+    );
+
+    res.json({
+      message: "Items added",
+      count: allItems.length,
+      new_items_created: newItemDefs.length,
+      new_order_total: totRow ? totRow.t : 0,
     });
-  });
+  } catch (err) {
+    console.error("Add items to order failed:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.delete("/orders/:order_id/items/:order_item_id", (req, res) => {
@@ -977,6 +1092,169 @@ router.get("/incoming-orders/:shop_id", async (req, res) => {
     const rows = await dbAll(query, params);
     res.json(rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Auto-generate orders for items below maintaining qty ──────────────────────
+// Groups by brand + supplier, appends to existing PENDING order for same brand+supplier or creates new.
+// Excluded: items without supplier, RECAP, RECAPPING, USED TIRE, MAG WHEELS, VALVE categories.
+const AUTO_ORDER_BLOCKED_CATS = ['RECAP', 'RECAPPING', 'USED TIRE', 'MAG WHEELS', 'VALVE'];
+
+router.post("/orders/auto-generate", async (req, res) => {
+  const { shop_id, created_by = "SYSTEM" } = req.body;
+  if (!shop_id) return res.status(400).json({ error: "shop_id is required" });
+
+  try {
+    // 1. Find all eligible items:
+    //    - auto_reorder_enabled = 1
+    //    - current_quantity < reorder_qty (maintaining qty = trigger threshold)
+    //    - supplier_id must be set (security rule)
+    //    - excluded categories are filtered out (security rule)
+    //    - parent items only (no DOT variants) to avoid duplicates
+    const blockedCatList = AUTO_ORDER_BLOCKED_CATS.map(() => '?').join(',');
+    const candidateItems = await dbAll(
+      `SELECT
+         im.item_id, im.item_name, im.brand, im.category, im.design, im.size,
+         im.supplier_id, im.unit_cost,
+         COALESCE(im.reorder_qty, 4) AS reorder_qty,
+         im.auto_reorder_enabled,
+         -- Sum stock across the parent itself AND all its DOT variant children.
+         -- This gives the correct total on-hand for items that use DOT variant tracking.
+         (SELECT COALESCE(SUM(cs2.current_quantity), 0)
+          FROM current_stock cs2
+          JOIN item_master im2 ON cs2.item_id = im2.item_id
+          WHERE cs2.shop_id = ?
+            AND (im2.item_id = im.item_id OR im2.parent_item_id = im.item_id)
+         ) AS current_quantity,
+         sm.supplier_name
+       FROM item_master im
+       LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
+       WHERE im.is_active = 1
+         AND (im.auto_reorder_enabled = 1
+              OR EXISTS (SELECT 1 FROM item_master c WHERE c.parent_item_id = im.item_id AND c.auto_reorder_enabled = 1))
+         AND im.supplier_id IS NOT NULL
+         AND UPPER(COALESCE(im.category,'')) NOT IN (${blockedCatList})
+         AND im.parent_item_id IS NULL
+         AND (SELECT COALESCE(SUM(cs2.current_quantity), 0)
+              FROM current_stock cs2
+              JOIN item_master im2 ON cs2.item_id = im2.item_id
+              WHERE cs2.shop_id = ?
+                AND (im2.item_id = im.item_id OR im2.parent_item_id = im.item_id)
+             ) < COALESCE(im.reorder_qty, 4)
+       ORDER BY im.brand, im.supplier_id`,
+      [shop_id, shop_id, ...AUTO_ORDER_BLOCKED_CATS]
+    );
+
+
+    if (!candidateItems.length) {
+      return res.json({ message: "No items need restocking.", orders_created: 0, orders_updated: 0, items_queued: 0 });
+    }
+
+
+    // ── Process each candidate: order_qty = maintaining_qty - total_stock ──────
+    let ordersCreated = 0, ordersUpdated = 0;
+    const touchedOrderIds = new Set();
+    const groupOrderMap   = {};   // brand|supplier → order_id for this run
+
+    for (const item of candidateItems) {
+      // Formula: maintaining_qty - total_stock (already confirmed > 0 by the query)
+      const order_qty = item.reorder_qty - item.current_quantity;
+      if (order_qty <= 0) continue;   // safety guard
+      const lineTotal = order_qty * (item.unit_cost || 0);
+
+      // Is this parent item already in any non-RS PENDING order?
+      const existingOI = await dbGet(
+        `SELECT oi.order_item_id, oi.order_id
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.order_id
+         WHERE oi.item_id = ? AND o.shop_id = ? AND o.status = 'PENDING'
+           AND o.order_id NOT LIKE '%-RS-%'
+         ORDER BY
+           CASE WHEN o.order_id LIKE 'ORD-AUTO-%' THEN 0 ELSE 1 END,
+           o.created_at DESC
+         LIMIT 1`,
+        [item.item_id, shop_id]
+      );
+
+      if (existingOI) {
+        await dbRun(
+          `UPDATE order_items SET quantity = ?, line_total = ? WHERE order_item_id = ?`,
+          [order_qty, lineTotal, existingOI.order_item_id]
+        );
+        touchedOrderIds.add(existingOI.order_id);
+        ordersUpdated++;
+        continue;
+      }
+
+      // Not queued yet — group by brand+supplier into a single ORD-AUTO order
+      const groupKey = `${item.brand || '__'}|${item.supplier_id || '__'}`;
+      if (!groupOrderMap[groupKey]) {
+        const existingGrpOrder = await dbGet(
+          `SELECT o.order_id FROM orders o
+           WHERE o.shop_id = ? AND o.status = 'PENDING'
+             AND o.order_id LIKE 'ORD-AUTO-%'
+             AND EXISTS (
+               SELECT 1 FROM order_items oi
+               JOIN item_master im ON oi.item_id = im.item_id
+               WHERE oi.order_id = o.order_id
+                 AND COALESCE(im.brand, '') = ?
+                 AND COALESCE(oi.supplier_id, im.supplier_id, '') = ?
+             )
+           ORDER BY o.created_at DESC LIMIT 1`,
+          [shop_id, item.brand || '', item.supplier_id || '']
+        );
+        if (existingGrpOrder) {
+          groupOrderMap[groupKey] = existingGrpOrder.order_id;
+        } else {
+          const newOrderId = `ORD-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          await dbRun(
+            `INSERT INTO orders (order_id, shop_id, status, total_amount, order_notes, created_by, created_at)
+             VALUES (?, ?, 'PENDING', 0, ?, ?, CURRENT_TIMESTAMP)`,
+            [newOrderId, shop_id,
+             `Auto-restock — Brand: ${item.brand || 'Various'} | Supplier: ${item.supplier_name || 'No Supplier'}`,
+             created_by]
+          );
+          groupOrderMap[groupKey] = newOrderId;
+          ordersCreated++;
+        }
+      }
+
+      const targetOrderId = groupOrderMap[groupKey];
+      const oi_id = `OI-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      await dbRun(
+        `INSERT INTO order_items
+           (order_item_id, order_id, item_id, supplier_id, quantity, unit_cost, line_total, received_status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)`,
+        [oi_id, targetOrderId, item.item_id, item.supplier_id || null, order_qty, item.unit_cost || 0, lineTotal]
+      );
+      touchedOrderIds.add(targetOrderId);
+    }
+
+    // Recalculate totals for every order touched; prune empty ones
+    for (const orderId of touchedOrderIds) {
+      const cnt = await dbGet(`SELECT COUNT(*) AS c FROM order_items WHERE order_id = ?`, [orderId]);
+      if (cnt && cnt.c === 0) {
+        await dbRun(`DELETE FROM orders WHERE order_id = ?`, [orderId]);
+      } else {
+        await dbRun(
+          `UPDATE orders
+           SET total_amount = (SELECT COALESCE(SUM(line_total), 0) FROM order_items WHERE order_id = ?)
+           WHERE order_id = ?`,
+          [orderId, orderId]
+        );
+      }
+    }
+
+    res.json({
+      message: `Auto-order complete. ${ordersCreated} order(s) created, ${ordersUpdated} order(s) updated.`,
+
+      orders_created: ordersCreated,
+      orders_updated: ordersUpdated,
+      items_queued: candidateItems.length,
+    });
+  } catch (err) {
+    console.error("Auto-generate orders error:", err);
     res.status(500).json({ error: err.message });
   }
 });

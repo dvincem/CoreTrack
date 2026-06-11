@@ -221,6 +221,11 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
   const [rejectionReason, setRejectionReason] = React.useState("");
   const [showStatusModal, setShowStatusModal] = React.useState(false);
 
+  // Recap type inline editor (INTAKE jobs only)
+  const [editingRecapType, setEditingRecapType] = React.useState(false);
+  const [recapTypeEdit, setRecapTypeEdit] = React.useState("");
+  const [recapTypeSaving, setRecapTypeSaving] = React.useState(false);
+
   const [showClaimModal, setShowClaimModal] = React.useState(false);
   const [claimTarget, setClaimTarget] = React.useState(null);
   const [salePrice, setSalePrice] = React.useState("");
@@ -605,6 +610,8 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
     setNextStatus("");
     setRecapCostInput("");
     setError("");
+    setEditingRecapType(false);
+    setRecapTypeEdit("");
   }
 
   async function handleRecapIntake() {
@@ -2097,6 +2104,61 @@ function RecapPage({ shopId, onRefresh, currentStaffId, currentStaffName, isShop
                         <div className="rc-meta-val mono">{selectedJob.dot_number}</div>
                       </div>
                     )}
+                    {/* ── Recap Type (editable on INTAKE) ── */}
+                    <div className="rc-meta-card span2">
+                      <div className="rc-meta-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>Recap Type</span>
+                        {selectedJob.status === 'INTAKE' && !editingRecapType && (
+                          <button
+                            onClick={() => { setRecapTypeEdit(selectedJob.recap_type || ''); setEditingRecapType(true); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--th-orange)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0.1rem' }}
+                          >✎ Edit</button>
+                        )}
+                      </div>
+                      {editingRecapType && selectedJob.status === 'INTAKE' ? (
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginTop: '0.25rem' }}>
+                          <select
+                            value={recapTypeEdit}
+                            onChange={e => setRecapTypeEdit(e.target.value)}
+                            style={{ flex: 1, background: 'var(--th-bg-input)', border: '1.5px solid var(--th-orange)', borderRadius: '6px', color: 'var(--th-text-primary)', padding: '0.35rem 0.5rem', fontSize: '0.88rem', fontFamily: "'Inter',sans-serif" }}
+                          >
+                            <option value="">— None —</option>
+                            {RECAP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <button
+                            disabled={recapTypeSaving}
+                            onClick={async () => {
+                              setRecapTypeSaving(true);
+                              try {
+                                const r = await apiFetch(`${API_URL}/recap-jobs/${selectedJob.job_id}/details`, {
+                                  method: 'PATCH',
+                                  body: JSON.stringify({ recap_type: recapTypeEdit || null }),
+                                }).then(r => r.json());
+                                if (r.error) throw new Error(r.error);
+                                setSelectedJob(j => ({ ...j, recap_type: recapTypeEdit || null }));
+                                fetchJobHistory(selectedJob.job_id);
+                                fetchJobs();
+                                setEditingRecapType(false);
+                                setToast({ title: 'Recap Type Updated', sub: recapTypeEdit || 'Cleared' });
+                              } catch (e) {
+                                setError(e.message || 'Failed to update recap type');
+                              } finally {
+                                setRecapTypeSaving(false);
+                              }
+                            }}
+                            style={{ background: 'var(--th-orange)', border: 'none', borderRadius: '6px', color: '#fff', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', padding: '0.35rem 0.7rem', cursor: 'pointer', opacity: recapTypeSaving ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                          >{recapTypeSaving ? '…' : '✓ Save'}</button>
+                          <button
+                            onClick={() => setEditingRecapType(false)}
+                            style={{ background: 'var(--th-bg-card-alt)', border: '1px solid var(--th-border-strong)', borderRadius: '6px', color: 'var(--th-text-muted)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: '0.8rem', padding: '0.35rem 0.6rem', cursor: 'pointer' }}
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <div className="rc-meta-val" style={{ color: selectedJob.recap_type ? 'var(--th-text-primary)' : 'var(--th-text-faint)' }}>
+                          {selectedJob.recap_type || <span style={{ fontStyle: 'italic', fontSize: '0.8rem' }}>Not set</span>}
+                        </div>
+                      )}
+                    </div>
                     {isCustomerOwned(selectedJob.ownership_type) && (
                       <div className="rc-meta-card span2">
                         <div className="rc-meta-label">Claim Deadline</div>

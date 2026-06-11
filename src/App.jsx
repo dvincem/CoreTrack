@@ -943,6 +943,7 @@ function CoreTrack() {
   const [now, setNow] = React.useState(new Date());
   React.useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
+
   // ── System initialization status ──────────────────────────────────────────
   // 'checking' | 'uninitialized' | 'ready'
   const [systemStatus, setSystemStatus] = React.useState('checking');

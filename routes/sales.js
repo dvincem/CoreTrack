@@ -5,6 +5,167 @@ const { v4: uuidv4 } = require("uuid");
 const { getEffectiveISO, getEffectiveYYYYMMDD } = require("../lib/businessDate");
 const { dbGet, dbAll, dbRun, syncCurrentStock } = require("../lib/db");
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-sale auto-reorder trigger.
+// Formula: order_qty = maintaining_qty - total_current_stock
+// "total_current_stock" sums the parent item AND all its DOT variant children.
+// Every sold item is resolved to its root parent first so DOT variants are
+// grouped correctly. Blocked categories and items without a supplier are skipped.
+// RS orders (order_id LIKE '%-RS-%') are never touched.
+// ─────────────────────────────────────────────────────────────────────────────
+const AR_BLOCKED_CATS = ['RECAP', 'RECAPPING', 'USED TIRE', 'MAG WHEELS', 'VALVE'];
+
+async function triggerAutoReorder(shop_id, soldItemIds) {
+  if (!soldItemIds || soldItemIds.length === 0) return;
+  try {
+    // Global ON/OFF check
+    const shopRow = await dbGet(
+      `SELECT auto_reorder_system_enabled FROM shop_master WHERE shop_id = ?`,
+      [shop_id]
+    );
+    if (shopRow && shopRow.auto_reorder_system_enabled === 0) return;
+
+    // Resolve every sold item to its root parent (COALESCE parent_item_id, item_id)
+    // Deduplicate so each parent group is processed exactly once.
+    const parentSet = new Set();
+    for (const id of soldItemIds) {
+      const r = await dbGet(
+        `SELECT COALESCE(parent_item_id, item_id) AS root_id FROM item_master WHERE item_id = ?`,
+        [id]
+      );
+      if (r) parentSet.add(r.root_id);
+    }
+
+    for (const parentId of parentSet) {
+      // Fetch parent details; skip if auto-reorder not enabled or no supplier
+      const item = await dbGet(
+        `SELECT im.item_id, im.item_name, im.brand, im.category,
+                im.supplier_id, sm.supplier_name,
+                COALESCE(im.reorder_qty, 4) AS maintaining_qty,
+                COALESCE(im.unit_cost, 0)   AS unit_cost
+         FROM item_master im
+         LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
+         WHERE im.item_id = ?
+           AND im.supplier_id IS NOT NULL
+           AND UPPER(COALESCE(im.category,'')) NOT IN (${AR_BLOCKED_CATS.map(() => '?').join(',')})
+           AND (im.auto_reorder_enabled = 1
+                OR EXISTS (
+                  SELECT 1 FROM item_master c
+                  WHERE c.parent_item_id = im.item_id AND c.auto_reorder_enabled = 1
+                ))`,
+        [parentId, ...AR_BLOCKED_CATS]
+      );
+      if (!item) continue;
+
+      // Total stock = parent row + all DOT children combined
+      const stockRow = await dbGet(
+        `SELECT COALESCE(SUM(cs.current_quantity), 0) AS total
+         FROM current_stock cs
+         JOIN item_master im ON cs.item_id = im.item_id
+         WHERE cs.shop_id = ?
+           AND (im.item_id = ? OR im.parent_item_id = ?)`,
+        [shop_id, parentId, parentId]
+      );
+      const total_stock = stockRow ? (stockRow.total || 0) : 0;
+
+      // THE formula
+      const order_qty = item.maintaining_qty - total_stock;
+
+      // Find any existing pending non-RS order that already has this parent item
+      const existingOI = await dbGet(
+        `SELECT oi.order_item_id, oi.order_id
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.order_id
+         WHERE o.shop_id = ? AND o.status = 'PENDING'
+           AND o.order_id NOT LIKE '%-RS-%'
+           AND oi.item_id = ?
+         ORDER BY
+           CASE WHEN o.order_id LIKE 'ORD-AUTO-%' THEN 0 ELSE 1 END,
+           o.created_at DESC
+         LIMIT 1`,
+        [shop_id, parentId]
+      );
+
+      if (order_qty <= 0) {
+        // Stock at or above maintaining qty — remove from pending auto-order if present
+        if (existingOI && existingOI.order_id.startsWith('ORD-AUTO-')) {
+          await dbRun(`DELETE FROM order_items WHERE order_item_id = ?`, [existingOI.order_item_id]);
+          await recalcOrPruneOrder(existingOI.order_id);
+        }
+        continue;
+      }
+
+      const lineTotal = order_qty * item.unit_cost;
+
+      if (existingOI) {
+        // Update qty to the fresh deficit
+        await dbRun(
+          `UPDATE order_items SET quantity = ?, line_total = ? WHERE order_item_id = ?`,
+          [order_qty, lineTotal, existingOI.order_item_id]
+        );
+        await recalcOrPruneOrder(existingOI.order_id);
+      } else {
+        // Create a new ORD-AUTO order (or find an existing one for this brand+supplier)
+        const orderId = await findOrCreateAutoOrder(shop_id, item, created_by = 'AUTO-REORDER');
+        const oi_id   = `OI-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        await dbRun(
+          `INSERT INTO order_items
+             (order_item_id, order_id, item_id, supplier_id, quantity, unit_cost, line_total, received_status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)`,
+          [oi_id, orderId, parentId, item.supplier_id, order_qty, item.unit_cost, lineTotal]
+        );
+        await recalcOrPruneOrder(orderId);
+      }
+    }
+  } catch (err) {
+    console.error('[AutoReorder] Error:', err.message);
+  }
+}
+
+// Find an existing ORD-AUTO PENDING order for this brand+supplier, or create one.
+async function findOrCreateAutoOrder(shop_id, item, created_by) {
+  const existing = await dbGet(
+    `SELECT o.order_id FROM orders o
+     WHERE o.shop_id = ? AND o.status = 'PENDING'
+       AND o.order_id LIKE 'ORD-AUTO-%'
+       AND EXISTS (
+         SELECT 1 FROM order_items oi
+         JOIN item_master im ON oi.item_id = im.item_id
+         WHERE oi.order_id = o.order_id
+           AND COALESCE(im.brand, '') = ?
+           AND COALESCE(oi.supplier_id, im.supplier_id, '') = ?
+       )
+     ORDER BY o.created_at DESC LIMIT 1`,
+    [shop_id, item.brand || '', item.supplier_id || '']
+  );
+  if (existing) return existing.order_id;
+
+  const order_id = `ORD-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+  await dbRun(
+    `INSERT INTO orders (order_id, shop_id, status, total_amount, order_notes, created_by, created_at)
+     VALUES (?, ?, 'PENDING', 0, ?, ?, CURRENT_TIMESTAMP)`,
+    [order_id, shop_id,
+     `Auto-restock — Brand: ${item.brand || 'Various'} | Supplier: ${item.supplier_name || 'No Supplier'}`,
+     created_by || 'AUTO-REORDER']
+  );
+  return order_id;
+}
+
+
+
+// Recalculate an order's total_amount. If no items remain, delete the order.
+async function recalcOrPruneOrder(order_id) {
+  const remaining = await dbGet(
+    `SELECT COUNT(*) AS cnt, COALESCE(SUM(line_total), 0) AS total FROM order_items WHERE order_id = ?`,
+    [order_id]
+  );
+  if (!remaining || remaining.cnt === 0) {
+    await dbRun(`DELETE FROM orders WHERE order_id = ?`, [order_id]);
+  } else {
+    await dbRun(`UPDATE orders SET total_amount = ? WHERE order_id = ?`, [remaining.total, order_id]);
+  }
+}
+
 function markRecapSold(shop_id, soldItemIds, sale_id) {
   if (!soldItemIds || soldItemIds.length === 0) return;
   soldItemIds.forEach(item_id => {
@@ -240,11 +401,14 @@ router.post("/sales/complete", async (req, res) => {
                 db.run('COMMIT', async (commitErr) => {
                   if (commitErr) return rollback(commitErr.message);
                   try {
-                    await syncCurrentStock(shop_id, inventoryTransactions.map(t => t.item_id));
+                    const soldProductItemIds = inventoryTransactions.map(t => t.item_id);
+                    await syncCurrentStock(shop_id, soldProductItemIds);
+                    // Silently trigger auto-reorder for any enabled items
+                    triggerAutoReorder(shop_id, soldProductItemIds);
                     recordTiremanCommission(shop_id, tireman_ids, tireman_commission_total, sale_id, created_by);
                     recordBalancingLabor(shop_id, tireman_ids, tireman_balancing_total, sale_id, created_by);
                     recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE'), created_by);
-                    markRecapSold(shop_id, inventoryTransactions.map(t => t.item_id), sale_id);
+                    markRecapSold(shop_id, soldProductItemIds, sale_id);
                     const splits = payment_splits || [];
                     const creditSplit = splits.find(s => s.method === 'CREDIT');
                     if (creditSplit || payment_method === 'CREDIT') {

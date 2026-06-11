@@ -1,5 +1,5 @@
 import React from 'react'
-import { allowOnlyDecimals } from '../lib/config'
+import { allowOnlyDecimals, allowOnlyDigits } from '../lib/config'
 
 /**
  * ItemHistoryModal — reusable item history modal
@@ -19,7 +19,7 @@ import { allowOnlyDecimals } from '../lib/config'
 export default function ItemHistoryModal({
   item, onClose, currency, historyContent, children,
   variants, activeVariantId, onVariantChange, onDesignChange,
-  onUpdateCost, onUpdatePrice,
+  onUpdateCost, onUpdatePrice, onUpdateReorderQty,
   incomingOrders = [], incomingLoading = false
 }) {
   const isGrouped = variants && variants.length > 1
@@ -100,8 +100,10 @@ export default function ItemHistoryModal({
     if (isNaN(val)) return
     if (editingField === 'cost') {
       onUpdateCost && onUpdateCost(val, activeVariantId)
-    } else {
+    } else if (editingField === 'price') {
       onUpdatePrice && onUpdatePrice(val, activeVariantId)
+    } else if (editingField === 'reorder_qty') {
+      onUpdateReorderQty && onUpdateReorderQty(val, activeVariantId)
     }
     setEditingField(null)
   }
@@ -289,7 +291,9 @@ export default function ItemHistoryModal({
                 ) : (
                   <div className="inv-hist-stat-val sky" style={{ display: 'flex', alignItems: 'center' }}>
                     {currency(displayCost)}
-                    <span onClick={() => { setEditingField('cost'); setTempVal(displayCost); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                    {onUpdateCost && (
+                      <span onClick={() => { setEditingField('cost'); setTempVal(displayCost); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -317,7 +321,9 @@ export default function ItemHistoryModal({
                 ) : (
                   <div className="inv-hist-stat-val" style={{ color: 'var(--th-orange)', display: 'flex', alignItems: 'center' }}>
                     {currency(displayPrice)}
-                    <span onClick={() => { setEditingField('price'); setTempVal(displayPrice); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                    {onUpdatePrice && (
+                      <span onClick={() => { setEditingField('price'); setTempVal(displayPrice); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -327,6 +333,32 @@ export default function ItemHistoryModal({
                   {currency(margin)}
                 </div>
               </div>
+              {onUpdateReorderQty && (
+                <div className="inv-hist-stat" style={{ gridColumn: 'span 2' }}>
+                  <div className="inv-hist-stat-label">Maintaining Quantity</div>
+                  {editingField === 'reorder_qty' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number" min="1" value={tempVal}
+                        onChange={e => setTempVal(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleSaveEdit();
+                          allowOnlyDigits(e);
+                        }}
+                        autoFocus
+                        style={{ width: '80px', background: 'var(--th-bg-input,#1a2132)', border: '1px solid var(--th-amber,#fbbf24)', color: '#fff', fontSize: '0.85rem', borderRadius: 4, padding: '2px 4px' }}
+                      />
+                      <button onClick={handleSaveEdit} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer', fontSize: '1.1rem' }}>✓</button>
+                      <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+                    </div>
+                  ) : (
+                    <div className="inv-hist-stat-val amber" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>{item.reorder_qty ?? 4} pcs</span>
+                      <span onClick={() => { setEditingField('reorder_qty'); setTempVal(item.reorder_qty ?? 4); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

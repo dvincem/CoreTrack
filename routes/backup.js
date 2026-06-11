@@ -34,50 +34,68 @@ async function uploadToGCS(filePath) {
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-// Tables to export, in dependency order (parents before children)
+// Tables to export, in dependency order (parents before children).
+// IMPORTANT: when new tables are added to Database.js, add them here too.
 const EXPORT_TABLES = [
+  // ── Core shop & auth ─────────────────────────────────────────────────────
   "shop_master",
   "brand_assets",
   "staff_master",
   "user_credentials",
   "user_page_access",
   "user_system_roles",
+  // ── Suppliers & inventory ────────────────────────────────────────────────
   "supplier_master",
   "supplier_brands",
   "item_master",
+  "current_stock",
+  "inventory_ledger",
+  "item_price_history",
+  // ── Inventory audits ─────────────────────────────────────────────────────
+  "inventory_audit_sessions",
+  "inventory_audit_items",
+  "inventory_audits",
+  // ── Customers & services ─────────────────────────────────────────────────
   "services_master",
   "commission_rules",
   "customer_master",
   "vehicle_plates",
-  "staff_attendance",
-  "inventory_ledger",
-  "current_stock",
+  // ── Sales & POS ──────────────────────────────────────────────────────────
   "sale_header",
   "sale_items",
   "sales_ledger",
   "sales_ledger_items",
+  "pos_drafts",
+  "labor_log",
+  // ── Orders & purchases ───────────────────────────────────────────────────
   "orders",
   "order_items",
   "purchase_header",
   "purchase_items",
+  // ── Recap jobs ───────────────────────────────────────────────────────────
   "recap_job_master",
   "recap_job_ledger",
   "recap_price_defaults",
+  // ── Financials ───────────────────────────────────────────────────────────
   "accounts_receivable",
   "receivable_payments",
   "accounts_payable",
   "payable_payments",
-  "labor_log",
-  "staff_daily_revenue",
+  "payment_ledger",
   "expenses",
   "expense_categories",
   "cash_ledger",
   "bale_book",
   "bale_payments",
   "returns",
-  "payment_ledger",
-  "item_price_history",
+  // ── Staff & payroll ──────────────────────────────────────────────────────
+  "staff_attendance",
+  "staff_daily_revenue",
+  // ── Goals & reporting ────────────────────────────────────────────────────
+  "revenue_goals",
   "daily_closures",
+  // ── Audit trail ──────────────────────────────────────────────────────────
+  "system_audit_log",
 ];
 
 function dbAll(sql, params = []) {
@@ -88,20 +106,51 @@ function dbAll(sql, params = []) {
 
 // ── Core Backup Logic (Exported for Auto-Backup) ───────────────────────────
 
-// Excel cells cannot exceed 32,767 characters — truncate any that do
+// Excel cells cannot exceed 32,767 characters — truncate any that do.
 const EXCEL_MAX_CELL = 32767;
-function sanitizeRows(rows) {
-  return rows.map(row => {
-    const clean = {};
-    for (const [k, v] of Object.entries(row)) {
-      if (typeof v === 'string' && v.length > EXCEL_MAX_CELL) {
-        clean[k] = v.slice(0, EXCEL_MAX_CELL - 3) + '...';
-      } else {
-        clean[k] = v;
-      }
+
+/**
+ * Get the authoritative column list for a table directly from the DB schema.
+ * This is the source of truth — we never rely on the data rows to discover columns,
+ * because all-NULL columns are invisible in the row objects returned by sqlite3.
+ */
+async function getTableColumns(table) {
+  const rows = await dbAll(`PRAGMA table_info(${table})`);
+  return rows.map(r => r.name);
+}
+
+/**
+ * Build a worksheet from rows, always including every DB column in the header
+ * even if all values in that column are NULL.
+ * 
+ * This prevents the xlsx library from silently dropping columns like
+ * customer_master.contact_number when no customer has a phone number yet.
+ */
+function buildSheet(rows, columns) {
+  // Normalise every row: ensure all columns present, truncate long strings
+  const normalised = rows.map(row => {
+    const out = {};
+    for (const col of columns) {
+      const v = row[col] !== undefined ? row[col] : null;
+      out[col] = (typeof v === 'string' && v.length > EXCEL_MAX_CELL)
+        ? v.slice(0, EXCEL_MAX_CELL - 3) + '...'
+        : v;
     }
-    return clean;
+    return out;
   });
+
+  if (normalised.length === 0) {
+    // Empty table: create a header-only sheet so the column structure is preserved
+    const ws = {};
+    columns.forEach((col, i) => {
+      ws[XLSX.utils.encode_cell({ r: 0, c: i })] = { v: col, t: 's' };
+    });
+    ws['!ref'] = XLSX.utils.encode_range({ r: 0, c: 0 }, { r: 0, c: Math.max(0, columns.length - 1) });
+    return ws;
+  }
+
+  // Use header option to pin column order and force all columns to appear
+  return XLSX.utils.json_to_sheet(normalised, { header: columns });
 }
 
 async function runBackupToFile(targetPath = null) {
@@ -113,16 +162,19 @@ async function runBackupToFile(targetPath = null) {
   }
 
   for (const table of EXPORT_TABLES) {
-    let rows;
+    let rows, columns;
     try {
-      rows = await dbAll(`SELECT * FROM ${table}`);
+      [rows, columns] = await Promise.all([
+        dbAll(`SELECT * FROM ${table}`),
+        getTableColumns(table),
+      ]);
     } catch {
       continue;
     }
     const sheetName = table.toUpperCase();
     const idx = wb.SheetNames.indexOf(sheetName);
     if (idx !== -1) { wb.SheetNames.splice(idx, 1); delete wb.Sheets[sheetName]; }
-    const ws = XLSX.utils.json_to_sheet(sanitizeRows(rows));
+    const ws = buildSheet(rows, columns);
     wb.Sheets[sheetName] = ws;
     wb.SheetNames.push(sheetName);
   }
@@ -156,9 +208,14 @@ router.get("/backup/download", async (req, res) => {
   try {
     const wb = XLSX.utils.book_new();
     for (const table of EXPORT_TABLES) {
-      let rows;
-      try { rows = await dbAll(`SELECT * FROM ${table}`); } catch { continue; }
-      const ws = XLSX.utils.json_to_sheet(sanitizeRows(rows));
+      let rows, columns;
+      try {
+        [rows, columns] = await Promise.all([
+          dbAll(`SELECT * FROM ${table}`),
+          getTableColumns(table),
+        ]);
+      } catch { continue; }
+      const ws = buildSheet(rows, columns);
       XLSX.utils.book_append_sheet(wb, ws, table.toUpperCase());
     }
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
@@ -172,54 +229,74 @@ router.get("/backup/download", async (req, res) => {
 });
 
 // ── Import: receive xlsx upload, wipe & reload tables ─────────────────────
+// COL_MAP: rename old/mismatched column names from xlsx → current DB column name.
+// Only add entries here if an exported column name differs from the live DB column.
 const COL_MAP = {
   staff_master: { contacts: "email" },
-  supplier_master: { active_status: "is_active" },
+  // supplier_master: active_status IS the correct DB column name — no mapping needed
 };
 
+// IMPORT_ORDER must mirror EXPORT_TABLES (parents before children)
 const IMPORT_ORDER = [
+  // ── Core shop & auth ─────────────────────────────────────────────────────
   "shop_master",
   "brand_assets",
   "staff_master",
   "user_credentials",
   "user_page_access",
   "user_system_roles",
+  // ── Suppliers & inventory ────────────────────────────────────────────────
   "supplier_master",
   "supplier_brands",
   "item_master",
+  "current_stock",
+  "inventory_ledger",
+  "item_price_history",
+  // ── Inventory audits ─────────────────────────────────────────────────────
+  "inventory_audit_sessions",
+  "inventory_audit_items",
+  "inventory_audits",
+  // ── Customers & services ─────────────────────────────────────────────────
   "services_master",
   "commission_rules",
   "customer_master",
   "vehicle_plates",
-  "staff_attendance",
-  "inventory_ledger",
-  "current_stock",
+  // ── Sales & POS ──────────────────────────────────────────────────────────
   "sale_header",
   "sale_items",
   "sales_ledger",
   "sales_ledger_items",
+  "pos_drafts",
+  "labor_log",
+  // ── Orders & purchases ───────────────────────────────────────────────────
   "orders",
   "order_items",
   "purchase_header",
   "purchase_items",
+  // ── Recap jobs ───────────────────────────────────────────────────────────
   "recap_job_master",
   "recap_job_ledger",
   "recap_price_defaults",
+  // ── Financials ───────────────────────────────────────────────────────────
   "accounts_receivable",
   "receivable_payments",
   "accounts_payable",
   "payable_payments",
-  "labor_log",
-  "staff_daily_revenue",
+  "payment_ledger",
   "expenses",
   "expense_categories",
   "cash_ledger",
   "bale_book",
   "bale_payments",
   "returns",
-  "payment_ledger",
-  "item_price_history",
+  // ── Staff & payroll ──────────────────────────────────────────────────────
+  "staff_attendance",
+  "staff_daily_revenue",
+  // ── Goals & reporting ────────────────────────────────────────────────────
+  "revenue_goals",
   "daily_closures",
+  // ── Audit trail (restore last — no FK deps) ──────────────────────────────
+  "system_audit_log",
 ];
 
 function dbRunP(sql, p = []) {
