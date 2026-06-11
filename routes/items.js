@@ -83,6 +83,7 @@ router.get("/items/:shop_id", async (req, res) => {
       MAX(selling_price) as selling_price,
       MAX(reorder_point) as reorder_point,
       MAX(reorder_qty) as reorder_qty,
+      MAX(reorder_trigger_qty) as reorder_trigger_qty,
       MAX(auto_reorder_enabled) as auto_reorder_enabled,
       MAX(supplier_id) as supplier_id,
       MAX(supplier_name) as supplier_name,
@@ -495,6 +496,27 @@ router.put("/items/:item_id/reorder-qty", (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ item_id, reorder_qty: newQty, changes: this.changes, message: "Maintaining qty updated successfully" });
   });
+});
+
+// Update reorder trigger threshold for a single item (null = disable / use fallback)
+router.put("/items/:item_id/reorder-trigger-qty", (req, res) => {
+  const { item_id } = req.params;
+  const { reorder_trigger_qty } = req.body;
+  // Allow null to clear the trigger (fallback to old behavior)
+  const newVal = (reorder_trigger_qty === null || reorder_trigger_qty === undefined || reorder_trigger_qty === '')
+    ? null
+    : parseInt(reorder_trigger_qty, 10);
+  if (newVal !== null && (isNaN(newVal) || newVal < 1)) {
+    return res.status(400).json({ error: "Reorder trigger qty must be at least 1, or null to disable" });
+  }
+  db.run(
+    `UPDATE item_master SET reorder_trigger_qty = ? WHERE item_id = ? OR parent_item_id = ?`,
+    [newVal, item_id, item_id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ item_id, reorder_trigger_qty: newVal, changes: this.changes, message: "Reorder trigger qty updated successfully" });
+    }
+  );
 });
 
 // Toggle auto-reorder for a single item (or all variants via parent_item_id)

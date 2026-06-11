@@ -42,6 +42,7 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
         `SELECT im.item_id, im.item_name, im.brand, im.category,
                 im.supplier_id, sm.supplier_name,
                 COALESCE(im.reorder_qty, 4) AS maintaining_qty,
+                im.reorder_trigger_qty,
                 COALESCE(im.unit_cost, 0)   AS unit_cost
          FROM item_master im
          LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
@@ -68,7 +69,15 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
       );
       const total_stock = stockRow ? (stockRow.total || 0) : 0;
 
-      // THE formula
+      // ── Trigger decision ─────────────────────────────────────────────────────
+      // If reorder_trigger_qty is set: only fire when stock reaches that exact threshold
+      // (i.e. total_stock <= trigger). Otherwise fall back to old behavior (stock < maintaining).
+      const trigger = item.reorder_trigger_qty;
+      const shouldTrigger = trigger !== null && trigger !== undefined
+        ? total_stock <= trigger
+        : total_stock < item.maintaining_qty;
+
+      // THE formula — order enough to reach maintaining qty
       const order_qty = item.maintaining_qty - total_stock;
 
       // Find any existing pending non-RS order that already has this parent item
@@ -86,8 +95,9 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
         [shop_id, parentId]
       );
 
-      if (order_qty <= 0) {
-        // Stock at or above maintaining qty — remove from pending auto-order if present
+      if (!shouldTrigger || order_qty <= 0) {
+        // Either stock is above trigger threshold, or already at/above maintaining qty.
+        // Remove from any pending auto-order if present.
         if (existingOI && existingOI.order_id.startsWith('ORD-AUTO-')) {
           await dbRun(`DELETE FROM order_items WHERE order_item_id = ?`, [existingOI.order_item_id]);
           await recalcOrPruneOrder(existingOI.order_id);

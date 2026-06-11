@@ -2,6 +2,10 @@ import '../pages_css/Productspage.css';
 import React from "react";
 import ReactDOM from "react-dom";
 import { API_URL, apiFetch, currency, allowOnlyDigits, allowOnlyDecimals, allowOnlySignedDigits } from "../lib/config";
+
+// Categories that are never eligible for auto-reorder (mirrors routes/items.js)
+const AR_BLOCKED_CATS = ['RECAP', 'RECAPPING', 'USED TIRE', 'MAG WHEELS', 'VALVE'];
+
 import DataTable from "../components/DataTable";
 import FilterHeader from "../components/FilterHeader";
 import KpiCard from "../components/KpiCard";
@@ -836,6 +840,24 @@ function Productspage({ shopId }) {
       fetchKpi();
       setSelected(prev => ({ ...prev, reorder_qty: newVal }));
     } catch { toast("Failed to update maintaining qty.", "error"); }
+  }
+
+  async function updateModalTriggerQty(newVal, variantId) {
+    // newVal may be null (to clear the trigger) or a positive integer
+    const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
+    try {
+      await Promise.all(realIds.map(id =>
+        apiFetch(`${API_URL}/items/${encodeURIComponent(id)}/reorder-trigger-qty`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reorder_trigger_qty: newVal === null ? null : Math.max(1, Math.round(newVal)) }),
+        })
+      ));
+      toast(newVal === null ? "Reorder trigger cleared!" : "Reorder trigger qty updated!");
+      refetchItems();
+      fetchKpi();
+      setSelected(prev => ({ ...prev, reorder_trigger_qty: newVal }));
+    } catch { toast("Failed to update reorder trigger qty.", "error"); }
   }
 
 
@@ -2141,7 +2163,16 @@ function Productspage({ shopId }) {
             }}
             onUpdateCost={updateModalCost}
             onUpdatePrice={updateModalPrice}
-            onUpdateReorderQty={updateModalReorderQty}
+            onUpdateReorderQty={(() => {
+              const cat = (selected?.category || '').toUpperCase();
+              return !AR_BLOCKED_CATS.includes(cat) && selected?.supplier_id
+                ? updateModalReorderQty : undefined;
+            })()}
+            onUpdateTriggerQty={(() => {
+              const cat = (selected?.category || '').toUpperCase();
+              return !AR_BLOCKED_CATS.includes(cat) && selected?.supplier_id
+                ? updateModalTriggerQty : undefined;
+            })()}
             incomingOrders={incomingOrders}
             incomingLoading={incomingLoading}
             historyContent={

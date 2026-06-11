@@ -19,7 +19,7 @@ import { allowOnlyDecimals, allowOnlyDigits } from '../lib/config'
 export default function ItemHistoryModal({
   item, onClose, currency, historyContent, children,
   variants, activeVariantId, onVariantChange, onDesignChange,
-  onUpdateCost, onUpdatePrice, onUpdateReorderQty,
+  onUpdateCost, onUpdatePrice, onUpdateReorderQty, onUpdateTriggerQty,
   incomingOrders = [], incomingLoading = false
 }) {
   const isGrouped = variants && variants.length > 1
@@ -104,6 +104,8 @@ export default function ItemHistoryModal({
       onUpdatePrice && onUpdatePrice(val, activeVariantId)
     } else if (editingField === 'reorder_qty') {
       onUpdateReorderQty && onUpdateReorderQty(val, activeVariantId)
+    } else if (editingField === 'reorder_trigger_qty') {
+      onUpdateTriggerQty && onUpdateTriggerQty(val, activeVariantId)
     }
     setEditingField(null)
   }
@@ -334,7 +336,7 @@ export default function ItemHistoryModal({
                 </div>
               </div>
               {onUpdateReorderQty && (
-                <div className="inv-hist-stat" style={{ gridColumn: 'span 2' }}>
+                <div className="inv-hist-stat">
                   <div className="inv-hist-stat-label">Maintaining Quantity</div>
                   {editingField === 'reorder_qty' ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -355,6 +357,46 @@ export default function ItemHistoryModal({
                     <div className="inv-hist-stat-val amber" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>{item.reorder_qty ?? 4} pcs</span>
                       <span onClick={() => { setEditingField('reorder_qty'); setTempVal(item.reorder_qty ?? 4); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {onUpdateTriggerQty && (
+                <div className="inv-hist-stat">
+                  <div className="inv-hist-stat-label">Reorder Trigger Qty</div>
+                  {editingField === 'reorder_trigger_qty' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number" min="1" value={tempVal}
+                        onChange={e => setTempVal(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleSaveEdit();
+                          allowOnlyDigits(e);
+                        }}
+                        autoFocus
+                        placeholder="e.g. 2"
+                        style={{ width: '80px', background: 'var(--th-bg-input,#1a2132)', border: '1px solid var(--th-rose,#f43f5e)', color: 'var(--th-text-primary)', fontSize: '0.85rem', borderRadius: 4, padding: '2px 4px' }}
+                      />
+                      <button onClick={handleSaveEdit} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer', fontSize: '1.1rem' }}>✓</button>
+                      <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+                      {item.reorder_trigger_qty != null && (
+                        <button
+                          onClick={() => { onUpdateTriggerQty && onUpdateTriggerQty(null, activeVariantId); setEditingField(null); }}
+                          title="Clear trigger (always reorder when below maintaining qty)"
+                          style={{ background: 'none', border: 'none', color: 'var(--th-text-faint)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline' }}
+                        >Clear</button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="inv-hist-stat-val" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {item.reorder_trigger_qty != null ? (
+                        <span style={{ color: 'var(--th-rose,#f43f5e)', fontWeight: 700, fontSize: '1rem', fontFamily: "'Barlow Condensed',sans-serif" }}>
+                          {item.reorder_trigger_qty} pcs
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem', fontStyle: 'italic' }}>— not set</span>
+                      )}
+                      <span onClick={() => { setEditingField('reorder_trigger_qty'); setTempVal(item.reorder_trigger_qty ?? ''); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
                     </div>
                   )}
                 </div>

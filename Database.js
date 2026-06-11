@@ -147,6 +147,12 @@ db.serialize(() => {
   db.run(`ALTER TABLE staff_master ADD COLUMN profile_picture TEXT`, (err) => { if (err) console.error("Error altering staff_master:", err); });
   db.run(`ALTER TABLE item_master ADD COLUMN auto_reorder_enabled INTEGER DEFAULT 0`, (err) => { if (err && !err.message.includes('duplicate column')) console.error("Error altering item_master (auto_reorder_enabled):", err); });
   db.run(`ALTER TABLE item_master ADD COLUMN reorder_qty INTEGER DEFAULT 4`, (err) => { if (err && !err.message.includes('duplicate column')) console.error("Error altering item_master (reorder_qty):", err); });
+  // Reorder trigger threshold: reorder only fires when stock <= this value. Default 3.
+  db.run(`ALTER TABLE item_master ADD COLUMN reorder_trigger_qty INTEGER DEFAULT 3`, (err) => {
+    if (err && !err.message.includes('duplicate column')) console.error("Error altering item_master (reorder_trigger_qty):", err);
+    // Backfill any NULLs for rows that already existed before this column was added
+    db.run(`UPDATE item_master SET reorder_trigger_qty = 3 WHERE reorder_trigger_qty IS NULL`, () => {});
+  });
   // Global auto-order system toggle (per-shop). Default 1 = enabled.
   db.run(`ALTER TABLE shop_master ADD COLUMN auto_reorder_system_enabled INTEGER DEFAULT 1`, (err) => { if (err && !err.message.includes('duplicate column')) console.error("Error altering shop_master (auto_reorder_system_enabled):", err); });
 });
