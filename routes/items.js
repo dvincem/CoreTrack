@@ -93,7 +93,7 @@ router.get("/items/:shop_id", async (req, res) => {
       COUNT(*) as variant_count,
       COUNT(DISTINCT COALESCE(design,'')) as design_count,
       GROUP_CONCAT(DISTINCT COALESCE(design,'')) as design_list,
-      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || REPLACE(COALESCE(design,'NONE'),':','_') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0) || ':' || COALESCE(reorder_point,5)) as variant_info
+      GROUP_CONCAT(item_id || ':' || COALESCE(dot_number,'NONE') || ':' || REPLACE(COALESCE(design,'NONE'),':','_') || ':' || current_quantity || ':' || selling_price || ':' || COALESCE(unit_cost,0) || ':' || COALESCE(reorder_point,5) || ':' || COALESCE(reorder_qty,4) || ':' || COALESCE(reorder_trigger_qty,'NONE') || ':' || COALESCE(auto_reorder_enabled,0)) as variant_info
     `;
     fromClause = `
       FROM (

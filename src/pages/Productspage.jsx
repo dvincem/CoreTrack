@@ -166,6 +166,9 @@ function Productspage({ shopId }) {
         selling_price: parseFloat(parts[4]) || 0,
         unit_cost: parseFloat(parts[5]) || 0,
         reorder_point: parts[6] !== undefined ? (parseInt(parts[6]) ?? 5) : 5,
+        reorder_qty: parts[7] !== undefined ? (parseInt(parts[7]) ?? 4) : 4,
+        reorder_trigger_qty: parts[8] !== undefined && parts[8] !== 'NONE' ? (parseInt(parts[8]) ?? null) : null,
+        auto_reorder_enabled: parts[9] !== undefined ? (parseInt(parts[9]) === 1) : false,
       };
     }).filter(v => v.item_id);
   }
@@ -838,6 +841,13 @@ function Productspage({ shopId }) {
       toast("Maintaining qty updated!");
       refetchItems();
       fetchKpi();
+      if (variantId) {
+        setHistoryVariants(prev => prev.map(v =>
+          String(v.item_id).startsWith(variantId) ? { ...v, reorder_qty: newVal } : v
+        ));
+      } else {
+        setHistoryVariants(prev => prev.map(v => ({ ...v, reorder_qty: newVal })));
+      }
       setSelected(prev => ({ ...prev, reorder_qty: newVal }));
     } catch { toast("Failed to update maintaining qty.", "error"); }
   }
@@ -856,8 +866,42 @@ function Productspage({ shopId }) {
       toast(newVal === null ? "Reorder trigger cleared!" : "Reorder trigger qty updated!");
       refetchItems();
       fetchKpi();
+      if (variantId) {
+        setHistoryVariants(prev => prev.map(v =>
+          String(v.item_id).startsWith(variantId) ? { ...v, reorder_trigger_qty: newVal } : v
+        ));
+      } else {
+        setHistoryVariants(prev => prev.map(v => ({ ...v, reorder_trigger_qty: newVal })));
+      }
       setSelected(prev => ({ ...prev, reorder_trigger_qty: newVal }));
     } catch { toast("Failed to update reorder trigger qty.", "error"); }
+  }
+
+  async function updateModalAutoReorder(enabled, variantId) {
+    const realIds = variantId ? [variantId] : (historyVariants.length > 0 ? historyVariants.map(v => v.item_id) : [selected.item_id]);
+    try {
+      await Promise.all(realIds.map(id =>
+        apiFetch(`${API_URL}/items/${encodeURIComponent(id)}/auto-reorder`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        })
+      ));
+      toast(enabled ? "Auto-reorder enabled!" : "Auto-reorder disabled!");
+      refetchItems();
+      fetchKpi();
+      if (variantId) {
+        setHistoryVariants(prev => prev.map(v =>
+          String(v.item_id).startsWith(variantId) ? { ...v, auto_reorder_enabled: enabled === 1 } : v
+        ));
+      } else {
+        setHistoryVariants(prev => prev.map(v => ({ ...v, auto_reorder_enabled: enabled === 1 })));
+      }
+      setSelected(prev => ({ ...prev, auto_reorder_enabled: enabled === 1 }));
+    } catch (err) {
+      const msg = err?.message || "Failed to update auto-reorder.";
+      toast(msg, "error");
+    }
   }
 
 
@@ -2172,6 +2216,11 @@ function Productspage({ shopId }) {
               const cat = (selected?.category || '').toUpperCase();
               return !AR_BLOCKED_CATS.includes(cat) && selected?.supplier_id
                 ? updateModalTriggerQty : undefined;
+            })()}
+            onToggleAutoReorder={(() => {
+              const cat = (selected?.category || '').toUpperCase();
+              return !AR_BLOCKED_CATS.includes(cat) && selected?.supplier_id
+                ? updateModalAutoReorder : undefined;
             })()}
             incomingOrders={incomingOrders}
             incomingLoading={incomingLoading}

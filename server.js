@@ -199,8 +199,18 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 initializeDatabase()
-  .then(() => {
+  .then(async () => {
     console.log("✅ Database structure ready and seeded.");
+    
+    // Run initial backup immediately on startup
+    console.log("💾 Running initial database backup...");
+    try {
+      const result = await runBackupToFile();
+      console.log(`✅ Initial database backup complete (${result.tables} tables saved to backup.xlsx).`);
+    } catch (err) {
+      console.error("❌ Initial database backup failed:", err.message);
+    }
+
     app.listen(PORT, "0.0.0.0", async () => {
       const os = require('os');
       function getLocalIP() {

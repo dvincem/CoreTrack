@@ -3999,6 +3999,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
       item_name: i.item_name || i.displaySize || "",
       brand: i.brand, size: i.size,
       received_status: i.received_status,
+      current_inventory: i.current_inventory,
     })));
 
     // ── Detect dominant brand & supplier from existing order items ──
@@ -5351,8 +5352,24 @@ export default function OrdersPage({ shopId, onRefresh }) {
                       borderRadius: 8, padding: "0.6rem 0.75rem",
                       marginBottom: "0.5rem",
                     }}>
-                      <div style={{ fontSize: "0.82rem", color: "var(--th-text-muted)", marginBottom: "0.4rem", fontWeight: 600 }}>
-                        {ei.item_name || [ei.brand, ei.design, ei.size].filter(Boolean).join(" ") || ei.order_item_id}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.4rem" }}>
+                        <div style={{ fontSize: "0.82rem", color: "var(--th-text-muted)", fontWeight: 600 }}>
+                          {ei.item_name || [ei.brand, ei.design, ei.size].filter(Boolean).join(" ") || ei.order_item_id}
+                          {ei.current_inventory !== undefined && (
+                            <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', fontWeight: 500, color: 'var(--th-text-faint)', background: 'var(--th-bg)', padding: '0.1rem 0.3rem', borderRadius: 4 }}>
+                              In Stock: <strong style={{ color: 'var(--th-sky)' }}>{ei.current_inventory}</strong>
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          className="ord-btn"
+                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.75rem", color: "var(--th-rose)", border: "1px solid var(--th-rose-bg)", background: "transparent" }}
+                          onClick={() => {
+                            setEditItems(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                        >
+                          ✕ Remove
+                        </button>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.4rem" }}>
                         <label style={{ fontSize: "0.75rem", color: "var(--th-text-muted)" }}>

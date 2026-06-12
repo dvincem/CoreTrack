@@ -236,7 +236,10 @@ const COL_MAP = {
   // supplier_master: active_status IS the correct DB column name — no mapping needed
 };
 
-// IMPORT_ORDER must mirror EXPORT_TABLES (parents before children)
+// IMPORT_ORDER must mirror EXPORT_TABLES (parents before children).
+// NOTE: 'current_stock' is intentionally excluded — it is a derived table
+// that must always be recomputed from inventory_ledger, never imported from
+// a snapshot. Importing stale values from Excel causes negative stock bugs.
 const IMPORT_ORDER = [
   // ── Core shop & auth ─────────────────────────────────────────────────────
   "shop_master",
@@ -249,7 +252,7 @@ const IMPORT_ORDER = [
   "supplier_master",
   "supplier_brands",
   "item_master",
-  "current_stock",
+  // current_stock is intentionally skipped — rebuilt from inventory_ledger below
   "inventory_ledger",
   "item_price_history",
   // ── Inventory audits ─────────────────────────────────────────────────────
@@ -352,7 +355,39 @@ router.post("/import", upload.single("file"), async (req, res) => {
     }
 
     await dbRunP("PRAGMA foreign_keys = ON");
+
+    // ── Post-import: fully rebuild current_stock from inventory_ledger ────────
+    // current_stock is a DERIVED table — it must always reflect the ledger sum.
+    // We never import it from Excel (it's excluded from IMPORT_ORDER above).
+    // This block clears the table and rebuilds it 100% from the ledger so it
+    // is always accurate regardless of what the backup file contained.
+    try {
+      // Step 1: clear any stale values that may exist in the table
+      await dbRunP(`DELETE FROM current_stock`);
+
+      // Step 2: rebuild from ledger — one row per (shop_id, item_id) pair
+      await dbRunP(`
+        INSERT INTO current_stock (shop_id, item_id, current_quantity, last_updated)
+        SELECT
+          il.shop_id,
+          il.item_id,
+          COALESCE(SUM(il.quantity), 0) AS current_quantity,
+          CURRENT_TIMESTAMP
+        FROM inventory_ledger il
+        WHERE il.item_id IN (SELECT item_id FROM item_master)
+        GROUP BY il.shop_id, il.item_id
+      `);
+
+      const synced = await dbRunP(`SELECT changes()`);
+      console.log(`[Import] current_stock fully rebuilt from inventory_ledger (${synced.changes} rows).`);
+      results.push({ table: 'current_stock', status: 'rebuilt-from-ledger' });
+    } catch (syncErr) {
+      console.error('[Import] current_stock rebuild failed:', syncErr.message);
+      results.push({ table: 'current_stock', status: 'rebuild-failed', error: syncErr.message });
+    }
+
     res.json({ ok: true, results });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -979,6 +979,10 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
         qty: parseInt(parts[3]) || 0,
         selling_price: parseFloat(parts[4]) || 0,
         unit_cost: parseFloat(parts[5]) || 0,
+        reorder_point: parts[6] !== undefined ? (parseInt(parts[6]) ?? 5) : 5,
+        reorder_qty: parts[7] !== undefined ? (parseInt(parts[7]) ?? 4) : 4,
+        reorder_trigger_qty: parts[8] !== undefined && parts[8] !== 'NONE' ? (parseInt(parts[8]) ?? null) : null,
+        auto_reorder_enabled: parts[9] !== undefined ? (parseInt(parts[9]) === 1) : false,
       };
     }).filter(v => v.item_id);
   }

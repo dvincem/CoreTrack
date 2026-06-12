@@ -25,19 +25,32 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
     );
     if (shopRow && shopRow.auto_reorder_system_enabled === 0) return;
 
-    // Resolve every sold item to its root parent (COALESCE parent_item_id, item_id)
-    // Deduplicate so each parent group is processed exactly once.
+    // Find all active parent items matching the sold item's brand, size, and category that have auto-reorder enabled
     const parentSet = new Set();
     for (const id of soldItemIds) {
-      const r = await dbGet(
-        `SELECT COALESCE(parent_item_id, item_id) AS root_id FROM item_master WHERE item_id = ?`,
+      const siblings = await dbAll(
+        `SELECT sibling.item_id FROM item_master sibling
+         JOIN item_master sold ON sold.item_id = ?
+         WHERE sibling.parent_item_id IS NULL
+           AND sibling.is_active = 1
+           AND COALESCE(sibling.brand,'') = COALESCE(sold.brand,'')
+           AND COALESCE(sibling.size,'') = COALESCE(sold.size,'')
+           AND COALESCE(sibling.category,'') = COALESCE(sold.category,'')
+           AND sibling.supplier_id IS NOT NULL
+           AND (sibling.auto_reorder_enabled = 1
+                OR EXISTS (
+                  SELECT 1 FROM item_master c
+                  WHERE c.parent_item_id = sibling.item_id AND c.auto_reorder_enabled = 1
+                ))`,
         [id]
       );
-      if (r) parentSet.add(r.root_id);
+      for (const sib of siblings) {
+        parentSet.add(sib.item_id);
+      }
     }
 
     for (const parentId of parentSet) {
-      // Fetch parent details; skip if auto-reorder not enabled or no supplier
+      // Fetch parent details
       const item = await dbGet(
         `SELECT im.item_id, im.item_name, im.brand, im.category,
                 im.supplier_id, sm.supplier_name,
@@ -48,26 +61,42 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
          LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
          WHERE im.item_id = ?
            AND im.supplier_id IS NOT NULL
-           AND UPPER(COALESCE(im.category,'')) NOT IN (${AR_BLOCKED_CATS.map(() => '?').join(',')})
-           AND (im.auto_reorder_enabled = 1
-                OR EXISTS (
-                  SELECT 1 FROM item_master c
-                  WHERE c.parent_item_id = im.item_id AND c.auto_reorder_enabled = 1
-                ))`,
+           AND UPPER(COALESCE(im.category,'')) NOT IN (${AR_BLOCKED_CATS.map(() => '?').join(',')})`,
         [parentId, ...AR_BLOCKED_CATS]
       );
       if (!item) continue;
 
-      // Total stock = parent row + all DOT children combined
+      // Group stock = physical ledger stock + unreceived incoming stock from PENDING/PLACED orders
       const stockRow = await dbGet(
-        `SELECT COALESCE(SUM(cs.current_quantity), 0) AS total
-         FROM current_stock cs
-         JOIN item_master im ON cs.item_id = im.item_id
-         WHERE cs.shop_id = ?
-           AND (im.item_id = ? OR im.parent_item_id = ?)`,
-        [shop_id, parentId, parentId]
+        `SELECT
+           (SELECT COALESCE(SUM(il.quantity), 0)
+            FROM inventory_ledger il
+            JOIN item_master im2 ON il.item_id = im2.item_id
+            WHERE il.shop_id = ?
+              AND im2.brand = im.brand
+              AND im2.size = im.size
+              AND im2.category = im.category) AS physical_stock,
+           (SELECT COALESCE(SUM(oi.quantity), 0)
+            FROM order_items oi
+            JOIN orders o ON o.order_id = oi.order_id
+            JOIN item_master im2 ON oi.item_id = im2.item_id
+            WHERE o.shop_id = ?
+              AND o.status IN ('PENDING', 'PLACED')
+              AND oi.received_status = 'PENDING'
+              AND im2.brand = im.brand
+              AND im2.size = im.size
+              AND im2.category = im.category) AS incoming_stock
+         FROM item_master im
+         WHERE im.item_id = ?`,
+        [shop_id, shop_id, parentId]
       );
-      const total_stock = stockRow ? (stockRow.total || 0) : 0;
+      
+      const physical_stock = stockRow ? (stockRow.physical_stock || 0) : 0;
+      const incoming_stock = stockRow ? (stockRow.incoming_stock || 0) : 0;
+      const total_stock = physical_stock + incoming_stock;
+
+      // Also keep current_stock in sync for this item to fix any drift
+      await syncCurrentStock(shop_id, [parentId]);
 
       // ── Trigger decision ─────────────────────────────────────────────────────
       // If reorder_trigger_qty is set: only fire when stock reaches that exact threshold
@@ -80,9 +109,11 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
       // THE formula — order enough to reach maintaining qty
       const order_qty = item.maintaining_qty - total_stock;
 
-      // Find any existing pending non-RS order that already has this parent item
+      // Find any existing pending order that already has this parent item
+      // Rule: Append to any PENDING order (manual or auto), except recap orders (-RS-).
+      // If the order is PLACED, it won't be found here, so a new order will be created.
       const existingOI = await dbGet(
-        `SELECT oi.order_item_id, oi.order_id
+        `SELECT oi.order_item_id, oi.order_id, oi.quantity
          FROM order_items oi
          JOIN orders o ON oi.order_id = o.order_id
          WHERE o.shop_id = ? AND o.status = 'PENDING'
@@ -98,23 +129,26 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
       if (!shouldTrigger || order_qty <= 0) {
         // Either stock is above trigger threshold, or already at/above maintaining qty.
         // Remove from any pending auto-order if present.
-        if (existingOI && existingOI.order_id.startsWith('ORD-AUTO-')) {
+        if (existingOI) {
           await dbRun(`DELETE FROM order_items WHERE order_item_id = ?`, [existingOI.order_item_id]);
           await recalcOrPruneOrder(existingOI.order_id);
         }
         continue;
       }
 
-      const lineTotal = order_qty * item.unit_cost;
-
       if (existingOI) {
-        // Update qty to the fresh deficit
+        // Since current_quantity already INCLUDES the existingOI.quantity,
+        // order_qty is the EXTRA amount needed. So we ADD it.
+        const newQty = existingOI.quantity + order_qty;
+        const lineTotal = newQty * item.unit_cost;
+
         await dbRun(
           `UPDATE order_items SET quantity = ?, line_total = ? WHERE order_item_id = ?`,
-          [order_qty, lineTotal, existingOI.order_item_id]
+          [newQty, lineTotal, existingOI.order_item_id]
         );
         await recalcOrPruneOrder(existingOI.order_id);
       } else {
+        const lineTotal = order_qty * item.unit_cost;
         // Create a new ORD-AUTO order (or find an existing one for this brand+supplier)
         const orderId = await findOrCreateAutoOrder(shop_id, item, created_by = 'AUTO-REORDER');
         const oi_id   = `OI-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -132,12 +166,12 @@ async function triggerAutoReorder(shop_id, soldItemIds) {
   }
 }
 
-// Find an existing ORD-AUTO PENDING order for this brand+supplier, or create one.
+// Find an existing PENDING order for this brand+supplier, or create one.
 async function findOrCreateAutoOrder(shop_id, item, created_by) {
   const existing = await dbGet(
     `SELECT o.order_id FROM orders o
      WHERE o.shop_id = ? AND o.status = 'PENDING'
-       AND o.order_id LIKE 'ORD-AUTO-%'
+       AND o.order_id NOT LIKE '%-RS-%'
        AND EXISTS (
          SELECT 1 FROM order_items oi
          JOIN item_master im ON oi.item_id = im.item_id
@@ -145,7 +179,10 @@ async function findOrCreateAutoOrder(shop_id, item, created_by) {
            AND COALESCE(im.brand, '') = ?
            AND COALESCE(oi.supplier_id, im.supplier_id, '') = ?
        )
-     ORDER BY o.created_at DESC LIMIT 1`,
+     ORDER BY
+       CASE WHEN o.order_id LIKE 'ORD-AUTO-%' THEN 0 ELSE 1 END,
+       o.created_at DESC
+     LIMIT 1`,
     [shop_id, item.brand || '', item.supplier_id || '']
   );
   if (existing) return existing.order_id;

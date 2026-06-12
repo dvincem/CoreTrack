@@ -20,6 +20,7 @@ export default function ItemHistoryModal({
   item, onClose, currency, historyContent, children,
   variants, activeVariantId, onVariantChange, onDesignChange,
   onUpdateCost, onUpdatePrice, onUpdateReorderQty, onUpdateTriggerQty,
+  onToggleAutoReorder,
   incomingOrders = [], incomingLoading = false
 }) {
   const isGrouped = variants && variants.length > 1
@@ -52,6 +53,7 @@ export default function ItemHistoryModal({
 
   // KPI values
   let displayCost, displayPrice, displayQty, displayDot, displayName, displaySku
+  let displayReorderQty, displayTriggerQty, displayAutoReorder
   if (activeVariant) {
     displayCost  = activeVariant.unit_cost
     displayPrice = activeVariant.selling_price
@@ -59,6 +61,9 @@ export default function ItemHistoryModal({
     displayDot   = activeVariant.dot_number
     displayName  = activeVariant.item_name || item.item_name
     displaySku   = activeVariant.sku       || item.sku
+    displayReorderQty = activeVariant.reorder_qty
+    displayTriggerQty = activeVariant.reorder_trigger_qty
+    displayAutoReorder = !!activeVariant.auto_reorder_enabled
   } else if (designActiveVariants && designActiveVariants.length > 0) {
     displayCost  = designActiveVariants.reduce((s, v) => s + (v.unit_cost || 0), 0) / designActiveVariants.length
     displayPrice = designActiveVariants[0]?.selling_price || 0
@@ -67,6 +72,9 @@ export default function ItemHistoryModal({
     displayDot   = designActiveVariants.length === 1 ? designActiveVariants[0].dot_number : null
     displayName  = designActiveVariants[0]?.item_name || item.item_name
     displaySku   = designActiveVariants[0]?.sku       || item.sku
+    displayReorderQty = designActiveVariants[0]?.reorder_qty
+    displayTriggerQty = designActiveVariants[0]?.reorder_trigger_qty
+    displayAutoReorder = !!designActiveVariants[0]?.auto_reorder_enabled
   } else {
     displayCost  = item.unit_cost    || 0
     displayPrice = item.selling_price || 0
@@ -74,8 +82,18 @@ export default function ItemHistoryModal({
     displayDot   = item.dot_number
     displayName  = item.item_name
     displaySku   = item.sku
+    displayReorderQty = item.reorder_qty
+    displayTriggerQty = item.reorder_trigger_qty
+    displayAutoReorder = !!item.auto_reorder_enabled
   }
   const margin = displayPrice - displayCost
+
+  // Resolve target parent item_id for reorder properties (to update design-level settings)
+  const reorderTargetId = activeVariantId 
+    ? activeVariantId.split('-DOT')[0] 
+    : (designActiveVariants && designActiveVariants.length > 0 
+        ? designActiveVariants[0].item_id.split('-DOT')[0] 
+        : null)
 
   // DOT items for the currently active design (for sub-selector)
   const dotVariantsForDesign = isDesignGroup && activeDesign
@@ -97,15 +115,16 @@ export default function ItemHistoryModal({
 
   function handleSaveEdit() {
     const val = parseFloat(tempVal)
-    if (isNaN(val)) return
+    if (isNaN(val) && editingField !== 'reorder_trigger_qty') return
+    const actualVal = isNaN(val) ? null : val
     if (editingField === 'cost') {
-      onUpdateCost && onUpdateCost(val, activeVariantId)
+      onUpdateCost && onUpdateCost(actualVal, activeVariantId)
     } else if (editingField === 'price') {
-      onUpdatePrice && onUpdatePrice(val, activeVariantId)
+      onUpdatePrice && onUpdatePrice(actualVal, activeVariantId)
     } else if (editingField === 'reorder_qty') {
-      onUpdateReorderQty && onUpdateReorderQty(val, activeVariantId)
+      onUpdateReorderQty && onUpdateReorderQty(actualVal, reorderTargetId)
     } else if (editingField === 'reorder_trigger_qty') {
-      onUpdateTriggerQty && onUpdateTriggerQty(val, activeVariantId)
+      onUpdateTriggerQty && onUpdateTriggerQty(actualVal, reorderTargetId)
     }
     setEditingField(null)
   }
@@ -131,7 +150,38 @@ export default function ItemHistoryModal({
             </svg>
             Item History
           </div>
-          <button className="inv-hist-close" onClick={onClose}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {onToggleAutoReorder && (
+              <button
+                onClick={() => onToggleAutoReorder(displayAutoReorder ? 0 : 1, reorderTargetId)}
+                title="Toggle Auto-Reorder"
+                style={{
+                  padding: '0.2rem 0.6rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  background: displayAutoReorder ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.1)',
+                  color: displayAutoReorder ? 'var(--th-emerald,#10b981)' : 'var(--th-text-dim,#94a3b8)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span style={{ 
+                  width: '6px', 
+                  height: '6px', 
+                  borderRadius: '50%', 
+                  background: displayAutoReorder ? 'var(--th-emerald,#10b981)' : 'var(--th-text-dim,#94a3b8)' 
+                }} />
+                Auto-Reorder: {displayAutoReorder ? 'ON' : 'OFF'}
+              </button>
+            )}
+            <button className="inv-hist-close" onClick={onClose}>✕</button>
+          </div>
         </div>
 
         {/* ── Scrollable body ── */}
@@ -355,8 +405,8 @@ export default function ItemHistoryModal({
                     </div>
                   ) : (
                     <div className="inv-hist-stat-val amber" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>{item.reorder_qty ?? 4} pcs</span>
-                      <span onClick={() => { setEditingField('reorder_qty'); setTempVal(item.reorder_qty ?? 4); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                      <span>{displayReorderQty ?? 4} pcs</span>
+                      <span onClick={() => { setEditingField('reorder_qty'); setTempVal(displayReorderQty ?? 4); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
                     </div>
                   )}
                 </div>
@@ -379,9 +429,9 @@ export default function ItemHistoryModal({
                       />
                       <button onClick={handleSaveEdit} style={{ background: 'none', border: 'none', color: 'var(--th-emerald)', cursor: 'pointer', fontSize: '1.1rem' }}>✓</button>
                       <button onClick={() => setEditingField(null)} style={{ background: 'none', border: 'none', color: 'var(--th-rose)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
-                      {item.reorder_trigger_qty != null && (
+                      {displayTriggerQty != null && (
                         <button
-                          onClick={() => { onUpdateTriggerQty && onUpdateTriggerQty(null, activeVariantId); setEditingField(null); }}
+                          onClick={() => { onUpdateTriggerQty && onUpdateTriggerQty(null, reorderTargetId); setEditingField(null); }}
                           title="Clear trigger (always reorder when below maintaining qty)"
                           style={{ background: 'none', border: 'none', color: 'var(--th-text-faint)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline' }}
                         >Clear</button>
@@ -389,18 +439,19 @@ export default function ItemHistoryModal({
                     </div>
                   ) : (
                     <div className="inv-hist-stat-val" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      {item.reorder_trigger_qty != null ? (
+                      {displayTriggerQty != null ? (
                         <span style={{ color: 'var(--th-rose,#f43f5e)', fontWeight: 700, fontSize: '1rem', fontFamily: "'Barlow Condensed',sans-serif" }}>
-                          {item.reorder_trigger_qty} pcs
+                          {displayTriggerQty} pcs
                         </span>
                       ) : (
                         <span style={{ color: 'var(--th-text-faint)', fontSize: '0.82rem', fontStyle: 'italic' }}>— not set</span>
                       )}
-                      <span onClick={() => { setEditingField('reorder_trigger_qty'); setTempVal(item.reorder_trigger_qty ?? ''); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
+                      <span onClick={() => { setEditingField('reorder_trigger_qty'); setTempVal(displayTriggerQty ?? ''); }} style={{ display: 'inline-flex', cursor: 'pointer' }}>{pencilIcon}</span>
                     </div>
                   )}
                 </div>
               )}
+
             </div>
           </div>
 

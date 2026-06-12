@@ -210,8 +210,24 @@ router.get("/orders/:order_id/details", (req, res) => {
       `SELECT oi.order_item_id, oi.item_id, im.item_name, im.sku, im.brand, im.design, im.size,
               oi.quantity, oi.unit_cost, oi.line_total, oi.received_status, oi.not_received_reason,
               oi.supplier_id, oi.is_new_item, oi.dot_number, sm.supplier_name,
-              im.category
+              im.category,
+              COALESCE((
+                SELECT SUM(il.quantity) 
+                FROM inventory_ledger il 
+                JOIN item_master im2 ON il.item_id = im2.item_id 
+                WHERE il.shop_id = o.shop_id 
+                  AND (
+                    (im.brand IS NOT NULL AND im.brand != '' 
+                     AND COALESCE(im2.brand, '') = COALESCE(im.brand, '') 
+                     AND COALESCE(im2.design, '') = COALESCE(im.design, '') 
+                     AND COALESCE(im2.size, '') = COALESCE(im.size, '')
+                    )
+                    OR 
+                    ((im.brand IS NULL OR im.brand = '') AND im2.item_id = im.item_id)
+                  )
+              ), 0) AS current_inventory
        FROM order_items oi
+       JOIN orders o ON oi.order_id = o.order_id
        LEFT JOIN item_master im ON oi.item_id = im.item_id
        LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
        WHERE oi.order_id = ? ORDER BY oi.created_at`,
@@ -1114,34 +1130,54 @@ router.post("/orders/auto-generate", async (req, res) => {
     //    - parent items only (no DOT variants) to avoid duplicates
     const blockedCatList = AUTO_ORDER_BLOCKED_CATS.map(() => '?').join(',');
     const candidateItems = await dbAll(
-      `SELECT
+      `WITH GroupStock AS (
+         SELECT
+           im.brand,
+           im.size,
+           im.category,
+           COALESCE(SUM(il.quantity), 0) AS physical_stock
+         FROM inventory_ledger il
+         JOIN item_master im ON il.item_id = im.item_id
+         WHERE il.shop_id = ?
+         GROUP BY im.brand, im.size, im.category
+       ),
+       IncomingStock AS (
+         SELECT
+           im.brand,
+           im.size,
+           im.category,
+           COALESCE(SUM(oi.quantity), 0) AS incoming_qty
+         FROM order_items oi
+         JOIN orders o ON o.order_id = oi.order_id
+         JOIN item_master im ON oi.item_id = im.item_id
+         WHERE o.shop_id = ?
+           AND o.status IN ('PENDING', 'PLACED')
+           AND oi.received_status = 'PENDING'
+         GROUP BY im.brand, im.size, im.category
+       )
+       SELECT
          im.item_id, im.item_name, im.brand, im.category, im.design, im.size,
-         im.supplier_id, im.unit_cost,
+         im.supplier_id, im.unit_cost, im.reorder_trigger_qty,
          COALESCE(im.reorder_qty, 4) AS reorder_qty,
          im.auto_reorder_enabled,
-         -- Sum stock across the parent itself AND all its DOT variant children.
-         -- This gives the correct total on-hand for items that use DOT variant tracking.
-         (SELECT COALESCE(SUM(cs2.current_quantity), 0)
-          FROM current_stock cs2
-          JOIN item_master im2 ON cs2.item_id = im2.item_id
-          WHERE cs2.shop_id = ?
-            AND (im2.item_id = im.item_id OR im2.parent_item_id = im.item_id)
-         ) AS current_quantity,
+         (COALESCE(gs.physical_stock, 0) + COALESCE(inc.incoming_qty, 0)) AS current_quantity,
          sm.supplier_name
        FROM item_master im
        LEFT JOIN supplier_master sm ON im.supplier_id = sm.supplier_id
+       LEFT JOIN GroupStock gs ON gs.brand = im.brand AND gs.size = im.size AND gs.category = im.category
+       LEFT JOIN IncomingStock inc ON inc.brand = im.brand AND inc.size = im.size AND inc.category = im.category
        WHERE im.is_active = 1
          AND (im.auto_reorder_enabled = 1
               OR EXISTS (SELECT 1 FROM item_master c WHERE c.parent_item_id = im.item_id AND c.auto_reorder_enabled = 1))
          AND im.supplier_id IS NOT NULL
          AND UPPER(COALESCE(im.category,'')) NOT IN (${blockedCatList})
          AND im.parent_item_id IS NULL
-         AND (SELECT COALESCE(SUM(cs2.current_quantity), 0)
-              FROM current_stock cs2
-              JOIN item_master im2 ON cs2.item_id = im2.item_id
-              WHERE cs2.shop_id = ?
-                AND (im2.item_id = im.item_id OR im2.parent_item_id = im.item_id)
-             ) < COALESCE(im.reorder_qty, 4)
+         AND (
+           CASE WHEN im.reorder_trigger_qty IS NOT NULL
+             THEN (COALESCE(gs.physical_stock, 0) + COALESCE(inc.incoming_qty, 0)) <= im.reorder_trigger_qty
+             ELSE (COALESCE(gs.physical_stock, 0) + COALESCE(inc.incoming_qty, 0)) < COALESCE(im.reorder_qty, 4)
+           END
+         )
        ORDER BY im.brand, im.supplier_id`,
       [shop_id, shop_id, ...AUTO_ORDER_BLOCKED_CATS]
     );
@@ -1163,9 +1199,11 @@ router.post("/orders/auto-generate", async (req, res) => {
       if (order_qty <= 0) continue;   // safety guard
       const lineTotal = order_qty * (item.unit_cost || 0);
 
-      // Is this parent item already in any non-RS PENDING order?
+      // Is this parent item already in any existing PENDING order?
+      // Rule: Append to any PENDING order (manual or auto), except recap orders (-RS-).
+      // If the order is PLACED, it won't be found here, so a new order will be created.
       const existingOI = await dbGet(
-        `SELECT oi.order_item_id, oi.order_id
+        `SELECT oi.order_item_id, oi.order_id, oi.quantity
          FROM order_items oi
          JOIN orders o ON oi.order_id = o.order_id
          WHERE oi.item_id = ? AND o.shop_id = ? AND o.status = 'PENDING'
@@ -1178,22 +1216,27 @@ router.post("/orders/auto-generate", async (req, res) => {
       );
 
       if (existingOI) {
+        // Since current_quantity already INCLUDES the existingOI.quantity (because it's in a PENDING order),
+        // order_qty is the EXTRA amount needed. So we ADD it.
+        const newQty = existingOI.quantity + order_qty;
+        const newLineTotal = newQty * (item.unit_cost || 0);
+
         await dbRun(
           `UPDATE order_items SET quantity = ?, line_total = ? WHERE order_item_id = ?`,
-          [order_qty, lineTotal, existingOI.order_item_id]
+          [newQty, newLineTotal, existingOI.order_item_id]
         );
         touchedOrderIds.add(existingOI.order_id);
         ordersUpdated++;
         continue;
       }
 
-      // Not queued yet — group by brand+supplier into a single ORD-AUTO order
+      // Not queued yet — group by brand+supplier into a single PENDING order
       const groupKey = `${item.brand || '__'}|${item.supplier_id || '__'}`;
       if (!groupOrderMap[groupKey]) {
         const existingGrpOrder = await dbGet(
           `SELECT o.order_id FROM orders o
            WHERE o.shop_id = ? AND o.status = 'PENDING'
-             AND o.order_id LIKE 'ORD-AUTO-%'
+             AND o.order_id NOT LIKE '%-RS-%'
              AND EXISTS (
                SELECT 1 FROM order_items oi
                JOIN item_master im ON oi.item_id = im.item_id
@@ -1201,7 +1244,10 @@ router.post("/orders/auto-generate", async (req, res) => {
                  AND COALESCE(im.brand, '') = ?
                  AND COALESCE(oi.supplier_id, im.supplier_id, '') = ?
              )
-           ORDER BY o.created_at DESC LIMIT 1`,
+           ORDER BY
+             CASE WHEN o.order_id LIKE 'ORD-AUTO-%' THEN 0 ELSE 1 END,
+             o.created_at DESC
+           LIMIT 1`,
           [shop_id, item.brand || '', item.supplier_id || '']
         );
         if (existingGrpOrder) {
