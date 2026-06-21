@@ -1705,7 +1705,7 @@ function QuickReceiveModal({ shopId, suppliers, items, onClose, onSuccess }) {
       ...prev,
       {
         _key: `${Date.now()}-${Math.random()}`,
-        item_id: item.item_id,
+        item_id: item.real_item_id || item.item_id,
         item_name:
           item.item_name || `${item.brand} ${item.design} ${item.size}`,
         category: item.category || "",
@@ -5016,7 +5016,7 @@ export default function OrdersPage({ shopId, onRefresh }) {
                             {STATUS_META[order.status]?.label || order.status}
                           </span>
                           <div className="ord-date">
-                            {new Date(order.created_at).toLocaleString(
+                            {new Date(order.status === "RECEIVED" && order.received_at ? order.received_at : order.created_at).toLocaleString(
                               "en-PH",
                               {
                                 month: "short",
@@ -5143,6 +5143,24 @@ export default function OrdersPage({ shopId, onRefresh }) {
                     {orderDetails.items?.length ?? 0}
                   </div>
                 </div>
+                {orderDetails.status === "RECEIVED" && orderDetails.received_at && (
+                  <div
+                    className="ord-meta-card"
+                    style={{ gridColumn: "span 2" }}
+                  >
+                    <div className="ord-meta-label">Received Date</div>
+                    <div className="ord-meta-val" style={{ fontSize: "0.88rem" }}>
+                      {new Date(orderDetails.received_at).toLocaleString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </div>
+                  </div>
+                )}
                 {orderDetails.delivery_receipt && (
                   <div
                     className="ord-meta-card"

@@ -130,9 +130,12 @@ router.get("/receivables/:shop_id", (req, res) => {
   const params = [shop_id];
   if (status && status !== 'ALL') { where += ` AND ar.status = ?`; params.push(status); }
   if (paginated && q && String(q).trim()) {
-    const like = `%${String(q).trim()}%`;
-    where += ` AND (c.customer_name LIKE ? OR ar.description LIKE ? OR c.contact_number LIKE ?)`;
-    params.push(like, like, like);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (c.customer_name LIKE ? OR ar.description LIKE ? OR c.contact_number LIKE ?)`;
+      const like = `%${token}%`;
+      params.push(like, like, like);
+    });
   }
 
   const baseSql = `SELECT ar.*, c.customer_name, c.contact_number
@@ -437,9 +440,12 @@ router.get("/payables/:shop_id", (req, res) => {
   if (startDate) { where += ` AND ap.due_date >= ?`; params.push(startDate); }
   if (endDate)   { where += ` AND ap.due_date <= ?`; params.push(endDate); }
   if (paginated && q && String(q).trim()) {
-    const like = `%${String(q).trim()}%`;
-    where += ` AND (s.supplier_name LIKE ? OR s.contact_person LIKE ? OR ap.description LIKE ? OR ap.payee_name LIKE ?)`;
-    params.push(like, like, like, like);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (s.supplier_name LIKE ? OR s.contact_person LIKE ? OR ap.description LIKE ? OR ap.payee_name LIKE ?)`;
+      const like = `%${token}%`;
+      params.push(like, like, like, like);
+    });
   }
 
   const baseSql = `SELECT ap.*, s.supplier_name, s.contact_person
@@ -1214,6 +1220,9 @@ router.get('/sales-projection/:shop_id', (req, res) => {
                     const projected_net_profit = Math.round(avg_daily_net_profit * horizon * 100) / 100;
                     const avg_daily_revenue    = total_revenue / kpiTradingDays;
                     const projected_revenue    = Math.round(avg_daily_revenue * horizon * 100) / 100;
+                    const gross_profit         = product_gross + service_margin;
+                    const avg_daily_gross_profit = gross_profit / kpiTradingDays;
+                    const projected_gross_profit = Math.round(avg_daily_gross_profit * horizon * 100) / 100;
 
                     // ── Per-SKU items (velocity window) ────────────────────────
                     const stockMap   = Object.fromEntries(stockRows.map(r => [`${r.brand}|${r.design}|${r.size}`, r.total_stock]));
@@ -1289,6 +1298,10 @@ router.get('/sales-projection/:shop_id', (req, res) => {
                       total_revenue_historical: Math.round(total_revenue * 100) / 100,
                       avg_daily_revenue:        Math.round(avg_daily_revenue * 100) / 100,
                       projected_revenue,
+                      // Gross profit projection
+                      gross_profit_historical:  Math.round(gross_profit * 100) / 100,
+                      avg_daily_gross_profit:   Math.round(avg_daily_gross_profit * 100) / 100,
+                      projected_gross_profit,
                     };
 
                     res.json({ summary, items });

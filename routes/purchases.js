@@ -163,7 +163,7 @@ router.post("/purchases/:shop_id", async (req, res) => {
 
         // If not provided, try to find or create
         if (!item_master_id) {
-          const isSupply = ["Consumable", "Maintenance", "Repair Material", "Other Supply"].includes(cat);
+          const isSupply = ["CONSUMABLE", "MAINTENANCE", "REPAIR MATERIAL", "OTHER SUPPLY"].includes(cat);
           if (!isSupply) {
             let existing = null;
             // Prioritize SKU match

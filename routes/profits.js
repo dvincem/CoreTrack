@@ -288,9 +288,12 @@ router.get('/profits/transactions/:shop_id', (req, res) => {
   let where = ` WHERE sh.shop_id = ? AND sh.is_void = 0 AND DATE(sh.sale_datetime, 'localtime') BETWEEN ? AND ?`
   const params = [shop_id, start, end]
   if (paginated && q && String(q).trim()) {
-    const like = `%${String(q).trim()}%`
-    where += ` AND (sh.invoice_number LIKE ? OR cm.customer_name LIKE ? OR sm.full_name LIKE ?)`
-    params.push(like, like, like)
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (sh.invoice_number LIKE ? OR cm.customer_name LIKE ? OR sm.full_name LIKE ?)`
+      const like = `%${token}%`
+      params.push(like, like, like)
+    });
   }
 
   const groupOrder = ` GROUP BY sh.sale_id ORDER BY sh.sale_datetime DESC`

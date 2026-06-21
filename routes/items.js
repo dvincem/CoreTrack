@@ -30,9 +30,12 @@ router.get("/items/:shop_id", async (req, res) => {
   }
 
   if (q && q.trim()) {
-    filters.push("(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)");
-    const like = `%${q.trim()}%`;
-    params.push(like, like, like, like, like);
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      filters.push("(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)");
+      const like = `%${token}%`;
+      params.push(like, like, like, like, like);
+    });
   }
 
   const whereClause = filters.join(" AND ");
@@ -55,16 +58,6 @@ router.get("/items/:shop_id", async (req, res) => {
   let selectCols, fromClause, orderBy;
 
   if (isGrouped) {
-    // Extend base CTE with multi-design key lookup (no correlated subqueries at query time)
-    baseSql += `,
-  multi_design_keys AS (
-    SELECT COALESCE(brand,'') AS brand, COALESCE(size,'') AS size, COALESCE(category,'') AS category
-    FROM raw_items
-    WHERE brand IS NOT NULL AND design IS NOT NULL
-    GROUP BY COALESCE(brand,''), COALESCE(size,''), COALESCE(category,'')
-    HAVING COUNT(DISTINCT design) > 1
-  )`;
-
     selectCols = `
       group_key as item_id,
       MAX(item_id) as real_item_id,
@@ -72,7 +65,7 @@ router.get("/items/:shop_id", async (req, res) => {
       MAX(item_name) as item_name,
       MAX(category) as category,
       brand,
-      CASE WHEN COUNT(DISTINCT COALESCE(design,'')) > 1 THEN NULL ELSE MAX(design) END as design,
+      MAX(design) as design,
       size,
       MAX(rim_size) as rim_size,
       MIN(unit_cost) as min_cost,
@@ -98,17 +91,9 @@ router.get("/items/:shop_id", async (req, res) => {
     fromClause = `
       FROM (
         SELECT *,
-          CASE
-            WHEN brand IS NOT NULL AND design IS NOT NULL AND EXISTS (
-              SELECT 1 FROM multi_design_keys mk
-              WHERE mk.brand = COALESCE(brand,'') AND mk.size = COALESCE(size,'') AND mk.category = COALESCE(category,'')
-            )
-            THEN COALESCE(category,'') || '||' || COALESCE(brand,'') || '||' || COALESCE(size,'')
-            ELSE
-              CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
-              THEN COALESCE(category,'') || '||' || COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
-              ELSE item_id
-              END
+          CASE WHEN brand IS NOT NULL AND dot_number IS NOT NULL
+          THEN COALESCE(category,'') || '||' || COALESCE(brand,'') || '||' || COALESCE(design,'') || '||' || COALESCE(size,'')
+          ELSE item_id
           END as group_key
         FROM raw_items
         WHERE NOT (
@@ -619,10 +604,13 @@ router.get("/items-search/:shop_id", (req, res) => {
       )`;
   const params = [shop_id];
   let whereExtra = '';
-  if (q) {
-    whereExtra += ` AND (i.sku LIKE ? OR i.size LIKE ? OR i.brand LIKE ? OR i.item_name LIKE ?)`;
-    const searchTerm = `%${q}%`;
-    params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+  if (q && q.trim()) {
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      whereExtra += ` AND (i.sku LIKE ? OR i.size LIKE ? OR i.brand LIKE ? OR i.item_name LIKE ?)`;
+      const searchTerm = `%${token}%`;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+    });
   }
   if (category) {
     whereExtra += ` AND i.category = ?`;
@@ -806,9 +794,12 @@ router.get("/items-archived/:shop_id", (req, res) => {
   const params = [shop_id];
 
   if (q && q.trim()) {
-    filters.push("(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)");
-    const like = `%${q.trim()}%`;
-    params.push(like, like, like, like, like);
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      filters.push("(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)");
+      const like = `%${token}%`;
+      params.push(like, like, like, like, like);
+    });
   }
 
   const whereClause = filters.join(" AND ");
@@ -938,9 +929,12 @@ router.get("/pos-items/:shop_id", async (req, res) => {
   let filters = 'im.is_active = 1';
   if (category && category !== 'All') { filters += ' AND im.category = ?'; filterParams.push(category); }
   if (q && q.trim()) {
-    filters += ' AND (im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.size LIKE ? OR im.design LIKE ?)';
-    const like = `%${q.trim()}%`;
-    filterParams.push(like, like, like, like, like);
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      filters += ' AND (im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.size LIKE ? OR im.design LIKE ?)';
+      const like = `%${token}%`;
+      filterParams.push(like, like, like, like, like);
+    });
   }
 
   const stockCte = `WITH stock AS (

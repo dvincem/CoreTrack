@@ -118,7 +118,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE inventory_ledger ADD COLUMN supplier_id TEXT`, (err) => { if (err) console.error("Error altering inventory_ledger:", err); });
   db.run(`ALTER TABLE order_items ADD COLUMN supplier_id TEXT`, (err) => { if (err) console.error("Error altering order_items (supplier_id):", err); });
   db.run(`ALTER TABLE order_items ADD COLUMN is_new_item INTEGER DEFAULT 0`, (err) => { if (err) console.error("Error altering order_items (is_new_item):", err); });
-  db.run(`ALTER TABLE recap_job_master ADD COLUMN dot_number TEXT`, (err) => { if (err) console.error("Error altering recap_job_master:", err); });
+  db.run(`ALTER TABLE recap_job_master ADD COLUMN dot_number TEXT`, (err) => { if (err) console.error("Error altering recap_job_master (dot_number):", err); });
+  db.run(`ALTER TABLE recap_job_master ADD COLUMN recap_type TEXT`, (err) => { if (err && !err.message.includes('duplicate column')) console.error("Error altering recap_job_master (recap_type):", err); });
   db.run(`ALTER TABLE services_master ADD COLUMN commission_rate REAL DEFAULT 0`, (err) => { if (err) console.error("Error altering services_master:", err); });
   db.run(`ALTER TABLE sale_header ADD COLUMN payment_method TEXT DEFAULT 'CASH'`, (err) => { if (err) console.error("Error altering sale_header (payment_method):", err); });
   db.run(`ALTER TABLE sale_header ADD COLUMN payment_splits TEXT`, (err) => { if (err) console.error("Error altering sale_header (payment_splits):", err); });
@@ -523,6 +524,7 @@ function initializeDatabase() {
         source_item_id TEXT,
         finished_item_id TEXT,
         casing_description TEXT,
+        recap_type TEXT,
         intake_date TEXT,
         supplier_id TEXT,
         recap_cost REAL,

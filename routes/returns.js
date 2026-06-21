@@ -38,17 +38,25 @@ router.get("/returns/:shop_id/search-sale", (req, res) => {
   const { shop_id } = req.params;
   const { q } = req.query;
   if (!q || q.length < 2) return res.json([]);
-  const term = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shop_id];
+  tokens.forEach(token => {
+    whereClauses.push(`(sh.sale_id LIKE ? OR sh.invoice_number LIKE ? OR cm.customer_name LIKE ?)`);
+    const term = `%${token}%`;
+    params.push(term, term, term);
+  });
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
   db.all(
     `SELECT sh.sale_id, sh.sale_datetime, sh.total_amount, sh.invoice_number,
        cm.customer_name
      FROM sale_header sh
      LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
      WHERE sh.shop_id = ?
-       AND (sh.sale_id LIKE ? OR sh.invoice_number LIKE ? OR cm.customer_name LIKE ?)
+       ${whereSql}
      ORDER BY sh.sale_datetime DESC
      LIMIT 15`,
-    [shop_id, term, term, term],
+    params,
     (err, rows) => {
       if (err) return res.json({ error: err.message });
       res.json(rows || []);
@@ -88,15 +96,23 @@ router.get("/returns/:shop_id/search-order", (req, res) => {
   const { shop_id } = req.params;
   const { q } = req.query;
   if (!q || q.length < 2) return res.json([]);
-  const term = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shop_id];
+  tokens.forEach(token => {
+    whereClauses.push(`o.order_id LIKE ?`);
+    const term = `%${token}%`;
+    params.push(term);
+  });
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
   db.all(
     `SELECT o.order_id, o.created_at, o.total_amount, o.status, o.received_at
      FROM orders o
      WHERE o.shop_id = ? AND o.status = 'RECEIVED'
-       AND o.order_id LIKE ?
+       ${whereSql}
      ORDER BY o.received_at DESC
      LIMIT 15`,
-    [shop_id, term],
+    params,
     (err, rows) => {
       if (err) return res.json({ error: err.message });
       res.json(rows || []);
@@ -173,18 +189,26 @@ router.get("/returns/:shop_id/stock-search", (req, res) => {
   const { shop_id } = req.params;
   const { q } = req.query;
   if (!q || q.length < 1) return res.json([]);
-  const term = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shop_id];
+  tokens.forEach(token => {
+    whereClauses.push(`(im.item_name LIKE ? OR im.sku LIKE ? OR im.brand LIKE ? OR im.size LIKE ?)`);
+    const term = `%${token}%`;
+    params.push(term, term, term, term);
+  });
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
   db.all(
     `SELECT im.item_id, im.item_name, im.sku, im.brand, im.design, im.size,
        COALESCE(cs.current_quantity, 0) AS on_hand,
        0 AS unit_cost
      FROM item_master im
      LEFT JOIN current_stock cs ON cs.item_id = im.item_id AND cs.shop_id = ?
-     WHERE (im.item_name LIKE ? OR im.sku LIKE ? OR im.brand LIKE ? OR im.size LIKE ?)
-       AND COALESCE(cs.current_quantity, 0) > 0
+     WHERE COALESCE(cs.current_quantity, 0) > 0
+       ${whereSql}
      ORDER BY im.item_name ASC
      LIMIT 20`,
-    [shop_id, term, term, term, term],
+    params,
     (err, rows) => {
       if (err) return res.json({ error: err.message });
       res.json(rows || []);

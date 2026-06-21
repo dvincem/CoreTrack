@@ -80,10 +80,17 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
-// Serve built frontend in production
-app.use(express.static(path.join(__dirname, "dist")));
+// Always serve index.html with no-cache so browsers pick up new JS bundles
+app.get('/', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+// Serve built frontend in production (hashed assets get long-lived cache)
+app.use(express.static(path.join(__dirname, 'dist'), { index: false }));
 // Serve uploaded logos and other assets from the public directory
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const { authMiddleware } = require("./middleware/auth");
@@ -177,6 +184,9 @@ app.use((err, req, res, next) => {
 app.get("*", (_req, res) => {
   const distIndex = path.join(__dirname, "dist", "index.html");
   if (require("fs").existsSync(distIndex)) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.sendFile(distIndex);
   } else {
     res.status(404).send("Run `npm run build` to generate the frontend.");

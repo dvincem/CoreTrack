@@ -94,21 +94,8 @@ router.get("/daily-activity/:shop_id", async (req, res) => {
         'PURCHASE' as type
       FROM purchase_header ph
       LEFT JOIN supplier_master sm ON ph.supplier_id = sm.supplier_id
-      WHERE ph.shop_id = ? AND ph.is_void = 0 AND ph.purchase_date = ?
-      
-      UNION ALL
-      
-      SELECT
-        o.order_id as id,
-        COALESCE(o.delivery_receipt, o.order_id) as invoiceNumber,
-        'Order Receipt' as customerName,
-        o.total_amount as amount,
-        COALESCE(o.payment_mode, 'TERMS') as paymentMethod,
-        o.received_at as timestamp,
-        'PURCHASE' as type
-      FROM orders o
-      WHERE o.shop_id = ? AND o.status = 'RECEIVED' AND DATE(o.received_at, 'localtime') = ? AND o.payment_mode != 'CASH'`,
-      [shop_id, targetDate, shop_id, targetDate]
+      WHERE ph.shop_id = ? AND ph.is_void = 0 AND ph.purchase_date = ?`,
+      [shop_id, targetDate]
     );
 
     const commissionTransactions = await dbAll(

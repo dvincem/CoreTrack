@@ -40,9 +40,12 @@ function buildRecapWhere(shop_id, { status, supplier_id, customer_id, ownership_
     parts.push(`(rjm.ownership_type = 'SHOP_OWNED' OR rjm.ownership_type = 'SHOP')`);
   }
   if (q && String(q).trim()) {
-    const like = `%${String(q).trim()}%`;
-    parts.push(`(rjm.recap_job_id LIKE ? OR rjm.casing_description LIKE ? OR cm.customer_name LIKE ? OR sm.supplier_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)`);
-    params.push(like, like, like, like, like, like, like);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      parts.push(`(rjm.recap_job_id LIKE ? OR rjm.casing_description LIKE ? OR cm.customer_name LIKE ? OR sm.supplier_name LIKE ? OR im.brand LIKE ? OR im.design LIKE ? OR im.size LIKE ?)`);
+      const like = `%${token}%`;
+      params.push(like, like, like, like, like, like, like);
+    });
   }
   if (dateFrom) { parts.push('DATE(rjm.intake_date) >= ?'); params.push(dateFrom); }
   if (dateTo)   { parts.push('DATE(rjm.intake_date) <= ?'); params.push(dateTo); }

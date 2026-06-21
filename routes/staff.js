@@ -35,9 +35,12 @@ router.get("/staff/:shop_id", (req, res) => {
   }
 
   if (q && String(q).trim()) {
-    const needle = `%${String(q).trim()}%`;
-    whereParts.push(`(s.full_name LIKE ? OR s.email LIKE ? OR s.role LIKE ? OR s.staff_code LIKE ?)`);
-    params.push(needle, needle, needle, needle);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      whereParts.push(`(s.full_name LIKE ? OR s.email LIKE ? OR s.role LIKE ? OR s.staff_code LIKE ?)`);
+      const needle = `%${token}%`;
+      params.push(needle, needle, needle, needle);
+    });
   }
   const whereSql = `WHERE ${whereParts.join(" AND ")}`;
   const orderSql = `ORDER BY s.full_name`;

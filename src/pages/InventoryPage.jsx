@@ -1,5 +1,6 @@
 import '../pages_css/InventoryPage.css';
 import React from 'react'
+import ReactDOM from 'react-dom'
 import { API_URL, currency, apiFetch, allowOnlyDigits, allowOnlyDecimals } from '../lib/config'
 import SearchInput from '../components/SearchInput'
 import FilterHeader from '../components/FilterHeader'
@@ -749,7 +750,7 @@ const listToShow = brandSuppliers.length > 0 ? brandSuppliers : allSuppliers;
 /* ════════════════════════════════════════
    MAIN COMPONENT
 ════════════════════════════════════════ */
-function InventoryPage({ shopId, setPageContext, businessDate }) {
+function InventoryPage({ shopId, setPageContext, businessDate, setPage, allowedPages, userPower }) {
   // Re-render when theme changes
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
@@ -822,10 +823,40 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
   const [quickSelected, setQuickSelected] = React.useState(new Set());
 
   const prefill = useSearchPrefill('inventory')
+  const [fromPOS, setFromPOS] = React.useState(false);
+  // Prefill: triggered from POS "See Inventory" shortcut
+  const prefillOpenHistoryId = React.useRef(prefill.id ?? null);
+  // Determine whether current user can access the Products page
+  const canSeeProducts = React.useMemo(() => {
+    if (!setPage) return false;
+    if (allowedPages === null || allowedPages === undefined) return true; // owner/admin
+    if (userPower >= 80) return true;
+    return Array.isArray(allowedPages) && allowedPages.includes('products');
+  }, [allowedPages, userPower, setPage]);
   React.useEffect(() => {
     if (prefill.q) setSearchQuery(prefill.q)
     if (prefill.action === 'openAdd') setShowCreateOrderModal(true)
+    if (prefill.fromPOS) setFromPOS(true)
   }, [])
+
+  // Auto-open item history when navigated from POS "See Inventory" shortcut
+  const autoHistoryOpened = React.useRef(false);
+  React.useEffect(() => {
+    if (!prefillOpenHistoryId.current) return;
+    if (autoHistoryOpened.current) return;
+    if (!items || items.length === 0) return;
+    const targetId = String(prefillOpenHistoryId.current);
+    // Match by item_id or real_item_id, or by any variant_info containing this id
+    const match = items.find(item =>
+      String(item.item_id) === targetId ||
+      String(item.real_item_id) === targetId ||
+      (item.variant_info && item.variant_info.split(',').some(v => v.split(':')[0] === targetId))
+    );
+    if (match) {
+      autoHistoryOpened.current = true;
+      handleItemClick(match);
+    }
+  }, [items]);
 
   React.useEffect(() => {
     fetchSuppliers();
@@ -1472,6 +1503,20 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
 
   return (
     <>
+      {/* ── Back to POS bubble (only when navigated from POS) ── */}
+      {fromPOS && setPage && ReactDOM.createPortal(
+        <button
+          className="pos-back-bubble"
+          onClick={() => setPage('pos')}
+          title="Return to Point of Sale"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back to POS
+        </button>,
+        document.body
+      )}
       <style>{`
         .inv-main {
             flex: 1;
@@ -1796,6 +1841,19 @@ function InventoryPage({ shopId, setPageContext, businessDate }) {
               onDesignChange={setActiveHistDesign}
               incomingOrders={incomingOrders}
               incomingLoading={incomingLoading}
+              onSeeProduct={canSeeProducts && setPage ? () => {
+                const item = selectedItemForHistory;
+                const searchName = item.item_name || item.brand || '';
+                try {
+                  sessionStorage.setItem('th-search-prefill', JSON.stringify({
+                    page: 'products',
+                    q: searchName,
+                    id: String(item.item_id),
+                    action: 'openHistory',
+                  }));
+                } catch (_) {}
+                setPage('products');
+              } : undefined}
               historyContent={
                 historyLoading ? (
                   <div className="inv-hist-loading"><div className="inv-hist-spinner" /> Loading…</div>

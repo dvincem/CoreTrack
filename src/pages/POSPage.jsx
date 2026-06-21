@@ -258,7 +258,12 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
               className={`pos-ci-price-input${item.price !== item.defaultPrice ? ' discounted' : ''}`}
               value={priceInput !== null ? priceInput : (item.price ?? 0)}
               onFocus={e => { setPriceInput(String(item.price ?? 0)); e.target.select(); }}
-              onChange={e => setPriceInput(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setPriceInput(val);
+                const parsed = parseFloat(val);
+                update(item.cart_id, { price: isNaN(parsed) ? 0 : Math.max(0, parsed) });
+              }}
               onBlur={() => {
                 const v = Math.max(0, parseFloat(priceInput) || 0);
                 update(item.cart_id, { price: v });
@@ -309,7 +314,14 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
               value={totalInput !== null ? totalInput : Math.round(item.price * item.quantity * 100) / 100}
               title="Edit total — unit price adjusts"
               onFocus={e => { setTotalInput(String(Math.round(item.price * item.quantity * 100) / 100)); e.target.select(); }}
-              onChange={e => setTotalInput(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setTotalInput(val);
+                const totalVal = parseFloat(val);
+                const total = isNaN(totalVal) ? 0 : Math.max(0, totalVal);
+                const newPrice = item.quantity > 0 ? Math.round((total / item.quantity) * 100) / 100 : 0;
+                update(item.cart_id, { price: newPrice });
+              }}
               onBlur={() => {
                 const total = Math.max(0, parseFloat(totalInput) || 0);
                 const newPrice = item.quantity > 0 ? Math.round((total / item.quantity) * 100) / 100 : 0;
@@ -361,6 +373,78 @@ function CartItem({ item, valveItems, weightItems, onRemove, onUpdate, balancing
         />
       )}
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   POS PRODUCT CARD — with hover/long-press "See Inventory" shortcut
+══════════════════════════════════════════ */
+function PosProductCard({ onClick, onSeeInventory, brandLogo, designVariants, hasMultipleDots, variants, item: i, qty, stockCls, posCurrency }) {
+  const [hovered, setHovered] = React.useState(false);
+  const pressTimer = React.useRef(null);
+
+  const startPress = () => {
+    pressTimer.current = setTimeout(() => setHovered(true), 500);
+  };
+  const cancelPress = () => {
+    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
+  };
+
+  return (
+    <button
+      className={`pos-product-card${hovered ? ' pos-card-hovered' : ''}`}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); cancelPress(); }}
+      onTouchStart={startPress}
+      onTouchEnd={cancelPress}
+      onTouchMove={cancelPress}
+    >
+      {/* Brand logo backdrop */}
+      {brandLogo && (
+        <div
+          className="pos-brand-backdrop"
+          style={{ backgroundImage: `url(${brandLogo})` }}
+        />
+      )}
+      {designVariants && (
+        <span className="pos-multi-dot-badge" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}>
+          {designVariants.length} Designs
+        </span>
+      )}
+      {!designVariants && hasMultipleDots && (
+        <span className="pos-multi-dot-badge">{variants.length} DOTs</span>
+      )}
+      <div className="pos-card-cat">{i.category}</div>
+      <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700, wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
+        {i.brand || i.item_name}
+      </div>
+      {i.design && (
+        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic', wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
+          {i.design}
+        </div>
+      )}
+      {i.size && (
+        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-dim)', marginBottom: '0.15rem', fontWeight: 700 }}>
+          {i.size}
+        </div>
+      )}
+      {!designVariants && !hasMultipleDots && i.dot_number && (
+        <div style={{ fontSize: "0.82rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.04em", marginBottom: "0.15rem" }}>DOT {i.dot_number}</div>
+      )}
+      <div className="pos-card-price">{posCurrency(i.selling_price)}</div>
+      {/* Stock row + inventory shortcut */}
+      <div className="pos-card-footer-row">
+        <div className={`pos-card-stock ${stockCls}`}>Stock: {qty}</div>
+        <button
+          className={`pos-inv-shortcut${hovered ? ' visible' : ''}`}
+          onClick={onSeeInventory}
+          title="View item history in Inventory"
+        >
+          See Inventory →
+        </button>
+      </div>
+    </button>
   );
 }
 
@@ -950,9 +1034,11 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
 
       const allItems = [];
       for (const c of cart) {
-        const effectiveUnitPrice = c.wheel_balancing
-          ? Math.max(0, c.price - (c.balancing_labor_price ?? balancingServicePrice ?? 0))
-          : c.price;
+        const laborPricePerTire = c.wheel_balancing ? (c.balancing_labor_price ?? balancingServicePrice ?? 0) : 0;
+        const totalLaborCost = laborPricePerTire * (c.balancing_quantity || c.quantity);
+        const discountPerTire = c.wheel_balancing ? totalLaborCost / c.quantity : 0;
+        const effectiveUnitPrice = Math.max(0, c.price - discountPerTire);
+
         allItems.push({
           item_or_service_id: c.item_or_service_id,
           item_name: c.name,
@@ -996,6 +1082,18 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
             wheel_balancing: true,
             wheel_weights_qty: c.wheel_weights_qty,
           });
+        }
+        if (c.wheel_balancing) {
+          const laborQty = c.balancing_quantity || c.quantity;
+          if (laborPricePerTire > 0 && laborQty > 0) {
+            allItems.push({
+              item_or_service_id: 'WB-LABOR',
+              item_name: 'Wheel Balancing',
+              sale_type: 'SERVICE',
+              quantity: laborQty,
+              unit_price: laborPricePerTire,
+            });
+          }
         }
       }
       const r = await apiFetch(`${API_URL}/sales/complete`, {
@@ -1596,47 +1694,35 @@ function POSPage({ shopId, shopName, onRefresh, authUser, currentStaffId, curren
                     if (hasMultipleDots) setDotModal(_variants);
                     else addToCart(_variants ? _variants[0] : i);
                   };
+                  const handleSeeInventory = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const searchName = i.item_name || i.brand || '';
+                    try {
+                      sessionStorage.setItem('th-search-prefill', JSON.stringify({
+                        page: 'inventory',
+                        q: searchName,
+                        id: String(i.item_id),
+                        action: 'openHistory',
+                        fromPOS: true,
+                      }));
+                    } catch (_) {}
+                    setPage('inventory');
+                  };
                   return (
-                    <button
+                    <PosProductCard
                       key={i.item_id}
-                      className="pos-product-card"
                       onClick={handleClick}
-                    >
-                      {/* Brand logo backdrop */}
-                      {brandLogos[i.brand] && (
-                        <div
-                          className="pos-brand-backdrop"
-                          style={{ backgroundImage: `url(${brandLogos[i.brand]})` }}
-                        />
-                      )}
-                      {_designVariants && (
-                        <span className="pos-multi-dot-badge" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}>
-                          {_designVariants.length} Designs
-                        </span>
-                      )}
-                      {!_designVariants && hasMultipleDots && (
-                        <span className="pos-multi-dot-badge">{_variants.length} DOTs</span>
-                      )}
-                      <div className="pos-card-cat">{i.category}</div>
-                      <div style={{ fontSize: 'clamp(0.88rem, 0.78rem + 0.4vw, 1.05rem)', color: 'var(--th-text-dim)', marginBottom: '0.1rem', fontWeight: 700, wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
-                        {i.brand || i.item_name}
-                      </div>
-                      {i.design && (
-                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-muted)', marginBottom: '0.08rem', fontStyle: 'italic', wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
-                          {i.design}
-                        </div>
-                      )}
-                      {i.size && (
-                        <div style={{ fontSize: 'clamp(0.82rem, 0.72rem + 0.35vw, 0.95rem)', color: 'var(--th-text-dim)', marginBottom: '0.15rem', fontWeight: 700 }}>
-                          {i.size}
-                        </div>
-                      )}
-                      {!_designVariants && !hasMultipleDots && i.dot_number && (
-                        <div style={{ fontSize: "0.82rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.04em", marginBottom: "0.15rem" }}>DOT {i.dot_number}</div>
-                      )}
-                      <div className="pos-card-price">{posCurrency(i.selling_price)}</div>
-                      <div className={`pos-card-stock ${stockCls}`}>Stock: {qty}</div>
-                    </button>
+                      onSeeInventory={handleSeeInventory}
+                      brandLogo={brandLogos[i.brand]}
+                      designVariants={_designVariants}
+                      hasMultipleDots={hasMultipleDots}
+                      variants={_variants}
+                      item={i}
+                      qty={qty}
+                      stockCls={stockCls}
+                      posCurrency={posCurrency}
+                    />
                   );
                 })}
                 {pagedItems.length === 0 && (

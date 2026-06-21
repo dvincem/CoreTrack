@@ -262,7 +262,15 @@ export default function SalesProjectionPage({ shopId }) {
               }
             </div>
             <div className={`fh-net-amount ${heroVc}`}>{fmt(summary.projected_net_profit)}</div>
-            <div className="fh-net-label">Projected Net Income · next {horizon} days</div>
+            <div className="fh-net-label">
+              Projected Net Income · next {horizon} days
+              {summary.projected_revenue !== undefined && (
+                <span style={{ opacity: 0.75, fontSize: '0.9em', marginLeft: '0.5rem' }}>
+                  (Gross Income: {fmt(summary.projected_revenue)}
+                  {summary.projected_gross_profit !== undefined && ` · Gross Profit: ${fmt(summary.projected_gross_profit)}`})
+                </span>
+              )}
+            </div>
             <div className="fh-net-compare">
               <span>Avg daily {fmt(summary.avg_daily_net_profit)}</span>
               <span className="fh-net-pct fl">{summary.kpi_trading_days || 0} trading days · {summary.kpi_range_start} → {summary.kpi_range_end}</span>

@@ -32,9 +32,12 @@ router.get("/customers/:shop_id", (req, res) => {
     whereParts.push(`(cm.company IS NOT NULL AND cm.company != '')`);
   }
   if (q && String(q).trim()) {
-    const needle = `%${String(q).trim()}%`;
-    whereParts.push(`(cm.customer_name LIKE ? OR cm.contact_number LIKE ? OR cm.company LIKE ? OR cm.customer_code LIKE ? OR cm.tin_number LIKE ?)`);
-    params.push(needle, needle, needle, needle, needle);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      whereParts.push(`(cm.customer_name LIKE ? OR cm.contact_number LIKE ? OR cm.company LIKE ? OR cm.customer_code LIKE ? OR cm.tin_number LIKE ?)`);
+      const needle = `%${token}%`;
+      params.push(needle, needle, needle, needle, needle);
+    });
   }
   const whereSql = `WHERE ${whereParts.join(" AND ")}`;
   const baseSql = `SELECT cm.customer_id, cm.customer_code, cm.customer_name, cm.company,

@@ -454,7 +454,7 @@ router.post("/sales/complete", async (req, res) => {
                     triggerAutoReorder(shop_id, soldProductItemIds);
                     recordTiremanCommission(shop_id, tireman_ids, tireman_commission_total, sale_id, created_by);
                     recordBalancingLabor(shop_id, tireman_ids, tireman_balancing_total, sale_id, created_by);
-                    recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE'), created_by);
+                    recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE' && i.item_or_service_id !== 'WB-LABOR'), created_by);
                     markRecapSold(shop_id, soldProductItemIds, sale_id);
                     const splits = payment_splits || [];
                     const creditSplit = splits.find(s => s.method === 'CREDIT');
@@ -479,7 +479,7 @@ router.post("/sales/complete", async (req, res) => {
                 if (commitErr) return rollback(commitErr.message);
                 recordTiremanCommission(shop_id, tireman_ids, tireman_commission_total, sale_id, created_by);
                 recordBalancingLabor(shop_id, tireman_ids, tireman_balancing_total, sale_id, created_by);
-                recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE'), created_by);
+                recordServiceLabor(shop_id, tireman_ids, saleItems.filter(i => i.sale_type === 'SERVICE' && i.item_or_service_id !== 'WB-LABOR'), created_by);
                 const splits = payment_splits || [];
                 const creditSplit = splits.find(s => s.method === 'CREDIT');
                 if (creditSplit || payment_method === 'CREDIT') {
@@ -547,13 +547,16 @@ router.get("/sales/:shop_id", (req, res) => {
     params.push(startDate, endDate);
   }
   if (q && String(q).trim()) {
-    const like = `%${String(q).trim()}%`;
-    where += ` AND (
-      sh.invoice_number LIKE ? OR sh.sale_id LIKE ? OR sh.sale_notes LIKE ?
-      OR cm.customer_name LIKE ? OR st.full_name LIKE ?
-      OR EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = sh.sale_id AND si.item_name LIKE ?)
-    )`;
-    params.push(like, like, like, like, like, like);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (
+        sh.invoice_number LIKE ? OR sh.sale_id LIKE ? OR sh.sale_notes LIKE ?
+        OR cm.customer_name LIKE ? OR st.full_name LIKE ?
+        OR EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = sh.sale_id AND si.item_name LIKE ?)
+      )`;
+      const like = `%${token}%`;
+      params.push(like, like, like, like, like, like);
+    });
   }
 
   const countQuery = `
@@ -783,13 +786,16 @@ router.get("/services-history/:shop_id", (req, res) => {
   }
 
   if (paginated && q && q.trim()) {
-    where += ` AND (
-      sh.invoice_number LIKE ? OR sh.sale_id LIKE ? OR sh.sale_notes LIKE ?
-      OR cm.customer_name LIKE ? OR st.full_name LIKE ?
-      OR EXISTS (SELECT 1 FROM sale_items si3 WHERE si3.sale_id = sh.sale_id AND si3.item_name LIKE ?)
-    )`;
-    const like = `%${q.trim()}%`;
-    params.push(like, like, like, like, like, like);
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (
+        sh.invoice_number LIKE ? OR sh.sale_id LIKE ? OR sh.sale_notes LIKE ?
+        OR cm.customer_name LIKE ? OR st.full_name LIKE ?
+        OR EXISTS (SELECT 1 FROM sale_items si3 WHERE si3.sale_id = sh.sale_id AND si3.item_name LIKE ?)
+      )`;
+      const like = `%${token}%`;
+      params.push(like, like, like, like, like, like);
+    });
   }
 
   const baseSelect = `
@@ -860,12 +866,15 @@ router.get("/sales/:shop_id/items-list", (req, res) => {
   }
 
   if (q && q.trim()) {
-    where += ` AND (
-      si.item_name LIKE ? OR si.brand LIKE ? OR si.tire_size LIKE ?
-      OR sh.invoice_number LIKE ? OR cm.customer_name LIKE ?
-    )`;
-    const like = `%${q.trim()}%`;
-    params.push(like, like, like, like, like);
+    const tokens = q.trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (
+        si.item_name LIKE ? OR si.brand LIKE ? OR si.tire_size LIKE ?
+        OR sh.invoice_number LIKE ? OR cm.customer_name LIKE ?
+      )`;
+      const like = `%${token}%`;
+      params.push(like, like, like, like, like);
+    });
   }
 
   const baseSelect = `

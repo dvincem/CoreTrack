@@ -1527,7 +1527,7 @@ function CoreTrack() {
           switch (page) {
             case "dashboard": return <DashboardPage key={refresh} shopId={shop} shopName={currentShopName} businessDate={businessDate} userPower={userPower} setPageContext={setPageContext} />;
             case "pos": return <POSPage key={refresh} shopId={shop} shopName={currentShopName} onRefresh={doRefresh} authUser={authUser} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} businessDate={businessDate} setPageContext={setPageContext} setPage={setPage} />;
-            case "inventory": return <InventoryPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
+            case "inventory": return <InventoryPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} setPage={setPage} allowedPages={allowedPages} userPower={userPower} />;
             case "orders": return <OrdersPage key={refresh} shopId={shop} onRefresh={doRefresh} setPageContext={setPageContext} />;
             case "recap": return <RecapPage key={refresh} shopId={shop} onRefresh={doRefresh} currentStaffId={currentStaffId} currentStaffName={currentStaffName} isShopClosed={isShopClosed} setPageContext={setPageContext} />;
             case "returns": return <ReturnsPage key={refresh} shopId={shop} isShopClosed={isShopClosed} setPageContext={setPageContext} />;

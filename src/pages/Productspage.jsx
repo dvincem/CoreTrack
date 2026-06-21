@@ -195,10 +195,28 @@ function Productspage({ shopId }) {
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
   const prefill = useSearchPrefill('products')
+  const prefillOpenHistoryId = React.useRef(prefill.id ?? null);
   React.useEffect(() => {
     if (prefill.q) setSearch(prefill.q)
     if (prefill.action === 'openAdd') setFormOpen(true)
   }, [])
+
+  // Auto-open item history when navigated from Inventory "See Product" shortcut
+  const autoHistOpened = React.useRef(false);
+  React.useEffect(() => {
+    if (!prefillOpenHistoryId.current) return;
+    if (autoHistOpened.current) return;
+    if (!items || items.length === 0) return;
+    const targetId = String(prefillOpenHistoryId.current);
+    const match = items.find(item =>
+      String(item.item_id) === targetId ||
+      (item.variant_info && item.variant_info.split(',').some(v => v.split(':')[0] === targetId))
+    );
+    if (match) {
+      autoHistOpened.current = true;
+      openDetail(match);
+    }
+  }, [items]);
 
   React.useEffect(() => {
     if (!document.documentElement.getAttribute("data-theme")) {

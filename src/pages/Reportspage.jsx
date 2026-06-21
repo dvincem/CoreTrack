@@ -765,7 +765,7 @@ function SectionDailyActivity({ shopId, startDate, endDate, setStartDate, setEnd
           style={{ cursor: salesBreakdown.length > 0 ? 'pointer' : 'default', userSelect: 'none' }}
         />
         <KpiCard label="Gross Services" value={compactCurrency(kpis.grossServices)} accent="violet" sub={`Net: ${compactCurrency(kpis.serviceIncome)}`} icon={SVG(<><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></>)} />
-        <KpiCard label="Net Profit" value={compactCurrency(kpis.netProfit)} accent="emerald" sub="Calculated P&L" icon={SVG(<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>)} />
+        <KpiCard label="Net Profit" value={compactCurrency(kpis.netProfit)} accent="emerald" sub={`Gross Profit: ${compactCurrency((kpis.salesProfit || 0) + (kpis.serviceIncome || 0))}`} icon={SVG(<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>)} />
       </div>
       {showSalesBreakdown && salesBreakdown.length > 0 && (
         <div style={{ margin: '-0.25rem 0 0', padding: '0.65rem 0.9rem', background: 'var(--th-bg-page)', borderRadius: 8, border: '1px solid var(--th-border)', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>

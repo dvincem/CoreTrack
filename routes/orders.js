@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const { db } = require("../Database");
 const { dbRun, dbGet, dbAll, dbSerialize, syncCurrentStock, logPriceHistory, findOrCreateDotVariant } = require("../lib/db");
 const { calculateAutoAdjustedPrice } = require("../lib/pricing");
-const { toLocalYYYYMMDD } = require("../lib/businessDate");
+const { toLocalYYYYMMDD, calculateDueDateFromTerms } = require("../lib/businessDate");
 
 router.post("/orders", async (req, res) => {
   const { shop_id, order_notes, items = [], new_items = [] } = req.body;
@@ -132,29 +132,32 @@ router.get("/orders/:shop_id", (req, res) => {
     whereParams.push(supplier_id);
   }
   if (q && String(q).trim()) {
-    const needle = `%${String(q).trim()}%`;
-    whereParts.push(`(
-      o.order_id LIKE ? OR o.order_notes LIKE ? OR o.delivery_receipt LIKE ?
-      OR EXISTS (
-        SELECT 1 FROM order_items oi3
-        LEFT JOIN item_master im3 ON oi3.item_id = im3.item_id
-        LEFT JOIN supplier_master sm3 ON oi3.supplier_id = sm3.supplier_id
-        WHERE oi3.order_id = o.order_id
-          AND (im3.item_name LIKE ? OR im3.sku LIKE ? OR im3.brand LIKE ?
-               OR im3.design LIKE ? OR im3.size LIKE ? OR sm3.supplier_name LIKE ?)
-      )
-    )`);
-    whereParams.push(needle, needle, needle, needle, needle, needle, needle, needle, needle);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      whereParts.push(`(
+        o.order_id LIKE ? OR o.order_notes LIKE ? OR o.delivery_receipt LIKE ?
+        OR EXISTS (
+          SELECT 1 FROM order_items oi3
+          LEFT JOIN item_master im3 ON oi3.item_id = im3.item_id
+          LEFT JOIN supplier_master sm3 ON oi3.supplier_id = sm3.supplier_id
+          WHERE oi3.order_id = o.order_id
+            AND (im3.item_name LIKE ? OR im3.sku LIKE ? OR im3.brand LIKE ?
+                 OR im3.design LIKE ? OR im3.size LIKE ? OR sm3.supplier_name LIKE ?)
+        )
+      )`);
+      const needle = `%${token}%`;
+      whereParams.push(needle, needle, needle, needle, needle, needle, needle, needle, needle);
+    });
   }
   const whereSql = `WHERE ${whereParts.join(" AND ")}`;
 
   const baseSelect = `
     SELECT o.order_id, o.shop_id, o.status,
       COALESCE(SUM(CASE WHEN oi.received_status != 'NOT_RECEIVED' THEN oi.line_total ELSE 0 END), o.total_amount) as total_amount,
-      o.order_notes, o.delivery_receipt, o.created_at, o.created_by, COUNT(oi.order_item_id) as items_count
+      o.order_notes, o.delivery_receipt, o.created_at, o.received_at, o.created_by, COUNT(oi.order_item_id) as items_count
     FROM orders o LEFT JOIN order_items oi ON o.order_id = oi.order_id
     ${whereSql}
-    GROUP BY o.order_id ORDER BY o.created_at DESC`;
+    GROUP BY o.order_id ORDER BY CASE WHEN o.status = 'RECEIVED' THEN COALESCE(o.received_at, o.created_at) ELSE o.created_at END DESC`;
 
   const hydrateItems = (orders, cb) => {
     if (!orders || orders.length === 0) return cb(null, orders || []);
@@ -163,9 +166,9 @@ router.get("/orders/:shop_id", (req, res) => {
       db.all(
         `SELECT oi.order_item_id, oi.item_id, im.item_name, im.sku, im.brand, im.design, im.size,
           oi.quantity, oi.unit_cost, oi.line_total, oi.received_status, oi.not_received_reason,
-          oi.supplier_id, oi.is_new_item, oi.dot_number, sm.supplier_name, im.category
+          COALESCE(oi.supplier_id, im.supplier_id) as supplier_id, oi.is_new_item, oi.dot_number, sm.supplier_name, im.category
          FROM order_items oi LEFT JOIN item_master im ON oi.item_id = im.item_id
-         LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
+         LEFT JOIN supplier_master sm ON COALESCE(oi.supplier_id, im.supplier_id) = sm.supplier_id
          WHERE oi.order_id = ? ORDER BY oi.created_at`,
         [order.order_id],
         (err, items) => {
@@ -209,7 +212,7 @@ router.get("/orders/:order_id/details", (req, res) => {
     db.all(
       `SELECT oi.order_item_id, oi.item_id, im.item_name, im.sku, im.brand, im.design, im.size,
               oi.quantity, oi.unit_cost, oi.line_total, oi.received_status, oi.not_received_reason,
-              oi.supplier_id, oi.is_new_item, oi.dot_number, sm.supplier_name,
+              COALESCE(oi.supplier_id, im.supplier_id) as supplier_id, oi.is_new_item, oi.dot_number, sm.supplier_name,
               im.category,
               COALESCE((
                 SELECT SUM(il.quantity) 
@@ -229,7 +232,7 @@ router.get("/orders/:order_id/details", (req, res) => {
        FROM order_items oi
        JOIN orders o ON oi.order_id = o.order_id
        LEFT JOIN item_master im ON oi.item_id = im.item_id
-       LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
+       LEFT JOIN supplier_master sm ON COALESCE(oi.supplier_id, im.supplier_id) = sm.supplier_id
        WHERE oi.order_id = ? ORDER BY oi.created_at`,
       [order_id],
       (err, items) => {
@@ -429,12 +432,12 @@ router.post("/orders/:order_id/receive", async (req, res) => {
                     COALESCE(im.design, '') as design,
                     COALESCE(im.size, '') as size,
                     oi.quantity, oi.unit_cost, oi.line_total,
-                    oi.supplier_id,
+                    COALESCE(oi.supplier_id, im.supplier_id) as supplier_id,
                     COALESCE(sm.supplier_name, 'Unknown Supplier') as supplier_name,
                     sm.default_payment_terms_days
              FROM order_items oi
              LEFT JOIN item_master im ON oi.item_id = im.item_id
-             LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
+             LEFT JOIN supplier_master sm ON COALESCE(oi.supplier_id, im.supplier_id) = sm.supplier_id
              WHERE oi.order_id = ? AND oi.received_status = 'RECEIVED'`,
             [order_id],
             (err, receivedRows) => {
@@ -454,12 +457,7 @@ router.post("/orders/:order_id/receive", async (req, res) => {
                 const total = grp.rows.reduce((s, r) => s + (r.line_total || 0), 0);
                 if (total <= 0) { pending--; if (pending === 0) onDone(); continue; }
                 // Build due date from payment terms
-                let due_date = null;
-                if (grp.payment_terms && grp.payment_terms > 0) {
-                  const d = new Date();
-                  d.setDate(d.getDate() + grp.payment_terms);
-                  due_date = toLocalYYYYMMDD(d);
-                }
+                const due_date = calculateDueDateFromTerms(grp.payment_terms, new Date());
                 // Short description for the payable title
                 const description = [`Order ${order_id}`, drLabel, grp.supplier_name].filter(Boolean).join(' — ');
                 // Detailed notes: one line per item
@@ -989,12 +987,7 @@ router.post("/orders/quick-receive", async (req, res) => {
       const total = grp.lines.reduce((s, l) => s + l.line_total, 0);
       if (total <= 0) continue;
 
-      let due_date = null;
-      if (grp.payment_terms > 0) {
-        const d = new Date();
-        d.setDate(d.getDate() + grp.payment_terms);
-        due_date = toLocalYYYYMMDD(d);
-      }
+      const due_date = calculateDueDateFromTerms(grp.payment_terms);
 
       const description = [`Quick Receive ${order_id}`, drLabel, grp.supplier_name].filter(Boolean).join(' — ');
       const itemLines = grp.lines.map(l => {
@@ -1069,11 +1062,11 @@ router.get("/incoming-orders/:shop_id", async (req, res) => {
 
   try {
     let query = `
-      SELECT oi.*, o.status, o.created_at, sm.supplier_name, im.item_name, im.sku
+      SELECT oi.*, COALESCE(oi.supplier_id, im.supplier_id) AS supplier_id, o.status, o.created_at, sm.supplier_name, im.item_name, im.sku
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.order_id
       JOIN item_master im ON oi.item_id = im.item_id
-      LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
+      LEFT JOIN supplier_master sm ON COALESCE(oi.supplier_id, im.supplier_id) = sm.supplier_id
       WHERE o.shop_id = ? AND o.status IN ('PENDING', 'CONFIRMED')
     `;
     const params = [shop_id];

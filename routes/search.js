@@ -71,7 +71,17 @@ function detectNLQIntent(q) {
 // ── Tier-2 sub-query helpers ─────────────────────────────────────────────────
 
 async function queryItems(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.size LIKE ? OR im.design LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT im.item_id AS id,
             im.item_name AS label,
@@ -81,15 +91,25 @@ async function queryItems(q, shopId) {
      FROM item_master im
      LEFT JOIN current_stock cs ON im.item_id = cs.item_id AND cs.shop_id = ?
      WHERE im.is_active = 1
-       AND (im.sku LIKE ? OR im.item_name LIKE ? OR im.brand LIKE ? OR im.size LIKE ? OR im.design LIKE ?)
+       ${whereSql}
      ORDER BY im.item_name
      LIMIT ?`,
-    [shopId, like, like, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryCustomers(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(customer_name LIKE ? OR customer_code LIKE ? OR contact_number LIKE ? OR company LIKE ? OR tin_number LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT customer_id AS id,
             customer_name AS label,
@@ -98,17 +118,25 @@ async function queryCustomers(q, shopId) {
             'customers' AS page
      FROM customer_master
      WHERE shop_id = ?
-       AND (customer_name LIKE ? OR customer_code LIKE ? OR contact_number LIKE ?
-            OR company LIKE ? OR tin_number LIKE ?)
+       ${whereSql}
      ORDER BY customer_name
      LIMIT ?`,
-    [shopId, like, like, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryStaff(q) {
-  // staff_master has no shop_id — staff is system-wide
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [];
+  tokens.forEach(token => {
+    whereClauses.push(`(full_name LIKE ? OR email LIKE ? OR staff_code LIKE ? OR role LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT staff_id AS id,
             full_name AS label,
@@ -117,14 +145,24 @@ async function queryStaff(q) {
             'staff-management' AS page
      FROM staff_master
      WHERE is_active = 1
-       AND (full_name LIKE ? OR email LIKE ? OR staff_code LIKE ? OR role LIKE ?)
+       ${whereSql}
      LIMIT ?`,
-    [like, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function querySales(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(sh.invoice_number LIKE ? OR cm.customer_name LIKE ? OR si.item_name LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT DISTINCT sh.sale_id AS id,
             COALESCE(sh.invoice_number, sh.sale_id) AS label,
@@ -135,15 +173,25 @@ async function querySales(q, shopId) {
      LEFT JOIN customer_master cm ON sh.customer_id = cm.customer_id
      LEFT JOIN sale_items si      ON sh.sale_id     = si.sale_id
      WHERE sh.shop_id = ? AND sh.is_void = 0
-       AND (sh.invoice_number LIKE ? OR cm.customer_name LIKE ? OR si.item_name LIKE ?)
+       ${whereSql}
      ORDER BY sh.sale_datetime DESC
      LIMIT ?`,
-    [shopId, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryOrders(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(o.order_id LIKE ? OR o.order_notes LIKE ? OR o.delivery_receipt LIKE ? OR im.item_name LIKE ? OR im.sku LIKE ? OR sm.supplier_name LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like, like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT DISTINCT o.order_id AS id,
             o.order_id AS label,
@@ -155,16 +203,25 @@ async function queryOrders(q, shopId) {
      LEFT JOIN item_master im  ON oi.item_id  = im.item_id
      LEFT JOIN supplier_master sm ON oi.supplier_id = sm.supplier_id
      WHERE o.shop_id = ?
-       AND (o.order_id LIKE ? OR o.order_notes LIKE ? OR o.delivery_receipt LIKE ?
-            OR im.item_name LIKE ? OR im.sku LIKE ? OR sm.supplier_name LIKE ?)
+       ${whereSql}
      ORDER BY o.created_at DESC
      LIMIT ?`,
-    [shopId, like, like, like, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryExpenses(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(e.description LIKE ? OR e.reference_no LIKE ? OR ec.name LIKE ? OR e.notes LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT e.expense_id AS id,
             e.description AS label,
@@ -174,15 +231,25 @@ async function queryExpenses(q, shopId) {
      FROM expenses e
      LEFT JOIN expense_categories ec ON e.category_id = ec.category_id
      WHERE e.shop_id = ? AND e.is_void = 0
-       AND (e.description LIKE ? OR e.reference_no LIKE ? OR ec.name LIKE ? OR e.notes LIKE ?)
+       ${whereSql}
      ORDER BY e.created_at DESC
      LIMIT ?`,
-    [shopId, like, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryReceivables(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(cm.customer_name LIKE ? OR ar.description LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT ar.receivable_id AS id,
             COALESCE(cm.customer_name, 'Unknown') AS label,
@@ -192,15 +259,25 @@ async function queryReceivables(q, shopId) {
      FROM accounts_receivable ar
      LEFT JOIN customer_master cm ON ar.customer_id = cm.customer_id
      WHERE ar.shop_id = ?
-       AND (cm.customer_name LIKE ? OR ar.description LIKE ?)
+       ${whereSql}
      ORDER BY ar.created_at DESC
      LIMIT ?`,
-    [shopId, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryPayables(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(sm.supplier_name LIKE ? OR ap.payee_name LIKE ? OR ap.description LIKE ? OR ap.reference_id LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT ap.payable_id AS id,
             COALESCE(sm.supplier_name, ap.payee_name, 'Unknown') AS label,
@@ -210,15 +287,25 @@ async function queryPayables(q, shopId) {
      FROM accounts_payable ap
      LEFT JOIN supplier_master sm ON ap.supplier_id = sm.supplier_id
      WHERE ap.shop_id = ?
-       AND (sm.supplier_name LIKE ? OR ap.payee_name LIKE ? OR ap.description LIKE ? OR ap.reference_id LIKE ?)
+       ${whereSql}
      ORDER BY ap.created_at DESC
      LIMIT ?`,
-    [shopId, like, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function queryRecap(q, shopId) {
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+  const whereClauses = [];
+  const params = [shopId];
+  tokens.forEach(token => {
+    whereClauses.push(`(cm.customer_name LIKE ? OR rj.casing_description LIKE ? OR rj.dot_number LIKE ?)`);
+    const like = `%${token}%`;
+    params.push(like, like, like);
+  });
+  params.push(LIMIT);
+  const whereSql = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+
   return dbAll(
     `SELECT rj.recap_job_id AS id,
             COALESCE(cm.customer_name, 'Shop-owned') AS label,
@@ -229,16 +316,34 @@ async function queryRecap(q, shopId) {
      FROM recap_job_master rj
      LEFT JOIN customer_master cm ON rj.customer_id = cm.customer_id
      WHERE rj.shop_id = ?
-       AND (cm.customer_name LIKE ? OR rj.casing_description LIKE ? OR rj.dot_number LIKE ?)
+       ${whereSql}
      ORDER BY rj.created_at DESC
      LIMIT ?`,
-    [shopId, like, like, like, LIMIT],
+    params,
   );
 }
 
 async function querySettings(q) {
-  // These tables are system-wide (no shop_id filter needed for settings)
-  const like = `%${q}%`;
+  const tokens = q.trim().split(/\s+/).filter(Boolean);
+
+  const serviceWhereClauses = [];
+  const serviceParams = [];
+  tokens.forEach(token => {
+    serviceWhereClauses.push(`(service_name LIKE ? OR service_code LIKE ?)`);
+    const like = `%${token}%`;
+    serviceParams.push(like, like);
+  });
+  const serviceWhereSql = serviceWhereClauses.length ? 'AND ' + serviceWhereClauses.join(' AND ') : '';
+
+  const supplierWhereClauses = [];
+  const supplierParams = [];
+  tokens.forEach(token => {
+    supplierWhereClauses.push(`(supplier_name LIKE ? OR contact_person LIKE ? OR supplier_code LIKE ?)`);
+    const like = `%${token}%`;
+    supplierParams.push(like, like, like);
+  });
+  const supplierWhereSql = supplierWhereClauses.length ? 'AND ' + supplierWhereClauses.join(' AND ') : '';
+
   const [serviceRows, supplierRows] = await Promise.all([
     dbAll(
       `SELECT service_id AS id,
@@ -247,9 +352,10 @@ async function querySettings(q) {
               'Services' AS category,
               'services' AS page
        FROM services_master
-       WHERE is_active = 1 AND (service_name LIKE ? OR service_code LIKE ?)
+       WHERE is_active = 1
+         ${serviceWhereSql}
        LIMIT 3`,
-      [like, like],
+      serviceParams,
     ),
     dbAll(
       `SELECT supplier_id AS id,
@@ -259,9 +365,9 @@ async function querySettings(q) {
               'suppliers' AS page
        FROM supplier_master
        WHERE active_status = 1
-         AND (supplier_name LIKE ? OR contact_person LIKE ? OR supplier_code LIKE ?)
+         ${supplierWhereSql}
        LIMIT 3`,
-      [like, like, like],
+      supplierParams,
     ),
   ]);
   return [...serviceRows, ...supplierRows];

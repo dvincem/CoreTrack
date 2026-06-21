@@ -20,7 +20,7 @@ export default function ItemHistoryModal({
   item, onClose, currency, historyContent, children,
   variants, activeVariantId, onVariantChange, onDesignChange,
   onUpdateCost, onUpdatePrice, onUpdateReorderQty, onUpdateTriggerQty,
-  onToggleAutoReorder,
+  onToggleAutoReorder, onSeeProduct,
   incomingOrders = [], incomingLoading = false
 }) {
   const isGrouped = variants && variants.length > 1
@@ -150,7 +150,7 @@ export default function ItemHistoryModal({
             </svg>
             Item History
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {onToggleAutoReorder && (
               <button
                 onClick={() => onToggleAutoReorder(displayAutoReorder ? 0 : 1, reorderTargetId)}
@@ -178,6 +178,39 @@ export default function ItemHistoryModal({
                   background: displayAutoReorder ? 'var(--th-emerald,#10b981)' : 'var(--th-text-dim,#94a3b8)' 
                 }} />
                 Auto-Reorder: {displayAutoReorder ? 'ON' : 'OFF'}
+              </button>
+            )}
+            {onSeeProduct && (
+              <button
+                onClick={onSeeProduct}
+                title="View this item in Products page"
+                style={{
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(56,189,248,0.25)',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  background: 'rgba(56,189,248,0.08)',
+                  color: 'var(--th-sky,#38bdf8)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  letterSpacing: '0.03em',
+                  textTransform: 'uppercase',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(56,189,248,0.15)'; e.currentTarget.style.borderColor = 'rgba(56,189,248,0.5)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(56,189,248,0.08)'; e.currentTarget.style.borderColor = 'rgba(56,189,248,0.25)'; }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <line x1="9" y1="3" x2="9" y2="21" />
+                  <polyline points="13 9 17 12 13 15" />
+                </svg>
+                See Product
               </button>
             )}
             <button className="inv-hist-close" onClick={onClose}>✕</button>
@@ -523,3 +556,4 @@ export default function ItemHistoryModal({
     </div>
   )
 }
+

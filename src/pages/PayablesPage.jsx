@@ -385,6 +385,8 @@ function PayablesPage({ shopId }) {
   const openEdit = (p) => {
     setEditTarget(p);
     setEditForm({
+      payable_type: p.payable_type,
+      supplier_id: p.supplier_id || "",
       description: (p.recurring_group_id ? p.description.replace(/ — Installment \d+.*$/, "") : p.description) || "",
       original_amount: String(p.original_amount),
       due_date: p.due_date || "",
@@ -861,13 +863,45 @@ function PayablesPage({ shopId }) {
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const todayStr = new Date().toISOString().split("T")[0];
+        const monthPayables = calPayables.filter(p => {
+          if (!p.due_date) return false;
+          const d = p.due_date.slice(0, 7);
+          const targetYm = `${year}-${String(month + 1).padStart(2, "0")}`;
+          return d === targetYm;
+        });
+        const monthTotal = monthPayables.reduce((sum, p) => sum + (p.original_amount || 0), 0);
+        const monthPaid = monthPayables.reduce((sum, p) => sum + ((p.original_amount || 0) - (p.balance_amount || 0)), 0);
+        const monthDue = monthPayables.reduce((sum, p) => sum + (p.balance_amount || 0), 0);
         // Map payables by due_date day string
-        const byDate = {};
+        const rawByDate = {};
         calPayables.forEach(p => {
           if (!p.due_date) return;
           const d = p.due_date.slice(0, 10);
-          if (!byDate[d]) byDate[d] = [];
-          byDate[d].push(p);
+          if (!rawByDate[d]) rawByDate[d] = [];
+          rawByDate[d].push(p);
+        });
+        const byDate = {};
+        Object.entries(rawByDate).forEach(([dateStr, items]) => {
+          const groups = {};
+          items.forEach(p => {
+            const name = p.payable_type === "GENERAL" ? (p.payee_name || "General") : (p.supplier_name || "Supplier");
+            if (!groups[name]) {
+              groups[name] = {
+                payable_id: p.payable_id,
+                payable_type: p.payable_type,
+                payee_name: p.payee_name,
+                supplier_name: p.supplier_name,
+                due_date: p.due_date,
+                original_amount: 0,
+                balance_amount: 0,
+                originalItems: []
+              };
+            }
+            groups[name].original_amount += (p.original_amount || 0);
+            groups[name].balance_amount += (p.balance_amount || 0);
+            groups[name].originalItems.push(p);
+          });
+          byDate[dateStr] = Object.values(groups);
         });
         const cells = [];
         for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -892,7 +926,14 @@ function PayablesPage({ shopId }) {
               </div>
               <div className="pay-cal-nav">
                 <button className="pay-cal-nav-btn" onClick={() => setCalMonth(({ year: y, month: m }) => m === 0 ? { year: y - 1, month: 11 } : { year: y, month: m - 1 })}>‹</button>
-                <div className="pay-cal-month-label">{MONTHS[month]} {year}</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div className="pay-cal-month-label">{MONTHS[month]} {year}</div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--th-text-dim)", fontWeight: 600, marginTop: "0.15rem", display: "flex", gap: "0.75rem" }}>
+                    <span>Total: <strong style={{ color: "var(--th-sky)" }}>{payCurrency(monthTotal)}</strong></span>
+                    <span>Paid: <strong style={{ color: "var(--th-emerald)" }}>{payCurrency(monthPaid)}</strong></span>
+                    <span>Due: <strong style={{ color: "var(--th-rose)" }}>{payCurrency(monthDue)}</strong></span>
+                  </div>
+                </div>
                 <button className="pay-cal-nav-btn" onClick={() => setCalMonth(({ year: y, month: m }) => m === 11 ? { year: y + 1, month: 0 } : { year: y, month: m + 1 })}>›</button>
               </div>
               <div className="pay-cal-grid">
@@ -917,8 +958,8 @@ function PayablesPage({ shopId }) {
                     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                   })();
 
-                  // Sum balance of all OPEN/OVERDUE payables due this week (spans any month)
-                  const weekTotal = calPayables.reduce((sum, p) => {
+                  // Sum balance of all OPEN/OVERDUE payables due this week
+                  const weekDueBalance = calPayables.reduce((sum, p) => {
                     if (!p.due_date) return sum;
                     const ds = p.due_date.slice(0, 10);
                     if (ds >= prevSatDate && ds <= currFriDate && getPaymentStatus(p) !== "PAID") {
@@ -927,17 +968,27 @@ function PayablesPage({ shopId }) {
                     return sum;
                   }, 0);
 
+                  // Sum original amount of all payables due this week
+                  const weekTotalOriginal = calPayables.reduce((sum, p) => {
+                    if (!p.due_date) return sum;
+                    const ds = p.due_date.slice(0, 10);
+                    if (ds >= prevSatDate && ds <= currFriDate) {
+                      return sum + (p.original_amount || 0);
+                    }
+                    return sum;
+                  }, 0);
+
                   const openWeekPayables = () => {
-                    if (weekTotal <= 0) return;
+                    if (weekTotalOriginal <= 0) return;
                     const items = calPayables.filter(p => {
                       if (!p.due_date) return false;
                       const ds = p.due_date.slice(0, 10);
-                      return ds >= prevSatDate && ds <= currFriDate && getPaymentStatus(p) !== "PAID";
+                      return ds >= prevSatDate && ds <= currFriDate;
                     });
                     setSelectedWeek({
                       start: prevSatDate,
                       end: currFriDate,
-                      amount: weekTotal,
+                      amount: weekDueBalance,
                       items
                     });
                   };
@@ -945,9 +996,22 @@ function PayablesPage({ shopId }) {
                   return (
                     <React.Fragment key={rowIdx}>
                       {/* Week total sidebar */}
-                      <div className="pay-cal-week-total" onClick={openWeekPayables} style={{ cursor: weekTotal > 0 ? 'pointer' : 'default' }}>
-                        <div className={`pay-cal-week-amt ${weekTotal > 0 ? "has-due" : "no-due"}`}>
-                          {weekTotal > 0 ? payCurrency(weekTotal) : "—"}
+                      <div className="pay-cal-week-total" onClick={openWeekPayables} style={{ cursor: weekTotalOriginal > 0 ? 'pointer' : 'default' }}>
+                        <div
+                          className={`pay-cal-week-amt ${weekDueBalance > 0 ? "has-due" : weekTotalOriginal > 0 ? "paid" : "no-due"}`}
+                          style={{
+                            color: weekDueBalance > 0
+                              ? "var(--th-rose)"
+                              : weekTotalOriginal > 0
+                                ? "var(--th-emerald)"
+                                : "var(--th-text-faint)"
+                          }}
+                        >
+                          {weekDueBalance > 0
+                            ? payCurrency(weekDueBalance)
+                            : weekTotalOriginal > 0
+                              ? payCurrency(weekTotalOriginal)
+                              : "—"}
                         </div>
                       </div>
                       {/* 7 day cells */}
@@ -968,7 +1032,7 @@ function PayablesPage({ shopId }) {
                               const st = getPaymentStatus(p);
                               const name = p.payable_type === "GENERAL" ? (p.payee_name || "General") : (p.supplier_name || "Supplier");
                               return (
-                                <button key={p.payable_id} className={`pay-cal-item status-${st}`} onClick={e => { e.stopPropagation(); openDetail(p); }} title={`${name} — ${payCurrency(p.balance_amount)}`}>
+                                <button key={p.payable_id} className={`pay-cal-item status-${st}`} onClick={e => { e.stopPropagation(); if (p.originalItems && p.originalItems.length > 1) { setExpandedCell(dateStr); } else { openDetail(p.originalItems ? p.originalItems[0] : p); } }} title={`${name} — ${payCurrency(p.balance_amount)}`}>
                                   <span style={{ display: "block" }}>{name}</span>
                                   <span style={{ display: "block", opacity: 0.8, fontWeight: 900 }}>{payCurrency(p.original_amount)}</span>
                                 </button>

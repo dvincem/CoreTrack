@@ -106,9 +106,12 @@ router.get('/expenses/:shop_id', async (req, res) => {
   const params = [shop_id, start, end];
   if (category_id) { where += ` AND e.category_id = ?`; params.push(category_id); }
   if (paginated && q && String(q).trim()) {
-    const like = `%${String(q).trim()}%`;
-    where += ` AND (e.description LIKE ? OR e.reference_no LIKE ? OR ec.name LIKE ? OR e.notes LIKE ?)`;
-    params.push(like, like, like, like);
+    const tokens = String(q).trim().split(/\s+/).filter(Boolean);
+    tokens.forEach(token => {
+      where += ` AND (e.description LIKE ? OR e.reference_no LIKE ? OR ec.name LIKE ? OR e.notes LIKE ?)`;
+      const like = `%${token}%`;
+      params.push(like, like, like, like);
+    });
   }
 
   const baseSql = `SELECT e.*, ec.name AS category_name, ec.color AS category_color
